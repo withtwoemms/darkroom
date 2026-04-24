@@ -1,0 +1,55 @@
+[project]
+name = "darkroom"
+dynamic = ["version"]
+description = "Evidence capture and manifest management for autonomous software delivery"
+readme = "README.md"
+license = { text = "Apache-2.0" }
+requires-python = ">=3.10"
+authors = [
+    { name = "Emmanuel I. Obi", email = "withtwoemms@gmail.com" },
+]
+keywords = ["darkroom", "evidence", "testing", "evaluation", "judge-builder"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Testing",
+]
+dependencies = []
+
+[project.optional-dependencies]
+playwright = ["playwright>=1.40"]
+all = ["darkroom[playwright]"]
+test = [
+    "pytest>=7.0",
+    "coverage>=7.0",
+    "darkroom[all]",
+]
+
+[build-system]
+requires = ["setuptools>=64", "setuptools_scm>=8"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools_scm]
+local_scheme = "no-local-version"
+
+# -----------------------------------------------------------------------------
+# uv Configuration
+# -----------------------------------------------------------------------------
+
+[tool.uv]
+python-preference = "managed"
+cache-dir = ".uv_cache"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
