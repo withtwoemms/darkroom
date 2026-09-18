@@ -63,6 +63,13 @@ manifest_path = end_run()
 
 All `path` values are relative to the manifest file's parent directory. Absolute paths (starting with `/`) are also accepted. v1 manifests are loaded transparently by `load_manifest`.
 
+## Documentation
+
+- [ROADMAP.md](ROADMAP.md) -- milestones from foundation through v1
+- [docs/vision.md](docs/vision.md) -- design fiction: building a web app in the dark
+- [docs/rubric-lifecycle.md](docs/rubric-lifecycle.md) -- how a rubric is made, hardened, and revised
+- [docs/generalization-plan.md](docs/generalization-plan.md) -- how darkroom absorbs the Judge-Builder framework
+
 ## Development
 
 ```bash
