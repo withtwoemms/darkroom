@@ -10,6 +10,14 @@ versioned independently of the package — see `ROADMAP.md`.
 
 ### Added
 
+- First non-browser producers: `CommandTranscriptProducer` (runs the
+  command itself — exit code, stdout/stderr with truncation caps,
+  duration, timeout capture), `FileSnapshotProducer` (content copy with
+  sha256 and guessed mime), and `DiffProducer` (unified diff with
+  added/removed line counts) (#7)
+- `EvidenceCapture.command()`, `.snapshot()`, and `.diff()` convenience
+  methods; new kinds use the scenario-directory layout in both modes (#7)
+
 - `VideoProducer` (kind `video`) filing finalized recordings into the run,
   plus `EvidenceCapture.video()` with a flat screencasts-directory
   fallback — the screencast directories finally have a producer (#6)
