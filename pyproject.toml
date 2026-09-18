@@ -1,5 +1,5 @@
 [project]
-name = "darkroom"
+name = "darkroom-ai"
 dynamic = ["version"]
 description = "Evidence capture and manifest management for autonomous software delivery"
 readme = "README.md"
@@ -26,11 +26,11 @@ dependencies = []
 
 [project.optional-dependencies]
 playwright = ["playwright>=1.40"]
-all = ["darkroom[playwright]"]
+all = ["darkroom-ai[playwright]"]
 test = [
     "pytest>=7.0",
     "coverage>=7.0",
-    "darkroom[all]",
+    "darkroom-ai[all]",
 ]
 
 [build-system]
