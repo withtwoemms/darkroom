@@ -9,8 +9,9 @@ The name references the *dark factory* pattern -- lights-off autonomous producti
 ## Install
 
 ```bash
-pip install darkroom-ai            # core (LogProducer, manifests, EvidenceRun)
-pip install darkroom-ai[playwright] # adds ScreenshotProducer
+pip install darkroom-ai            # core: manifests, run lifecycle, pytest plugin,
+                                   # log/command/HTTP/file-snapshot/diff/video producers
+pip install darkroom-ai[playwright] # adds the screenshot producers
 ```
 
 The distribution is named `darkroom-ai` (the bare `darkroom` name is squatted on PyPI); the import name is `darkroom` throughout.

@@ -169,6 +169,12 @@ class EvidenceCapture:
 
         return self._capture_via(DiffProducer(), step, before=before, after=after)
 
+    def http(self, step: str, url: str, **kwargs) -> Path:
+        """Make an HTTP request and capture the exchange as evidence."""
+        from darkroom.producers.http import HTTPTranscriptProducer
+
+        return self._capture_via(HTTPTranscriptProducer(), step, url=url, **kwargs)
+
     def log(self, step: str, data: dict) -> Path:
         """Capture structured data as evidence."""
         self.step_count += 1
