@@ -6,6 +6,22 @@ project follows [semantic versioning](https://semver.org/) (pre-1.0: minor
 releases may break API, patch releases never do). The manifest schema is
 versioned independently of the package — see `ROADMAP.md`.
 
+## [Unreleased]
+
+### Added
+
+- Pytest plugin, auto-loaded via the `pytest11` entry point: evidence-mode
+  session hooks (`start_run`/`end_run` with manifest write), the
+  `evidence` fixture named from the test node, full-page screenshot on
+  failure for tests using a `page` fixture, and the `darkroom_project`
+  ini option (#5)
+- First integration tests, driving real pytest sessions via pytester (#5)
+
+### Changed
+
+- `darkroom.compat` documented as legacy-only; new projects use the
+  plugin (#5)
+
 ## [0.1.0] - 2026-09-18
 
 ### Added

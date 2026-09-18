@@ -24,6 +24,9 @@ classifiers = [
 ]
 dependencies = []
 
+[project.entry-points.pytest11]
+darkroom = "darkroom.pytest_plugin"
+
 [project.optional-dependencies]
 playwright = ["playwright>=1.40"]
 all = ["darkroom-ai[playwright]"]

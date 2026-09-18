@@ -3,6 +3,12 @@
 These reproduce the module-level constants and free functions
 from the original evidence.py so that the target project's
 conftest.py can import them with zero changes.
+
+Legacy-only: new projects should use the pytest plugin
+(``darkroom.pytest_plugin``, auto-loaded on install), which provides the
+session hooks, the ``evidence`` fixture, and failure screenshots without
+any conftest wiring. This module exists solely for the original pilot
+caller and receives no new functionality.
 """
 
 from __future__ import annotations
