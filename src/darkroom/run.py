@@ -5,7 +5,6 @@ from __future__ import annotations
 import os
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 from darkroom.manifest import dump_manifest
 from darkroom.model import EvidenceItem, RunManifest
@@ -29,16 +28,16 @@ def get_evidence_dir() -> Path:
 
 
 # Module-level run manager (initialized per session)
-_current_run: Optional[EvidenceRun] = None
+_current_run: EvidenceRun | None = None
 
 
-def get_current_run() -> Optional[EvidenceRun]:
+def get_current_run() -> EvidenceRun | None:
     """Get the current evidence run, if any."""
     return _current_run
 
 
 def start_run(
-    run_id: Optional[str] = None,
+    run_id: str | None = None,
     project: str = "",
 ) -> EvidenceRun:
     """Start a new evidence run. Called at pytest session start."""
@@ -47,7 +46,7 @@ def start_run(
     return _current_run
 
 
-def end_run() -> Optional[Path]:
+def end_run() -> Path | None:
     """End the current run and write manifest. Called at pytest session end."""
     global _current_run
     if _current_run is None:
@@ -71,7 +70,7 @@ class EvidenceRun:
 
     def __init__(
         self,
-        run_id: Optional[str] = None,
+        run_id: str | None = None,
         project: str = "",
     ):
         self.run_id = run_id or datetime.now().strftime("%Y-%m-%dT%H-%M-%S")
@@ -105,7 +104,7 @@ class EvidenceRun:
         bundle = self._manifest.get_or_create_bundle(item.scenario)
         bundle.add(item)
 
-    def write_manifest(self) -> Optional[Path]:
+    def write_manifest(self) -> Path | None:
         """Write manifest.json summarizing the run. Only in evidence mode."""
         if not self.evidence_mode:
             return None

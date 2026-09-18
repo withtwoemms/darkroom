@@ -5,9 +5,8 @@ from __future__ import annotations
 import json
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
-from darkroom.model import EvidenceItem
 from darkroom.producer import CaptureContext
 from darkroom.producers.log import LogProducer
 from darkroom.run import get_current_run, get_evidence_dir
@@ -78,7 +77,7 @@ class EvidenceCapture:
 
     def screenshot_element(
         self, page: Page, step: str, selector: str
-    ) -> Optional[Path]:
+    ) -> Path | None:
         """Capture screenshot of specific element."""
         element = page.query_selector(selector)
         if element is None:
