@@ -1,8 +1,6 @@
 """Unit tests for EvidenceCapture backward compatibility."""
 
 import json
-from datetime import datetime
-from pathlib import Path
 from unittest.mock import MagicMock
 
 import darkroom.run as run_module

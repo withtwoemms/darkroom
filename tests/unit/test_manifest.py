@@ -12,7 +12,6 @@ from darkroom.manifest import (
 )
 from darkroom.model import EvidenceItem, RunManifest, ScenarioBundle
 
-
 V1_MANIFEST = """{
   "run_id": "2026-03-17T13-43-29",
   "timestamp": "2026-03-17T13:44:02.049178",
@@ -182,4 +181,5 @@ class TestV1Load:
 
     def test_v1_drops_scenario_file(self):
         manifest = loads_manifest(V1_MANIFEST)
-        assert not hasattr(manifest, "scenario_file") or True  # field doesn't exist on RunManifest
+        assert not hasattr(manifest, "scenario_file")
+        assert "scenario_file" not in dumps_manifest(manifest)
