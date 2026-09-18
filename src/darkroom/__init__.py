@@ -26,4 +26,4 @@ __all__ = [
     "load_manifest",
 ]
 
-__version__ = _pkg_version("darkroom")
+__version__ = _pkg_version("darkroom-ai")

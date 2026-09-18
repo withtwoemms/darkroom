@@ -125,7 +125,7 @@ wheels = [
 ]
 
 [[package]]
-name = "darkroom"
+name = "darkroom-ai"
 source = { editable = "." }
 
 [package.optional-dependencies]
@@ -144,8 +144,8 @@ test = [
 [package.metadata]
 requires-dist = [
     { name = "coverage", marker = "extra == 'test'", specifier = ">=7.0" },
-    { name = "darkroom", extras = ["all"], marker = "extra == 'test'" },
-    { name = "darkroom", extras = ["playwright"], marker = "extra == 'all'" },
+    { name = "darkroom-ai", extras = ["all"], marker = "extra == 'test'" },
+    { name = "darkroom-ai", extras = ["playwright"], marker = "extra == 'all'" },
     { name = "playwright", marker = "extra == 'playwright'", specifier = ">=1.40" },
     { name = "pytest", marker = "extra == 'test'", specifier = ">=7.0" },
 ]
