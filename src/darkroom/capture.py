@@ -135,6 +135,40 @@ class EvidenceCapture:
                 shutil.move(str(source), str(dest))
             return dest
 
+    def _capture_via(self, producer, step: str, **kwargs) -> Path:
+        """Run a producer against the current context in either mode.
+
+        Unlike the screenshot/log fallbacks (whose flat layout is a
+        legacy contract), new evidence kinds use the scenario-directory
+        layout in both modes; outside a run the manifest is simply not
+        written.
+        """
+        self.step_count += 1
+        ctx = self._make_context(step)
+        item = producer.capture(ctx, **kwargs)
+        base = ctx.run_dir
+        if self.run and self.run.evidence_mode:
+            self.run.record_evidence(item)
+        return base / item.path
+
+    def command(self, step: str, argv, **kwargs) -> Path:
+        """Run a command and capture its transcript as evidence."""
+        from darkroom.producers.command import CommandTranscriptProducer
+
+        return self._capture_via(CommandTranscriptProducer(), step, argv=argv, **kwargs)
+
+    def snapshot(self, step: str, source: Path) -> Path:
+        """Snapshot a file's content (with checksum) as evidence."""
+        from darkroom.producers.files import FileSnapshotProducer
+
+        return self._capture_via(FileSnapshotProducer(), step, source=source)
+
+    def diff(self, step: str, before: Path, after: Path) -> Path:
+        """Capture a unified diff between two files as evidence."""
+        from darkroom.producers.files import DiffProducer
+
+        return self._capture_via(DiffProducer(), step, before=before, after=after)
+
     def log(self, step: str, data: dict) -> Path:
         """Capture structured data as evidence."""
         self.step_count += 1
