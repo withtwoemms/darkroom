@@ -6,6 +6,17 @@ project follows [semantic versioning](https://semver.org/) (pre-1.0: minor
 releases may break API, patch releases never do). The manifest schema is
 versioned independently of the package — see `ROADMAP.md`.
 
+## [Unreleased]
+
+### Added
+
+- `VideoProducer` (kind `video`) filing finalized recordings into the run,
+  plus `EvidenceCapture.video()` with a flat screencasts-directory
+  fallback — the screencast directories finally have a producer (#6)
+- Producers now populate `EvidenceItem.metadata`: screenshots record
+  `full_page` and the viewport, element screenshots record the `selector`,
+  videos record `size_bytes` (#6)
+
 ## [0.2.0] - 2026-09-18
 
 ### Added

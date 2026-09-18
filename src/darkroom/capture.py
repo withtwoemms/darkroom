@@ -29,6 +29,7 @@ class EvidenceCapture:
         self._log_producer = LogProducer()
         self._screenshot_producer = None
         self._element_screenshot_producer = None
+        self._video_producer = None
 
     def _get_screenshot_producer(self):
         if self._screenshot_producer is None:
@@ -43,6 +44,13 @@ class EvidenceCapture:
 
             self._element_screenshot_producer = ElementScreenshotProducer()
         return self._element_screenshot_producer
+
+    def _get_video_producer(self):
+        if self._video_producer is None:
+            from darkroom.producers.video import VideoProducer
+
+            self._video_producer = VideoProducer()
+        return self._video_producer
 
     def _make_context(self, step: str) -> CaptureContext:
         run_dir = self.run.run_dir if self.run else get_evidence_dir()
@@ -97,6 +105,35 @@ class EvidenceCapture:
             path = self._fallback_path(f"{step}-element", "png")
             element.screenshot(path=str(path))
             return path
+
+    def video(self, step: str, source: Path, keep_source: bool = False) -> Path:
+        """Register a finalized recording (e.g. a Playwright context video).
+
+        Moves the file into the run's scenario directory (or copies it,
+        with ``keep_source``); outside a run it lands in the flat
+        screencasts directory.
+        """
+        import shutil
+
+        self.step_count += 1
+        source = Path(source)
+
+        if self.run and self.run.evidence_mode:
+            ctx = self._make_context(step)
+            producer = self._get_video_producer()
+            item = producer.capture(ctx, source=source, keep_source=keep_source)
+            self.run.record_evidence(item)
+            return self.run.run_dir / item.path
+        else:
+            base = get_evidence_dir() / "screencasts"
+            base.mkdir(parents=True, exist_ok=True)
+            ts = datetime.now().strftime("%Y%m%d-%H%M%S")
+            dest = base / f"{ts}-{self.scenario}-{step}{source.suffix or '.webm'}"
+            if keep_source:
+                shutil.copy2(source, dest)
+            else:
+                shutil.move(str(source), str(dest))
+            return dest
 
     def log(self, step: str, data: dict) -> Path:
         """Capture structured data as evidence."""
