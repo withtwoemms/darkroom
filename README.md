@@ -17,21 +17,48 @@ The distribution is named `darkroom-ai` (the bare `darkroom` name is squatted on
 
 ## Usage
 
+### With pytest (recommended)
+
+Installing the package registers a pytest plugin -- no conftest wiring
+needed. Tests request the `evidence` fixture; the scenario name derives
+from the test name:
+
+```python
+def test_login_flow(page, evidence):
+    evidence.screenshot(page, "login_page")
+    evidence.screenshot(page, "after_login", full_page=True)
+    evidence.log("api_response", {"status": 200})
+```
+
+Run in evidence mode to get a manifest-backed run (otherwise captures
+fall back to flat directories and the session hooks stay out of the way):
+
+```bash
+EVIDENCE_MODE=1 EVIDENCE_DIR=./evidence pytest
+```
+
+The plugin starts the run at session start, records a full-page
+screenshot for any failing test that used a `page` fixture, and writes
+`manifest.json` at session end. Set the manifest's project name via ini:
+
+```ini
+[pytest]
+darkroom_project = my-project
+```
+
+### Direct API
+
 ```python
 from darkroom import EvidenceCapture
 from darkroom.run import start_run, end_run
 
-# Start a run (typically in a pytest session hook)
 run = start_run(project="my-project")
 
-# Per-scenario capture (typically via a pytest fixture)
 evidence = EvidenceCapture("login_flow")
 evidence.screenshot(page, "login_page")
-evidence.screenshot(page, "after_login", full_page=True)
 evidence.log("api_response", {"status": 200})
 
-# End the run -- writes manifest.json
-manifest_path = end_run()
+manifest_path = end_run()  # writes manifest.json
 ```
 
 ## Manifest Format (v2)
