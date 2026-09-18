@@ -10,6 +10,11 @@ versioned independently of the package — see `ROADMAP.md`.
 
 ### Added
 
+- `HTTPTranscriptProducer` (kind `http_transcript`): performs the request
+  via stdlib urllib and captures the full exchange — status, headers,
+  bodies (truncation-capped), duration, connection errors — with
+  sensitive headers redacted by default; plus `EvidenceCapture.http()` (#8)
+
 - First non-browser producers: `CommandTranscriptProducer` (runs the
   command itself — exit code, stdout/stderr with truncation caps,
   duration, timeout capture), `FileSnapshotProducer` (content copy with
