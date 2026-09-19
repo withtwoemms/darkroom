@@ -91,6 +91,23 @@ def _cmd_show(args) -> int:
     return 0
 
 
+def _cmd_gallery(args) -> int:
+    from darkroom.gallery import write_gallery
+
+    try:
+        out = write_gallery(
+            args.manifest,
+            out=args.out,
+            evaluation_path=args.evaluation,
+            embed=args.embed,
+        )
+    except (OSError, ValueError, KeyError) as exc:
+        print(f"error: could not render gallery: {exc}")
+        return 2
+    print(f"gallery written: {out}")
+    return 0
+
+
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(
         prog="darkroom",
@@ -114,6 +131,24 @@ def main(argv=None) -> int:
     show_parser = sub.add_parser("show", help="summarize a run's manifest")
     show_parser.add_argument("manifest", type=Path)
     show_parser.set_defaults(func=_cmd_show)
+
+    gallery_parser = sub.add_parser(
+        "gallery", help="render a run's contact sheet as static HTML"
+    )
+    gallery_parser.add_argument("manifest", type=Path)
+    gallery_parser.add_argument(
+        "--evaluation", type=Path, default=None,
+        help="evaluation JSON to overlay scores from",
+    )
+    gallery_parser.add_argument(
+        "--embed", action="store_true",
+        help="inline media as data URIs for a single shareable file",
+    )
+    gallery_parser.add_argument(
+        "-o", "--out", type=Path, default=None,
+        help="output path (default: gallery.html beside the manifest)",
+    )
+    gallery_parser.set_defaults(func=_cmd_gallery)
 
     args = parser.parse_args(argv)
     return args.func(args)

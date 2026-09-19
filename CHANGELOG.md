@@ -23,6 +23,12 @@ versioned independently of the package — see `ROADMAP.md`.
   built-ins covering all eight kinds; unknown kinds fall back to a
   descriptive line and broken evidence files render as stated defects
   rather than raising (#12)
+- The contact sheet: `darkroom gallery <manifest> [--evaluation] [--embed]
+  [-o]` renders a run as a single static HTML page — image strips with
+  FAILURE flagging, playable videos, collapsible text evidence, and an
+  optional score overlay (per-scenario badges, criterion verdicts linked
+  to cited evidence, rubric-version chip). Relative media refs by
+  default; `--embed` inlines data URIs for a shareable single file (#13)
 
 ## [0.4.0] - 2026-09-18
 
