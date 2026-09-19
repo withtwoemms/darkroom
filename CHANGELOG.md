@@ -17,6 +17,12 @@ versioned independently of the package — see `ROADMAP.md`.
   lenient `coerce_evaluation`/`normalize_percentage` absorbing observed
   LLM-judge drift (0-1 scales, `overall_score`/`pass_rate` synonyms,
   mapping-or-list criteria, string numbers) (#11)
+- Judge renderers (`darkroom.render`): the consuming mirror of the
+  producer protocol — `RenderedEvidence` (text + attachments),
+  `JudgeRenderer` protocol dispatched on item kind via a registry, and
+  built-ins covering all eight kinds; unknown kinds fall back to a
+  descriptive line and broken evidence files render as stated defects
+  rather than raising (#12)
 
 ## [0.4.0] - 2026-09-18
 
