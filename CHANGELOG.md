@@ -6,6 +6,20 @@ project follows [semantic versioning](https://semver.org/) (pre-1.0: minor
 releases may break API, patch releases never do). The manifest schema is
 versioned independently of the package — see `ROADMAP.md`.
 
+## [Unreleased]
+
+### Added
+
+- Evidence contracts (`darkroom.contract`): TOML-declared per-scenario
+  capture requirements — kinds, counts, named steps, and a `trials`
+  dimension for run-series checking. Deliberately a pure projection of
+  what a rubric's evidence declarations could generate (#9)
+- Manifest verification (`darkroom.verify`): structural checks (paths
+  resolve, files non-empty, manifests parse) plus contract satisfaction
+  with typed findings; multi-manifest series supported (#9)
+- `tomli` as a conditional dependency on Python 3.10 only (stdlib
+  `tomllib` thereafter) (#9)
+
 ## [0.3.0] - 2026-09-18
 
 ### Added
