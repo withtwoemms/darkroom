@@ -29,6 +29,14 @@ versioned independently of the package — see `ROADMAP.md`.
   optional score overlay (per-scenario badges, criterion verdicts linked
   to cited evidence, rubric-version chip). Relative media refs by
   default; `--embed` inlines data URIs for a shareable single file (#13)
+- Peak gates (`darkroom.gates`): per-scenario high-water marks carrying
+  run id (evidence), commit (retreat point), and rubric version — a
+  version mismatch reports `stale-peak` (re-baseline), never
+  `regression`. CLI: `darkroom gate check` (exit 1 on regression) and
+  `darkroom gate update [--commit]` over a committed
+  `evidence-gates.json` (#14)
+- Run diffing (`darkroom.rundiff` and `darkroom diff <old> <new>`):
+  scenario- and item-level changes between two manifests (#14)
 
 ## [0.4.0] - 2026-09-18
 
