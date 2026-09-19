@@ -22,7 +22,9 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
     "Topic :: Software Development :: Testing",
 ]
-dependencies = []
+dependencies = [
+    "tomli; python_version < '3.11'",
+]
 
 [project.entry-points.pytest11]
 darkroom = "darkroom.pytest_plugin"

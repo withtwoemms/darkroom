@@ -127,6 +127,9 @@ wheels = [
 [[package]]
 name = "darkroom-ai"
 source = { editable = "." }
+dependencies = [
+    { name = "tomli", marker = "python_full_version < '3.11'" },
+]
 
 [package.optional-dependencies]
 all = [
@@ -148,6 +151,7 @@ requires-dist = [
     { name = "darkroom-ai", extras = ["playwright"], marker = "extra == 'all'" },
     { name = "playwright", marker = "extra == 'playwright'", specifier = ">=1.40" },
     { name = "pytest", marker = "extra == 'test'", specifier = ">=7.0" },
+    { name = "tomli", marker = "python_full_version < '3.11'" },
 ]
 provides-extras = ["playwright", "all", "test"]
 
