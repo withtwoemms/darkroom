@@ -6,6 +6,18 @@ project follows [semantic versioning](https://semver.org/) (pre-1.0: minor
 releases may break API, patch releases never do). The manifest schema is
 versioned independently of the package — see `ROADMAP.md`.
 
+## [Unreleased]
+
+### Added
+
+- Evaluation score model (`darkroom.evaluation`): typed
+  `Evaluation`/`ScenarioEvaluation`/`CriterionResult` with derived
+  totals and 0-100 percentage, evidence citations as manifest item
+  paths, and `rubric_version` provenance; strict JSON round-trip plus
+  lenient `coerce_evaluation`/`normalize_percentage` absorbing observed
+  LLM-judge drift (0-1 scales, `overall_score`/`pass_rate` synonyms,
+  mapping-or-list criteria, string numbers) (#11)
+
 ## [0.4.0] - 2026-09-18
 
 ### Added
