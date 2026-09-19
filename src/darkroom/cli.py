@@ -108,6 +108,78 @@ def _cmd_gallery(args) -> int:
     return 0
 
 
+DEFAULT_GATES = Path("evidence-gates.json")
+
+
+def _load_gates_or_empty(path: Path):
+    from darkroom.gates import GateFile, load_gates
+
+    if path.exists():
+        return load_gates(path)
+    return GateFile()
+
+
+def _load_evaluation_arg(path: Path):
+    from darkroom.gallery import load_evaluation_lenient
+
+    return load_evaluation_lenient(path)
+
+
+def _cmd_gate(args) -> int:
+    from darkroom.gates import check_gates, dump_gates, has_regressions, update_gates
+
+    gates_path = args.gates or DEFAULT_GATES
+    try:
+        evaluation = _load_evaluation_arg(args.evaluation)
+        gates = _load_gates_or_empty(gates_path)
+    except (OSError, ValueError, KeyError) as exc:
+        print(f"error: {exc}")
+        return 2
+
+    if args.gate_command == "check":
+        findings = check_gates(gates, evaluation)
+        for finding in findings:
+            print(f"{finding.kind} [{finding.scenario}]: {finding.message}")
+        regressed = has_regressions(findings)
+        print(f"{'FAILED' if regressed else 'ok'}: {len(findings)} scenario(s) checked")
+        return 1 if regressed else 0
+
+    new_gates, findings = update_gates(gates, evaluation, commit=args.commit)
+    dump_gates(new_gates, gates_path)
+    for finding in findings:
+        print(f"{finding.kind} [{finding.scenario}]: {finding.message}")
+    print(f"gates written: {gates_path} ({len(new_gates.peaks)} peak(s))")
+    return 0
+
+
+def _cmd_diff(args) -> int:
+    from darkroom.rundiff import diff_runs
+
+    try:
+        old = load_manifest(args.old)
+        new = load_manifest(args.new)
+    except (OSError, ValueError, KeyError) as exc:
+        print(f"error: could not load manifest: {exc}")
+        return 2
+
+    diff = diff_runs(old, new)
+    if diff.unchanged:
+        print(f"no differences: {old.run_id} -> {new.run_id}")
+        return 0
+    print(f"diff: {old.run_id} -> {new.run_id}")
+    for name in diff.scenarios_added:
+        print(f"  + scenario {name}")
+    for name in diff.scenarios_removed:
+        print(f"  - scenario {name}")
+    for name, items in diff.items_added.items():
+        for item in items:
+            print(f"  + {name}: {item}")
+    for name, items in diff.items_removed.items():
+        for item in items:
+            print(f"  - {name}: {item}")
+    return 0
+
+
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(
         prog="darkroom",
@@ -149,6 +221,29 @@ def main(argv=None) -> int:
         help="output path (default: gallery.html beside the manifest)",
     )
     gallery_parser.set_defaults(func=_cmd_gallery)
+
+    gate_parser = sub.add_parser(
+        "gate", help="check or ratchet per-scenario peak-score gates"
+    )
+    gate_sub = gate_parser.add_subparsers(dest="gate_command", required=True)
+    for name, help_text in (
+        ("check", "compare an evaluation against recorded peaks (exit 1 on regression)"),
+        ("update", "ratchet peaks upward from an evaluation"),
+    ):
+        p = gate_sub.add_parser(name, help=help_text)
+        p.add_argument("evaluation", type=Path)
+        p.add_argument(
+            "--gates", type=Path, default=None,
+            help=f"gates file (default: {DEFAULT_GATES})",
+        )
+        if name == "update":
+            p.add_argument("--commit", default="", help="VCS ref achieving these scores")
+        p.set_defaults(func=_cmd_gate)
+
+    diff_parser = sub.add_parser("diff", help="compare two runs' manifests")
+    diff_parser.add_argument("old", type=Path)
+    diff_parser.add_argument("new", type=Path)
+    diff_parser.set_defaults(func=_cmd_diff)
 
     args = parser.parse_args(argv)
     return args.func(args)
