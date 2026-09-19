@@ -26,6 +26,10 @@ dependencies = [
     "tomli; python_version < '3.11'",
 ]
 
+[project.scripts]
+darkroom = "darkroom.cli:main"
+darkrm = "darkroom.cli:main"
+
 [project.entry-points.pytest11]
 darkroom = "darkroom.pytest_plugin"
 
