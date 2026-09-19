@@ -47,6 +47,35 @@ screenshot for any failing test that used a `page` fixture, and writes
 darkroom_project = my-project
 ```
 
+### CLI
+
+Installed as `darkroom` (alias: `darkrm`):
+
+```bash
+darkroom show evidence/runs/<run>/manifest.json     # summarize a run
+darkroom verify evidence/runs/<run>/manifest.json   # structural checks
+darkroom verify runs/*/manifest.json --contract evidence-contract.toml
+```
+
+`verify` exits nonzero when a run fails its evidence contract -- a
+declared set of per-scenario capture requirements -- making "this build
+produced its proof" a CI gate. A contract is TOML:
+
+```toml
+[[scenario]]
+name = "client_approves_proof"
+
+  [[scenario.requires]]
+  kind = "screenshot"
+  steps = ["proof_awaiting_approval", "proof_approved"]
+
+  [[scenario.requires]]
+  kind = "http_transcript"
+```
+
+Requirements may declare `trials = N` for nondeterministic scenarios
+checked across a series of runs (pass several manifests to `verify`).
+
 ### Direct API
 
 ```python

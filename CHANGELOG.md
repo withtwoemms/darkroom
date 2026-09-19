@@ -19,6 +19,10 @@ versioned independently of the package — see `ROADMAP.md`.
   with typed findings; multi-manifest series supported (#9)
 - `tomli` as a conditional dependency on Python 3.10 only (stdlib
   `tomllib` thereafter) (#9)
+- First CLI, installed as `darkroom` and the terse alias `darkrm`:
+  `verify <manifest…> [--contract] [--json]` (exit 1 on errors, 2 on
+  usage problems; auto-discovers `evidence-contract.toml`) and
+  `show <manifest>` for a human-readable run summary (#10)
 
 ## [0.3.0] - 2026-09-18
 
