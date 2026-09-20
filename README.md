@@ -76,6 +76,40 @@ name = "client_approves_proof"
 Requirements may declare `trials = N` for nondeterministic scenarios
 checked across a series of runs (pass several manifests to `verify`).
 
+### The convergence loop
+
+With a `darkroom.toml` adapter in the project, `darkroom auto` runs the
+assess → judge → build cycle to convergence. Judge and builder can be
+shell hooks:
+
+```bash
+darkroom auto --scenario checkout \
+  --judge-cmd 'my-judge.sh {manifest} {evaluation_out} {feedback_out}' \
+  --build-cmd 'my-builder.sh {feedback}'
+```
+
+or full agents, configured by an operator file kept **outside** the
+project (rubrics live in a sealed vault the builder can never address;
+see `darkroom vault seal`):
+
+```bash
+darkroom auto --scenario checkout --operator ~/ops/operator.toml
+```
+
+```toml
+# operator.toml -- authority-side; never in the tenant repo
+[judge]   model = "claude-opus-5"
+[builder] model = "claude-sonnet-5"
+          escalated_model = "claude-opus-5"
+[vault]   path = "~/vaults/myproject"
+[loop]    max_iterations = 8
+```
+
+The loop stagnation-escalates (diagnostic access, model escalation,
+sharper judge feedback), rolls back regressions to the best checkpoint,
+keeps iteration memory, and ratchets `evidence-gates.json` on
+convergence.
+
 ### Direct API
 
 ```python
