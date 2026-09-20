@@ -32,6 +32,11 @@ versioned independently of the package — see `ROADMAP.md`.
   command template defaulting to the `claude` CLI;
   `darkroom auto --operator operator.toml` runs the loop fully
   agent-driven (#22)
+- End-to-end agent-mode integration test: seal → derive-contract →
+  `auto --operator` convergence with fake agents honoring the real
+  prompt/file contract — vault reads audited, opacity structurally
+  verified (no rubric anywhere in the tenant), gates ratcheted; README
+  documents the loop in both modes (#23)
 
 ## [0.7.0] - 2026-09-20
 
