@@ -6,7 +6,7 @@ project follows [semantic versioning](https://semver.org/) (pre-1.0: minor
 releases may break API, patch releases never do). The manifest schema is
 versioned independently of the package — see `ROADMAP.md`.
 
-## [Unreleased]
+## [0.6.0] - 2026-09-20
 
 ### Added
 
