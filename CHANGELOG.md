@@ -6,6 +6,23 @@ project follows [semantic versioning](https://semver.org/) (pre-1.0: minor
 releases may break API, patch releases never do). The manifest schema is
 versioned independently of the package — see `ROADMAP.md`.
 
+## [Unreleased]
+
+### Added
+
+- Project adapter (`darkroom.adapter`): `darkroom.toml` at the tenant
+  root declaring run-me facts — commands with `{placeholder}`
+  substitution, evidence/contract/gates paths, spec and rubric globs,
+  advisory `[defaults]`. Carries the trust rule: the file is
+  builder-writable, so judging/gating/loop authority never reads from it (#15)
+- Preflight (`darkroom.preflight` + `darkroom preflight [--json]`): is
+  the project wired for evidence-based delivery — adapter loads, a test
+  command exists, spec glob resolves, specs pair with rubrics
+  (normalized-stem matching), declared contract loads (#15)
+- `darkroom run <command> [--scenario] [--seed] [--capture]`: execute an
+  adapter command with substitution; `--capture` records the execution
+  as command-transcript evidence (#15)
+
 ## [0.5.0] - 2026-09-19
 
 ### Added
