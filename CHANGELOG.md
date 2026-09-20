@@ -6,6 +6,24 @@ project follows [semantic versioning](https://semver.org/) (pre-1.0: minor
 releases may break API, patch releases never do). The manifest schema is
 versioned independently of the package — see `ROADMAP.md`.
 
+## [Unreleased]
+
+### Added
+
+- Convergence loop (`darkroom.loop`): the source framework's `make auto`
+  as a testable state machine — stagnation accounting, the three
+  escalation dials (diagnostic access, model escalation, judge feedback
+  specificity), rollback-to-best-checkpoint, iteration memory in
+  `builder-log.md`, clean-tree precondition, typed
+  `ConvergenceResult`. Roles (assess/judge/build/checkpoint) are
+  injected protocols; opacity is preserved by construction (the judge
+  authors builder feedback; the loop never derives it from scores) (#18)
+- Loop roles darkroom owns (`darkroom.roles`): `AdapterAssessor` (runs
+  the adapter's test command, locates the newest run, verifies against
+  the contract) and `GitCheckpointer` (checkpoints with
+  `--allow-empty`, best-ref rollback without history rewrites, change
+  listing) (#18)
+
 ## [0.6.0] - 2026-09-20
 
 ### Added
