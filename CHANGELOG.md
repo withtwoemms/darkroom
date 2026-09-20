@@ -23,6 +23,17 @@ versioned independently of the package — see `ROADMAP.md`.
   the contract) and `GitCheckpointer` (checkpoints with
   `--allow-empty`, best-ref rollback without history rewrites, change
   listing) (#18)
+- Shell-hook roles (`darkroom.hooks`): `CommandJudge` and
+  `CommandBuilder` invoke operator-supplied commands under a documented
+  file contract (`{manifest}`/`{evaluation_out}`/`{feedback_out}`;
+  `{feedback}`/`{diagnostic}`/`{escalate_model}`) — the loop is runnable
+  before built-in agent roles exist, and the contract is a public
+  interface those roles will honor. A judge hook that writes no
+  evaluation aborts the loop: a missing score is not a zero (#19)
+- `darkroom auto --judge-cmd ... --build-cmd ...`: the convergence loop
+  as a CLI — live per-iteration reporting, policy via flags (operator
+  authority, never the tenant file), gates ratcheted automatically on
+  convergence with the winning checkpoint as the retreat point (#19)
 
 ## [0.6.0] - 2026-09-20
 
