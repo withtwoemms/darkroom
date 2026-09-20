@@ -22,6 +22,13 @@ versioned independently of the package — see `ROADMAP.md`.
 - `darkroom run <command> [--scenario] [--seed] [--capture]`: execute an
   adapter command with substitution; `--capture` records the execution
   as command-transcript evidence (#15)
+- Filesystem ticketing (`darkroom.tickets`), porting the source
+  framework's `state/queue|locks|history` conventions: markdown tickets
+  with flat frontmatter (yaml-compatible subset, no dependency),
+  `O_CREAT|O_EXCL` claim locks with stale-age detection and `force`,
+  dispositions appended on resolve; CLI `darkroom ticket
+  new/list/resolve` with the state dir taken from the adapter's
+  `[defaults]` (#16)
 
 ## [0.5.0] - 2026-09-19
 

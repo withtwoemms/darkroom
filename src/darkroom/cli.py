@@ -256,6 +256,50 @@ def _cmd_run(args) -> int:
     return completed.returncode
 
 
+def _ticket_store(args):
+    from darkroom.adapter import find_adapter, load_adapter
+    from darkroom.tickets import TicketStore
+
+    if args.state is not None:
+        return TicketStore(args.state)
+    adapter_path = find_adapter(None)
+    if adapter_path is not None:
+        adapter = load_adapter(adapter_path)
+        state = adapter.defaults.get("state", ".darkroom/state")
+        return TicketStore(adapter.root / state)
+    return TicketStore(Path(".darkroom/state"))
+
+
+def _cmd_ticket(args) -> int:
+    from darkroom.tickets import TicketError
+
+    store = _ticket_store(args)
+    try:
+        if args.ticket_command == "new":
+            fields = dict(pair.split("=", 1) for pair in args.field)
+            ticket = store.enqueue(args.role, args.title, body=args.body, **fields)
+            print(f"enqueued: {args.role}/{ticket.id}")
+            return 0
+        if args.ticket_command == "list":
+            roles = [args.role] if args.role else store.roles()
+            total = 0
+            for role in roles:
+                for ticket in store.queue(role):
+                    total += 1
+                    claimed = " [claimed]" if store.is_claimed(ticket.id) else ""
+                    print(f"{role}/{ticket.id}{claimed}: {ticket.title}")
+            print(f"{total} open ticket(s)")
+            return 0
+        # resolve
+        ticket = store.get(args.role, args.id)
+        destination = store.resolve(ticket, args.disposition, note=args.note)
+        print(f"resolved: {destination}")
+        return 0
+    except (TicketError, ValueError) as exc:
+        print(f"error: {exc}")
+        return 2
+
+
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(
         prog="darkroom",
@@ -345,6 +389,34 @@ def main(argv=None) -> int:
     )
     run_parser.add_argument("--timeout", type=float, default=600)
     run_parser.set_defaults(func=_cmd_run)
+
+    ticket_parser = sub.add_parser("ticket", help="filesystem ticket queues")
+    ticket_sub = ticket_parser.add_subparsers(dest="ticket_command", required=True)
+
+    ticket_new = ticket_sub.add_parser("new", help="enqueue a ticket")
+    ticket_new.add_argument("role")
+    ticket_new.add_argument("title")
+    ticket_new.add_argument("--body", default="")
+    ticket_new.add_argument(
+        "--field", action="append", default=[], metavar="KEY=VALUE"
+    )
+    ticket_new.add_argument("--state", type=Path, default=None)
+    ticket_new.set_defaults(func=_cmd_ticket)
+
+    ticket_list = ticket_sub.add_parser("list", help="list open tickets")
+    ticket_list.add_argument("role", nargs="?", default=None)
+    ticket_list.add_argument("--state", type=Path, default=None)
+    ticket_list.set_defaults(func=_cmd_ticket)
+
+    ticket_resolve = ticket_sub.add_parser(
+        "resolve", help="resolve a ticket into history"
+    )
+    ticket_resolve.add_argument("role")
+    ticket_resolve.add_argument("id")
+    ticket_resolve.add_argument("--disposition", required=True)
+    ticket_resolve.add_argument("--note", default="")
+    ticket_resolve.add_argument("--state", type=Path, default=None)
+    ticket_resolve.set_defaults(func=_cmd_ticket)
 
     args = parser.parse_args(argv)
     return args.func(args)
