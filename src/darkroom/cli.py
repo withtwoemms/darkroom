@@ -361,6 +361,54 @@ def _cmd_auto(args) -> int:
     return 0 if result.converged else 1
 
 
+def _cmd_vault(args) -> int:
+    from darkroom.adapter import load_adapter
+    from darkroom.contract import loads_contract
+    from darkroom.vault import (
+        FilesystemVault,
+        VaultError,
+        derive_contract,
+        dumps_contract,
+        seal,
+    )
+
+    adapter_path = _find_adapter_or_error(args.project)
+    if adapter_path is None:
+        return 2
+    adapter = load_adapter(adapter_path)
+    vault = FilesystemVault(args.vault)
+
+    try:
+        if args.vault_command == "seal":
+            sealed = seal(adapter, vault)
+            print(f"sealed {len(sealed)} rubric(s) into {vault.root}:")
+            for feature_id in sealed:
+                print(f"  {feature_id}")
+            print("commit the tenant-side removal; the vault is now the authority")
+            return 0
+
+        # derive-contract
+        contract = derive_contract(vault, project=adapter.name)
+        derived = dumps_contract(contract)
+        target = adapter.resolve(adapter.contract_path or Path("evidence-contract.toml"))
+        if args.check:
+            current = target.read_text() if target.exists() else ""
+            matches = bool(current) and (
+                loads_contract(current) == loads_contract(derived)
+            )
+            if matches:
+                print(f"ok: {target} matches the vault-derived contract")
+                return 0
+            print(f"DRIFT: {target} does not match the vault-derived contract")
+            return 1
+        target.write_text(derived)
+        print(f"contract derived from {len(contract.scenarios)} rubric(s): {target}")
+        return 0
+    except (VaultError, OSError, ValueError) as exc:
+        print(f"error: {exc}")
+        return 2
+
+
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(
         prog="darkroom",
@@ -450,6 +498,22 @@ def main(argv=None) -> int:
     )
     run_parser.add_argument("--timeout", type=float, default=600)
     run_parser.set_defaults(func=_cmd_run)
+
+    vault_parser = sub.add_parser("vault", help="sealed rubric storage")
+    vault_sub = vault_parser.add_subparsers(dest="vault_command", required=True)
+    for name, help_text in (
+        ("seal", "move the tenant's rubrics into the vault"),
+        ("derive-contract", "regenerate the evidence contract from vaulted rubrics"),
+    ):
+        p = vault_sub.add_parser(name, help=help_text)
+        p.add_argument("--vault", type=Path, required=True)
+        p.add_argument("--project", type=Path, default=None)
+        if name == "derive-contract":
+            p.add_argument(
+                "--check", action="store_true",
+                help="compare instead of writing; exit 1 on drift",
+            )
+        p.set_defaults(func=_cmd_vault, check=False)
 
     auto_parser = sub.add_parser(
         "auto", help="run the convergence loop with shell-hook judge/builder"

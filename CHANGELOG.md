@@ -6,6 +6,19 @@ project follows [semantic versioning](https://semver.org/) (pre-1.0: minor
 releases may break API, patch releases never do). The manifest schema is
 versioned independently of the package — see `ROADMAP.md`.
 
+## [Unreleased]
+
+### Added
+
+- The rubric vault (`darkroom.vault`): `RubricVault` protocol (with a
+  `version` read parameter reserved for secret-manager backends) and
+  `FilesystemVault` — mode-700 storage outside builder-visible paths
+  with every read appended to `audit.log`. `darkroom vault seal` moves
+  rubrics out of the tenant tree (move, not copy: one authority);
+  `darkroom vault derive-contract [--check]` regenerates the evidence
+  contract from the rubrics' evidence declarations (rubric-as-root),
+  demoting the tenant contract to a drift-checked cache (#21)
+
 ## [0.7.0] - 2026-09-20
 
 ### Added
