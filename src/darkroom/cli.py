@@ -315,19 +315,42 @@ def _cmd_auto(args) -> int:
     )
     ctx = LoopContext(adapter=adapter, scenario=args.scenario, state_dir=Path(state))
 
-    policy = LoopPolicy(
-        max_iterations=args.max_iter,
-        target_score=args.target,
-        diagnostic_after=args.diagnostic_after,
-        escalate_model_after=args.escalate_after,
-        rollback_on_regression=not args.no_rollback,
-    )
-    judge = CommandJudge(args.judge_cmd)
+    if args.operator is not None:
+        from darkroom.agents import AgentBuilder, AgentJudge
+        from darkroom.operator import load_operator
+        from darkroom.vault import FilesystemVault
+
+        try:
+            operator = load_operator(args.operator)
+        except (OSError, ValueError) as exc:
+            print(f"error: could not load operator config: {exc}")
+            return 2
+        if operator.vault_path is None:
+            print("error: operator config declares no [vault] path")
+            return 2
+        policy = operator.loop
+        vault = FilesystemVault(operator.vault_path)
+        judge = AgentJudge(operator.judge, vault)
+        builder = AgentBuilder(operator.builder)
+    elif args.judge_cmd and args.build_cmd:
+        policy = LoopPolicy(
+            max_iterations=args.max_iter,
+            target_score=args.target,
+            diagnostic_after=args.diagnostic_after,
+            escalate_model_after=args.escalate_after,
+            rollback_on_regression=not args.no_rollback,
+        )
+        judge = CommandJudge(args.judge_cmd)
+        builder = CommandBuilder(args.build_cmd)
+    else:
+        print("error: provide --operator, or both --judge-cmd and --build-cmd")
+        return 2
+
     loop = ConvergenceLoop(
         policy=policy,
         assessor=AdapterAssessor(),
         judge=judge,
-        builder=CommandBuilder(args.build_cmd),
+        builder=builder,
         checkpointer=GitCheckpointer(),
         on_iteration=lambda r: print(
             f"iteration {r.number}: {r.score:.1f} (best {r.best_score:.1f}) "
@@ -520,12 +543,17 @@ def main(argv=None) -> int:
     )
     auto_parser.add_argument("--scenario", default=None)
     auto_parser.add_argument(
-        "--judge-cmd", required=True,
+        "--operator", type=Path, default=None,
+        help="operator config enabling agent judge/builder roles "
+             "(policy and vault come from this file; keep it outside the tenant)",
+    )
+    auto_parser.add_argument(
+        "--judge-cmd", default=None,
         help="judge hook; placeholders: {manifest} {evaluation_out} "
              "{feedback_out} {scenario} {stagnation} {feedback_level}",
     )
     auto_parser.add_argument(
-        "--build-cmd", required=True,
+        "--build-cmd", default=None,
         help="builder hook; placeholders: {feedback} {scenario} "
              "{stagnation} {diagnostic} {escalate_model}",
     )

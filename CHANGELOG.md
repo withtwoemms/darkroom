@@ -18,6 +18,20 @@ versioned independently of the package — see `ROADMAP.md`.
   `darkroom vault derive-contract [--check]` regenerates the evidence
   contract from the rubrics' evidence declarations (rubric-as-root),
   demoting the tenant contract to a drift-checked cache (#21)
+- Operator configuration (`darkroom.operator`): the authority-side file —
+  judge/builder models, tool allowlists, invocation command templates,
+  vault location, loop policy; no default location, explicitly never in
+  the tenant repo (#22)
+- Agent roles (`darkroom.agents`): `AgentJudge` (vaulted rubric +
+  rendered evidence + escalating feedback instructions assembled into a
+  prompt; honors the hook file contract) and `AgentBuilder` (feedback +
+  iteration-memory tail; diagnostic instructions, model and tool
+  escalation per the dials). Access asymmetry enforced in the
+  constructed command: judge add-dirs never include tenant source,
+  builder add-dirs never include the vault. Invocation is a swappable
+  command template defaulting to the `claude` CLI;
+  `darkroom auto --operator operator.toml` runs the loop fully
+  agent-driven (#22)
 
 ## [0.7.0] - 2026-09-20
 
