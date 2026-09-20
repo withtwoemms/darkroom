@@ -300,6 +300,67 @@ def _cmd_ticket(args) -> int:
         return 2
 
 
+def _cmd_auto(args) -> int:
+    from darkroom.adapter import load_adapter
+    from darkroom.hooks import CommandBuilder, CommandJudge
+    from darkroom.loop import ConvergenceLoop, LoopContext, LoopError, LoopPolicy
+    from darkroom.roles import AdapterAssessor, GitCheckpointer
+
+    adapter_path = _find_adapter_or_error(args.project)
+    if adapter_path is None:
+        return 2
+    adapter = load_adapter(adapter_path)
+    state = args.state or adapter.root / adapter.defaults.get(
+        "state", ".darkroom/state"
+    )
+    ctx = LoopContext(adapter=adapter, scenario=args.scenario, state_dir=Path(state))
+
+    policy = LoopPolicy(
+        max_iterations=args.max_iter,
+        target_score=args.target,
+        diagnostic_after=args.diagnostic_after,
+        escalate_model_after=args.escalate_after,
+        rollback_on_regression=not args.no_rollback,
+    )
+    judge = CommandJudge(args.judge_cmd)
+    loop = ConvergenceLoop(
+        policy=policy,
+        assessor=AdapterAssessor(),
+        judge=judge,
+        builder=CommandBuilder(args.build_cmd),
+        checkpointer=GitCheckpointer(),
+        on_iteration=lambda r: print(
+            f"iteration {r.number}: {r.score:.1f} (best {r.best_score:.1f}) "
+            f"stagnation={r.stagnation} {r.action}"
+        ),
+    )
+
+    try:
+        result = loop.run(ctx)
+    except LoopError as exc:
+        print(f"error: {exc}")
+        return 2
+
+    if result.converged and judge.last_evaluation is not None:
+        from darkroom.gates import dump_gates, update_gates
+
+        gates_path = adapter.resolve(adapter.gates_path)
+        gates = _load_gates_or_empty(gates_path)
+        new_gates, _ = update_gates(
+            gates, judge.last_evaluation,
+            commit=result.iterations[-1].checkpoint,
+        )
+        dump_gates(new_gates, gates_path)
+        print(f"gates updated: {gates_path}")
+
+    print(
+        f"{'CONVERGED' if result.converged else 'EXHAUSTED'} after "
+        f"{len(result.iterations)} iteration(s), final score "
+        f"{result.final_score if result.final_score is not None else '-'}"
+    )
+    return 0 if result.converged else 1
+
+
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(
         prog="darkroom",
@@ -389,6 +450,29 @@ def main(argv=None) -> int:
     )
     run_parser.add_argument("--timeout", type=float, default=600)
     run_parser.set_defaults(func=_cmd_run)
+
+    auto_parser = sub.add_parser(
+        "auto", help="run the convergence loop with shell-hook judge/builder"
+    )
+    auto_parser.add_argument("--scenario", default=None)
+    auto_parser.add_argument(
+        "--judge-cmd", required=True,
+        help="judge hook; placeholders: {manifest} {evaluation_out} "
+             "{feedback_out} {scenario} {stagnation} {feedback_level}",
+    )
+    auto_parser.add_argument(
+        "--build-cmd", required=True,
+        help="builder hook; placeholders: {feedback} {scenario} "
+             "{stagnation} {diagnostic} {escalate_model}",
+    )
+    auto_parser.add_argument("--max-iter", type=int, default=8)
+    auto_parser.add_argument("--target", type=float, default=100.0)
+    auto_parser.add_argument("--diagnostic-after", type=int, default=2)
+    auto_parser.add_argument("--escalate-after", type=int, default=3)
+    auto_parser.add_argument("--no-rollback", action="store_true")
+    auto_parser.add_argument("--project", type=Path, default=None)
+    auto_parser.add_argument("--state", type=Path, default=None)
+    auto_parser.set_defaults(func=_cmd_auto)
 
     ticket_parser = sub.add_parser("ticket", help="filesystem ticket queues")
     ticket_sub = ticket_parser.add_subparsers(dest="ticket_command", required=True)

@@ -148,12 +148,14 @@ class ConvergenceLoop:
         judge: Judge,
         builder: Builder,
         checkpointer: Checkpointer,
+        on_iteration=None,
     ):
         self.policy = policy
         self.assessor = assessor
         self.judge = judge
         self.builder = builder
         self.checkpointer = checkpointer
+        self.on_iteration = on_iteration
 
     def run(self, ctx: LoopContext) -> ConvergenceResult:
         if not self.checkpointer.is_clean(ctx):
@@ -190,6 +192,8 @@ class ConvergenceLoop:
                     )
                 )
                 self._remember(ctx, records[-1])
+                if self.on_iteration:
+                    self.on_iteration(records[-1])
                 return ConvergenceResult(
                     converged=True, reason="converged", iterations=records
                 )
@@ -222,6 +226,8 @@ class ConvergenceLoop:
             )
             records.append(record)
             self._remember(ctx, record)
+            if self.on_iteration:
+                self.on_iteration(record)
 
         return ConvergenceResult(
             converged=False, reason="exhausted", iterations=records
