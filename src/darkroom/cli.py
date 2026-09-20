@@ -180,6 +180,82 @@ def _cmd_diff(args) -> int:
     return 0
 
 
+def _find_adapter_or_error(project_dir: Path | None):
+    from darkroom.adapter import find_adapter
+
+    adapter_path = find_adapter(project_dir)
+    if adapter_path is None:
+        where = project_dir or Path.cwd()
+        print(f"error: no darkroom.toml found in {where} or its parents")
+    return adapter_path
+
+
+def _cmd_preflight(args) -> int:
+    from darkroom.preflight import preflight
+
+    adapter_path = _find_adapter_or_error(args.project)
+    if adapter_path is None:
+        return 2
+    result = preflight(adapter_path)
+
+    if args.json:
+        print(json.dumps({
+            "ok": result.ok,
+            "adapter": str(result.adapter_path),
+            "findings": [
+                {"severity": f.severity, "code": f.code, "message": f.message}
+                for f in result.findings
+            ],
+        }, indent=2))
+    else:
+        for finding in result.findings:
+            print(f"{finding.severity}: {finding.message}")
+        print(
+            f"{'ok' if result.ok else 'FAILED'}: {result.adapter_path} "
+            f"({len(result.errors)} error(s), {len(result.warnings)} warning(s))"
+        )
+    return 0 if result.ok else 1
+
+
+def _cmd_run(args) -> int:
+    import subprocess
+
+    from darkroom.adapter import load_adapter
+
+    adapter_path = _find_adapter_or_error(args.project)
+    if adapter_path is None:
+        return 2
+    try:
+        adapter = load_adapter(adapter_path)
+        substitutions = {
+            key: value
+            for key, value in (
+                ("scenario", args.scenario),
+                ("seed", args.seed),
+                ("run_id", args.run_id),
+            )
+            if value is not None
+        }
+        command = adapter.command(args.name, **substitutions)
+    except (OSError, ValueError, KeyError) as exc:
+        print(f"error: {exc}")
+        return 2
+
+    argv = ["/bin/sh", "-c", command]
+    if args.capture:
+        from darkroom.capture import EvidenceCapture
+
+        capture = EvidenceCapture(args.scenario or adapter.name)
+        path = capture.command(args.name, argv, timeout=args.timeout)
+        transcript = json.loads(path.read_text())
+        print(f"transcript: {path}")
+        code = transcript.get("exit_code")
+        return code if isinstance(code, int) else 1
+
+    completed = subprocess.run(argv, cwd=adapter.root)
+    return completed.returncode
+
+
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(
         prog="darkroom",
@@ -244,6 +320,31 @@ def main(argv=None) -> int:
     diff_parser.add_argument("old", type=Path)
     diff_parser.add_argument("new", type=Path)
     diff_parser.set_defaults(func=_cmd_diff)
+
+    preflight_parser = sub.add_parser(
+        "preflight", help="validate a project's darkroom wiring"
+    )
+    preflight_parser.add_argument(
+        "--project", type=Path, default=None,
+        help="directory to search for darkroom.toml (default: cwd, walking up)",
+    )
+    preflight_parser.add_argument("--json", action="store_true")
+    preflight_parser.set_defaults(func=_cmd_preflight)
+
+    run_parser = sub.add_parser(
+        "run", help="execute a command declared in darkroom.toml"
+    )
+    run_parser.add_argument("name", help="command name, e.g. test")
+    run_parser.add_argument("--project", type=Path, default=None)
+    run_parser.add_argument("--scenario", default=None)
+    run_parser.add_argument("--seed", default=None)
+    run_parser.add_argument("--run-id", dest="run_id", default=None)
+    run_parser.add_argument(
+        "--capture", action="store_true",
+        help="capture the execution as command-transcript evidence",
+    )
+    run_parser.add_argument("--timeout", type=float, default=600)
+    run_parser.set_defaults(func=_cmd_run)
 
     args = parser.parse_args(argv)
     return args.func(args)
