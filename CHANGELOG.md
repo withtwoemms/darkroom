@@ -18,6 +18,26 @@ versioned independently of the package — see `ROADMAP.md`.
   before presentation, full artifact writing, and mechanical validation
   via `darkroom preflight`; README documents installation (#25)
 
+## [Unreleased]
+
+### Added
+
+- The darkroom home (`darkroom.homedir`): `~/.darkroom` (override:
+  `DARKROOM_HOME`), mode 700, partitioned per project by the adapter's
+  name — operator config, vault, drives, and loop state consolidated
+  outside every builder-addressable path. `darkroom home init/path`;
+  `vault seal`/`derive-contract` default their `--vault` to the home;
+  agent mode auto-discovers `operator.toml` from the home and its
+  missing `[vault]` path falls back to the home vault (#27)
+
+### Changed
+
+- Loop state relocated from the tenant's `.darkroom/state` to the
+  project's home, closing a leak where agent-mode judge evaluations
+  (scores) were readable by the builder between iterations. Agent mode
+  now ignores the tenant's advisory `[defaults] state`; explicit
+  `--state` still wins everywhere (#27)
+
 ## [0.8.0] - 2026-09-20
 
 ### Added

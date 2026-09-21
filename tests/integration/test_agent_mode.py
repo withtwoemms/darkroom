@@ -155,6 +155,7 @@ def test_agent_mode_convergence(tmp_path, capsys, monkeypatch):
     operator_path = tmp_path / "operator.toml"  # outside the tenant, as intended
     _make_project(project, vault_dir, operator_path)
     monkeypatch.chdir(project)
+    monkeypatch.setenv("DARKROOM_HOME", str(tmp_path / "darkroom-home"))
     monkeypatch.delenv("EVIDENCE_MODE", raising=False)
     monkeypatch.delenv("EVIDENCE_DIR", raising=False)
 
@@ -191,12 +192,16 @@ def test_agent_mode_convergence(tmp_path, capsys, monkeypatch):
     assert not list(project.rglob("*.rubric.toml"))
 
 
-def test_agent_mode_requires_vault_path(tmp_path, capsys, monkeypatch):
+def test_agent_mode_defaults_vault_to_home(tmp_path, capsys, monkeypatch):
+    # an operator config without [vault] falls back to the project's home
+    # vault — empty here, so the judge aborts on the missing rubric rather
+    # than misconfiguring silently
     project = tmp_path / "mini"
     vault_dir = tmp_path / "vault"
     operator_path = tmp_path / "operator.toml"
     _make_project(project, vault_dir, operator_path)
     monkeypatch.chdir(project)
-    operator_path.write_text('[judge]\nmodel = "m"')
-    assert main(["auto", "--operator", str(operator_path)]) == 2
-    assert "declares no [vault] path" in capsys.readouterr().out
+    monkeypatch.setenv("DARKROOM_HOME", str(tmp_path / "darkroom-home"))
+    operator_path.write_text('[judge]\nmodel = "m"\n[loop]\nmax_iterations = 1')
+    assert main(["auto", "--scenario", "answer_flow", "--operator", str(operator_path)]) == 2
+    assert "no rubric" in capsys.readouterr().out
