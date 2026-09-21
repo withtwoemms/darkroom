@@ -109,6 +109,7 @@ def test_full_automated_convergence(tmp_path, capsys, monkeypatch):
     project = tmp_path / "mini"
     _make_project(project)
     monkeypatch.chdir(project)
+    monkeypatch.setenv("DARKROOM_HOME", str(tmp_path / "darkroom-home"))
     monkeypatch.delenv("EVIDENCE_MODE", raising=False)
     monkeypatch.delenv("EVIDENCE_DIR", raising=False)
 
@@ -138,8 +139,10 @@ def test_full_automated_convergence(tmp_path, capsys, monkeypatch):
     ).stdout
     assert "auto: iteration 1 (50.0%)" in log
 
-    # iteration memory exists
-    assert "## iteration 1" in (project / ".darkroom/state/builder-log.md").read_text()
+    # iteration memory exists — in the darkroom home, not the tenant
+    log = tmp_path / "darkroom-home" / "projects" / "mini" / "state" / "builder-log.md"
+    assert "## iteration 1" in log.read_text()
+    assert not (project / ".darkroom").exists()
 
     # and the fix is real
     assert (project / "app.py").read_text() == 'print("42")\n'
@@ -149,6 +152,7 @@ def test_judge_hook_writing_nothing_aborts(tmp_path, capsys, monkeypatch):
     project = tmp_path / "mini"
     _make_project(project)
     monkeypatch.chdir(project)
+    monkeypatch.setenv("DARKROOM_HOME", str(tmp_path / "darkroom-home"))
     code = main([
         "auto",
         "--scenario", "answer_flow",

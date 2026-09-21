@@ -265,8 +265,12 @@ def _ticket_store(args):
     adapter_path = find_adapter(None)
     if adapter_path is not None:
         adapter = load_adapter(adapter_path)
-        state = adapter.defaults.get("state", ".darkroom/state")
-        return TicketStore(adapter.root / state)
+        if "state" in adapter.defaults:
+            return TicketStore(adapter.root / adapter.defaults["state"])
+        from darkroom.homedir import default_state, ensure_project_home
+
+        ensure_project_home(adapter.name)
+        return TicketStore(default_state(adapter.name))
     return TicketStore(Path(".darkroom/state"))
 
 
@@ -309,30 +313,48 @@ def _cmd_auto(args) -> int:
     adapter_path = _find_adapter_or_error(args.project)
     if adapter_path is None:
         return 2
-    adapter = load_adapter(adapter_path)
-    state = args.state or adapter.root / adapter.defaults.get(
-        "state", ".darkroom/state"
+    from darkroom.homedir import (
+        default_state,
+        ensure_project_home,
+        find_operator_config,
     )
-    ctx = LoopContext(adapter=adapter, scenario=args.scenario, state_dir=Path(state))
 
-    if args.operator is not None:
+    adapter = load_adapter(adapter_path)
+
+    hook_mode = bool(args.judge_cmd and args.build_cmd)
+    operator_path = args.operator
+    if operator_path is None and not hook_mode:
+        operator_path = find_operator_config(adapter.name)
+
+    # state: agent mode ignores the tenant's advisory default — loop state
+    # carries scores, and the home is guaranteed outside the tenant
+    if args.state is not None:
+        state = Path(args.state)
+    elif operator_path is None and "state" in adapter.defaults:
+        state = adapter.root / adapter.defaults["state"]
+    else:
+        ensure_project_home(adapter.name)
+        state = default_state(adapter.name)
+    ctx = LoopContext(adapter=adapter, scenario=args.scenario, state_dir=state)
+
+    if operator_path is not None and not hook_mode:
         from darkroom.agents import AgentBuilder, AgentJudge
         from darkroom.operator import load_operator
         from darkroom.vault import FilesystemVault
 
         try:
-            operator = load_operator(args.operator)
+            operator = load_operator(operator_path)
         except (OSError, ValueError) as exc:
             print(f"error: could not load operator config: {exc}")
             return 2
-        if operator.vault_path is None:
-            print("error: operator config declares no [vault] path")
-            return 2
+        from darkroom.homedir import default_vault
+
+        vault_path = operator.vault_path or default_vault(adapter.name)
         policy = operator.loop
-        vault = FilesystemVault(operator.vault_path)
+        vault = FilesystemVault(vault_path)
         judge = AgentJudge(operator.judge, vault)
         builder = AgentBuilder(operator.builder)
-    elif args.judge_cmd and args.build_cmd:
+    elif hook_mode:
         policy = LoopPolicy(
             max_iterations=args.max_iter,
             target_score=args.target,
@@ -343,7 +365,10 @@ def _cmd_auto(args) -> int:
         judge = CommandJudge(args.judge_cmd)
         builder = CommandBuilder(args.build_cmd)
     else:
-        print("error: provide --operator, or both --judge-cmd and --build-cmd")
+        print(
+            "error: provide both --judge-cmd and --build-cmd, or an operator "
+            "config (--operator, or operator.toml in the project's darkroom home)"
+        )
         return 2
 
     loop = ConvergenceLoop(
@@ -399,7 +424,13 @@ def _cmd_vault(args) -> int:
     if adapter_path is None:
         return 2
     adapter = load_adapter(adapter_path)
-    vault = FilesystemVault(args.vault)
+    if args.vault is not None:
+        vault = FilesystemVault(args.vault)
+    else:
+        from darkroom.homedir import default_vault, ensure_project_home
+
+        ensure_project_home(adapter.name)
+        vault = FilesystemVault(default_vault(adapter.name))
 
     try:
         if args.vault_command == "seal":
@@ -430,6 +461,25 @@ def _cmd_vault(args) -> int:
     except (VaultError, OSError, ValueError) as exc:
         print(f"error: {exc}")
         return 2
+
+
+def _cmd_home(args) -> int:
+    from darkroom.homedir import ensure_project_home, project_home
+
+    adapter_path = _find_adapter_or_error(args.project)
+    if adapter_path is None:
+        return 2
+    from darkroom.adapter import load_adapter
+
+    adapter = load_adapter(adapter_path)
+    if args.home_command == "init":
+        home = ensure_project_home(adapter.name)
+        print(f"home initialized: {home}")
+        for sub in ("operator.toml (place yours here)", "vault/", "drives/", "state/"):
+            print(f"  {sub}")
+        return 0
+    print(project_home(adapter.name))
+    return 0
 
 
 def main(argv=None) -> int:
@@ -522,6 +572,18 @@ def main(argv=None) -> int:
     run_parser.add_argument("--timeout", type=float, default=600)
     run_parser.set_defaults(func=_cmd_run)
 
+    home_parser = sub.add_parser(
+        "home", help="the project's operator home under ~/.darkroom"
+    )
+    home_sub = home_parser.add_subparsers(dest="home_command", required=True)
+    for name, help_text in (
+        ("init", "create the project's home (mode 700) from the adapter's name"),
+        ("path", "print the project's home path"),
+    ):
+        p = home_sub.add_parser(name, help=help_text)
+        p.add_argument("--project", type=Path, default=None)
+        p.set_defaults(func=_cmd_home)
+
     vault_parser = sub.add_parser("vault", help="sealed rubric storage")
     vault_sub = vault_parser.add_subparsers(dest="vault_command", required=True)
     for name, help_text in (
@@ -529,7 +591,10 @@ def main(argv=None) -> int:
         ("derive-contract", "regenerate the evidence contract from vaulted rubrics"),
     ):
         p = vault_sub.add_parser(name, help=help_text)
-        p.add_argument("--vault", type=Path, required=True)
+        p.add_argument(
+            "--vault", type=Path, default=None,
+            help="vault directory (default: the project's darkroom home vault)",
+        )
         p.add_argument("--project", type=Path, default=None)
         if name == "derive-contract":
             p.add_argument(

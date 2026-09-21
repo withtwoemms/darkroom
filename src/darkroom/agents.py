@@ -125,7 +125,13 @@ def _substitute(template: str, values: dict[str, str]) -> str:
 
 
 def _work_dir(ctx: LoopContext) -> Path:
-    base = ctx.state_dir if ctx.state_dir is not None else ctx.adapter.root / ".darkroom/state"
+    if ctx.state_dir is not None:
+        base = ctx.state_dir
+    else:
+        from darkroom.homedir import default_state, ensure_project_home
+
+        ensure_project_home(ctx.adapter.name)
+        base = default_state(ctx.adapter.name)
     path = base / "loop"
     path.mkdir(parents=True, exist_ok=True)
     return path
