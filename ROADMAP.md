@@ -37,7 +37,11 @@ A note on schema versioning: the **manifest schema** (currently `2.0`) is versio
 | v0.6.0 | **Project adapter + ticketing** — `darkroom.toml` (commands with placeholder substitution, spec/rubric globs, evidence paths, advisory defaults; trust rule: builder-writable, so no judging/gating/loop authority) replacing the framework's symlinks-as-API; preflight validation + `darkroom run`; `state/queue|locks|history` ticketing conventions as a Python module | Complete |
 | v0.7.0 | **Convergence loop** — the assess → score → stagnate → escalate → roll back → checkpoint state machine, with the three escalation dials (diagnostic access, model escalation, feedback specificity) as configuration; roles as injected protocols with shell-hook judge/builder implementations, and `darkroom auto` running a fully automated convergence (proven end-to-end in CI) | Complete |
 | v0.8.0 | **Agent invocation + vault** — judge/builder trigger layer with prompt assembly from templates (invocation as a swappable command template, `claude` CLI default); rubric isolation (the vault) replacing prompt-enforced opacity as a pluggable store — OS-permission filesystem default with audited reads, secret-manager backends (OpenBao/HashiCorp) as the graduation path; rubric-as-root contract derivation; operator config as the authority side of the trust split; end-to-end agent-mode convergence proven in CI | Complete |
-| **v1.0.0** | **Generality proven, API frozen** — a non-visual tenant (CLI tool judged on command transcripts) converges end-to-end; manifest schema and public API declared stable; the Judge-Builder framework's Makefile/bin orchestration fully retired onto darkroom | Planned |
+| v0.8.x | **The intent interview as a Claude skill** (`skills/darkroom-interview/`) — the rubric lifecycle conducted as a conversation: charter, scenario enumeration with negative space, threshold interviews, drafting under the capturable-evidence rule, gaming self-audit, preflight-validated artifacts. Proven on a greenfield example app | Complete |
+| v0.9.0 | **The exam line: operator home + drive** — `~/.darkroom` per-project operator home (auto-discovered operator config, vault, drives, and state; relocates loop state out of the tenant, closing the builder-readable-scores leak); `darkroom drive`: the harness as a distributable engine plus declarative per-scenario scripts (`http`/`command`/`keygen`/`sign`/`assert`/`wait` steps captured via existing producers; serve/health lifecycle; environment seam for container backends) — the exam leaves the tenant entirely, builders own their tests, and any HTTP service or CLI in any language becomes a tenant; loop integration via `test = "darkroom drive"`; an example app's drive scripts as the living example | Planned |
+| v0.10.0 | **Hardened backends** — OpenBao/HashiCorp vault backend (`[vault]` extra: KV v2 versioned rubric reads, token-gated access, server-side audit a compromised builder cannot edit); container environments (`[containers]` extra: SUT containment at assess time — builder-authored code runs without filesystem access to the operator home — hermetic per-run environments with image digests recorded as evidence, and a container step kind enabling failure-injection scenarios) | Planned |
+| v0.11.0 | **The spec** — `docs/spec/`: manifest, contract, evaluation, gates, tickets, drive scripts, and the role hook contract written as format specifications independent of the Python implementation; warts surfaced by spec review fixed before the 1.0 freeze. The standard play: neutral formats other harnesses can emit and consume | Planned |
+| **v1.0.0** | **Generality proven live, API frozen** — a greenfield example app (fully non-visual: `http_transcript` + `log` evidence only) converges under `darkroom auto --operator` with real agents and real spend; the source framework's pilot migrates and its Makefile/bin orchestration retires onto darkroom; manifest schema and public API declared stable as written spec | Planned |
 
 ---
 
@@ -89,11 +93,64 @@ Each release lands with the source framework's pilot project running on it. The 
 
 ---
 
+## v0.9–v0.11 — The Post-Parity Arc
+
+**Theme:** From parity to trustworthiness and portability — the exam
+leaves the tenant, authority gets a home, boundaries harden from
+prompt-enforced to structural, and the formats become a spec.
+
+**Motivation:**
+Parity (v0.8) reproduced the source framework's capability; the
+post-parity arc removes its residual weaknesses. Three run deep:
+
+- **The harness lived in builder-writable space.** A tenant-resident
+  test suite is an exam the examinee can edit; the defenses were
+  prompt rules and tamper-evidence. `darkroom drive` dissolves the
+  problem instead of mitigating it: the engine is a pip-installed
+  package, the per-scenario scripts are operator-side data, and the
+  system is driven as a black box over real interfaces. Corollaries:
+  builders freely write their *own* tests (nobody grades their own
+  final — but everyone does practice problems), and any HTTP service or
+  CLI in any language becomes a tenant with no Python in its repo.
+- **Operator material was scattered, and one piece leaked.** Loop state
+  defaulted inside the tenant, leaving judge evaluations — scores —
+  readable by the builder between iterations. The per-project home
+  (`~/.darkroom`, mode 700, the `~/.ssh` precedent) consolidates
+  operator config, vault, drives, and state outside every
+  builder-addressable path, and turns required flags into discovered
+  defaults.
+- **Prevention has a same-UID ceiling; detection does not.** The
+  hardened backends convert remaining soft boundaries into detected,
+  attributable events: a secret-manager vault (OpenBao) adds token-gated
+  reads and server-side audit no compromised builder can edit —
+  rubric exposure becomes a rotatable incident, not an invisible
+  corruption; containerized environments contain builder-authored code
+  at assess time and stamp image digests into the evidence, making the
+  run's environment part of the chain of custody.
+
+The spec (v0.11) then writes the accumulated contract stack — manifest,
+contract, evaluation, gates, tickets, drives, role hooks — as formats
+independent of the implementation, deliberately *before* 1.0 freezes
+them: a spec review finds warts an implementation hides, and neutral
+formats other tools can emit are the difference between a framework and
+a standard.
+
+---
+
 ## v1.0 — The Proof
 
 **Theme:** 1.0 is earned by evidence, not by a date.
 
-The gate is a **non-visual tenant**: a CLI tool or library driven to convergence judged purely on command transcripts and structured evidence — zero screenshots. If the loop closes with no pixels involved, the generalization is real: producers, renderers, contracts, adapters, and the loop have all been exercised off the pilot's happy path. At that point the manifest schema and public API freeze under semantic versioning, and the source framework repository retires its orchestration entirely.
+The gate is **a greenfield example app converging live**: a tenant whose
+scenarios and rubrics were authored by the intent-interview skill,
+driven by `darkroom drive`, judged purely on `http_transcript` and
+`log` evidence — zero screenshots — under `darkroom auto --operator`
+with real agents and real spend. If that loop closes, the
+generalization is real end to end: intake, exam, producers, renderers,
+contracts, vault, and the loop, all exercised with no pixels and no
+hand-wiring. The source framework's pilot then migrates and its
+Makefile/bin orchestration retires; the manifest schema and public API
+freeze under semantic versioning as the written spec.
 
 ---
 
