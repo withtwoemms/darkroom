@@ -18,7 +18,7 @@ versioned independently of the package — see `ROADMAP.md`.
   before presentation, full artifact writing, and mechanical validation
   via `darkroom preflight`; README documents installation (#25)
 
-## [Unreleased]
+## [0.9.0] - 2026-09-21
 
 ### Added
 
