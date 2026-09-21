@@ -30,6 +30,17 @@ versioned independently of the package — see `ROADMAP.md`.
   agent mode auto-discovers `operator.toml` from the home and its
   missing `[vault]` path falls back to the home vault (#27)
 
+- The drive engine (`darkroom.drive`): the exam as data — declarative
+  per-scenario `.drive.toml` scripts executed against the system as a
+  black box, a fresh server per scenario via the adapter's `serve`
+  command with health-wait, every exchange captured through the existing
+  producers into an ordinary evidence manifest. Step vocabulary: `http`
+  (expect/save with dot-path extraction), `command`, `keygen` (Ed25519,
+  via the new `crypto` extra), `sign(...)` interpolation, `assert`
+  (captured as log evidence), `wait`. A failed expectation stops its
+  scenario but keeps the evidence captured before it — a failing
+  scenario is still judgeable (#28)
+
 ### Changed
 
 - Loop state relocated from the tenant's `.darkroom/state` to the
