@@ -154,6 +154,22 @@ manifest_path = end_run()  # writes manifest.json
 
 All `path` values are relative to the manifest file's parent directory. Absolute paths (starting with `/`) are also accepted. v1 manifests are loaded transparently by `load_manifest`.
 
+## The intent interview (Claude skill)
+
+`skills/darkroom-interview/` packages the rubric-lifecycle interview as
+a Claude Code skill: it elicits a charter, enumerates scenarios,
+interrogates vague terms into thresholds, drafts rubrics (rejecting any
+criterion without capturable evidence), self-audits them against
+gaming, writes the full artifact set, and validates with `darkroom
+preflight`. Install it for a project:
+
+```bash
+cp -r skills/darkroom-interview /path/to/project/.claude/skills/
+# or globally: cp -r skills/darkroom-interview ~/.claude/skills/
+```
+
+then ask Claude to "set this project up for darkroom".
+
 ## Documentation
 
 - [ROADMAP.md](ROADMAP.md) -- milestones from foundation through v1

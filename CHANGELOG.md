@@ -6,6 +6,18 @@ project follows [semantic versioning](https://semver.org/) (pre-1.0: minor
 releases may break API, patch releases never do). The manifest schema is
 versioned independently of the package — see `ROADMAP.md`.
 
+## [Unreleased]
+
+### Added
+
+- The intent interview as a Claude Code skill
+  (`skills/darkroom-interview/`): charter elicitation, scenario
+  enumeration with negative space, threshold interviews (declined
+  answers become low-confidence criteria, never silent guesses), rubric
+  drafting under the capturable-evidence rule, a gaming self-audit
+  before presentation, full artifact writing, and mechanical validation
+  via `darkroom preflight`; README documents installation (#25)
+
 ## [0.8.0] - 2026-09-20
 
 ### Added
