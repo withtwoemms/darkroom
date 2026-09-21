@@ -126,6 +126,7 @@ class TestAgentJudge:
         assert "prints_answer" in prompt                     # rubric inlined
         assert "[command]" in prompt and "41" in prompt      # evidence rendered
         assert "never reveal criteria" in prompt
+        assert "Harness notes: (none)" in prompt
         assert "Keep feedback general" in prompt             # level 0
 
     def test_feedback_level_escalates_prompt(self, tmp_path):
@@ -180,6 +181,8 @@ class TestAgentBuilder:
         assert "TOOLS=Read,Edit" in content
         assert "fix the output" in content
         assert "DIAGNOSTIC MODE" not in content
+        assert "Harness diagnostics" in content
+        assert "(no run yet" in content
         assert str(ctx.adapter.root) in content  # add-dir covers tenant
 
     def test_escalation_switches_model_and_tools(self, tmp_path):

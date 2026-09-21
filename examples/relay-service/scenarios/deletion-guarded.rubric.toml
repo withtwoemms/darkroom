@@ -1,0 +1,15 @@
+feature_id = "deletion-guarded"
+version = "1"
+scenario = "deletion_guarded"
+
+[[criterion]]
+id = "wrong_token_refused"
+points = 15
+description = "DELETE with a wrong X-Note-Token returns 403 AND a subsequent fetch still returns the note"
+evidence = ["http_transcript"]
+
+[[criterion]]
+id = "right_token_deletes"
+points = 10
+description = "DELETE with the note's token returns 204 and a subsequent fetch returns 404"
+evidence = ["http_transcript"]

@@ -1,0 +1,37 @@
+scenario = "deletion_guarded"
+
+[[step]]
+name = "create"
+kind = "http"
+method = "POST"
+url = "{base_url}/notes"
+json = { text = "guarded" }
+save = { note_id = "$.id", token = "$.token" }
+
+[[step]]
+name = "wrong_token_refused"
+kind = "http"
+method = "DELETE"
+url = "{base_url}/notes/{note_id}"
+headers = { X-Note-Token = "not-the-token" }
+expect = { status = 403 }
+
+[[step]]
+name = "note_survives"
+kind = "http"
+url = "{base_url}/notes/{note_id}"
+expect = { status = 200 }
+
+[[step]]
+name = "right_token_deletes"
+kind = "http"
+method = "DELETE"
+url = "{base_url}/notes/{note_id}"
+headers = { X-Note-Token = "{token}" }
+expect = { status = 204 }
+
+[[step]]
+name = "gone"
+kind = "http"
+url = "{base_url}/notes/{note_id}"
+expect = { status = 404 }

@@ -359,12 +359,26 @@ def drive(
     os.environ.setdefault(
         "EVIDENCE_DIR", str(adapter.resolve(adapter.evidence_dir))
     )
-    start_run(project=adapter.name)
+    run = start_run(project=adapter.name)
     report = DriveReport()
     try:
         for path in scripts:
-            report.results.append(drive_scenario(adapter, load_drive(path)))
+            name = path.name[: -len(DRIVE_SUFFIX)]
+            try:
+                script = load_drive(path)
+                report.results.append(drive_scenario(adapter, script))
+            except DriveError as exc:
+                # a scenario that cannot even boot is a failed scenario,
+                # not a failed drive — later scenarios still run, and the
+                # failure detail lands in the harness log for the builder
+                report.results.append(
+                    ScenarioResult(
+                        scenario=name,
+                        steps=[StepResult("boot", "serve", ok=False, detail=str(exc))],
+                    )
+                )
     finally:
+        _write_harness_log(run, report)
         end_run()
         for key, value in saved_env.items():
             if value is None:
@@ -372,3 +386,22 @@ def drive(
             else:
                 os.environ[key] = value
     return report
+
+
+def _write_harness_log(run, report: DriveReport) -> None:
+    """Harness diagnostics beside the manifest — builder-visible by design.
+
+    Step names and failure details are spec-level information (the
+    sanitized scenarios already state them); criteria and scores never
+    appear here.
+    """
+    if run is None or not getattr(run, "evidence_mode", False):
+        return
+    lines = []
+    for result in report.results:
+        lines.append(f"scenario {result.scenario}: {'ok' if result.ok else 'FAILED'}")
+        for step in result.steps:
+            status = "ok" if step.ok else f"FAIL {step.detail}"
+            lines.append(f"  {step.name} [{step.kind}] {status}")
+    run.run_dir.mkdir(parents=True, exist_ok=True)
+    (run.run_dir / "harness.log").write_text("\n".join(lines) + "\n")

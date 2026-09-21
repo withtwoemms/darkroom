@@ -1,0 +1,16 @@
+schema_version = "1.0"
+
+[project]
+name = "relay-service"
+
+[commands]
+serve = "python3 app.py {port}"
+test = "darkroom drive --drives drives"
+
+[evidence]
+dir = "evidence"
+contract = "evidence-contract.toml"
+
+[scenarios]
+spec_glob = "scenarios/*.feature"
+rubric_glob = "scenarios/*.rubric.toml"
