@@ -50,6 +50,7 @@ is referenced by path below).
 {evidence}
 
 Harness status: tests_passed={tests_passed}, evidence_verified={verify_ok}
+Harness notes: {harness_notes}
 
 ## Your outputs
 
@@ -94,6 +95,13 @@ before acting on any hypothesis it offers.
 ## Judge feedback
 
 {feedback}
+
+## Harness diagnostics (latest run)
+
+Read these before editing — they are the raw record of what the harness
+observed, including boot failures:
+
+{harness_diagnostics}
 
 ## Iteration memory (recent)
 
@@ -233,6 +241,7 @@ class AgentJudge:
                 "verify_ok": str(assessment.verify_ok),
                 "evaluation_out": str(evaluation_out),
                 "feedback_out": str(feedback_out),
+                "harness_notes": assessment.notes or "(none)",
                 "feedback_level_instructions": FEEDBACK_LEVEL_INSTRUCTIONS[
                     escalation.feedback_level
                 ],
@@ -270,6 +279,17 @@ class AgentBuilder:
         self.timeout = timeout
         self.iteration = 0
 
+    def _harness_diagnostics(self, ctx: LoopContext, lines: int = 40) -> str:
+        from darkroom.roles import AdapterAssessor
+
+        manifest_path = AdapterAssessor._newest_manifest(ctx.adapter)
+        if manifest_path is None:
+            return "(no run yet — if the serve/test commands fail, fixing that is the first task)"
+        log = manifest_path.parent / "harness.log"
+        if not log.exists():
+            return "(no harness log in the latest run)"
+        return "\n".join(log.read_text().splitlines()[-lines:])
+
     def _builder_log_tail(self, ctx: LoopContext, lines: int = 40) -> str:
         if ctx.state_dir is None:
             return "(no iteration memory)"
@@ -300,6 +320,7 @@ class AgentBuilder:
             {
                 "root": str(ctx.adapter.root),
                 "feedback": feedback or "(the judge provided no feedback)",
+                "harness_diagnostics": self._harness_diagnostics(ctx),
                 "builder_log_tail": self._builder_log_tail(ctx),
                 "diagnostic_instructions": DIAGNOSTIC_INSTRUCTIONS
                 if escalation.diagnostic

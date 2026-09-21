@@ -1,0 +1,30 @@
+scenario = "note_lifecycle"
+
+[[step]]
+name = "create"
+kind = "http"
+method = "POST"
+url = "{base_url}/notes"
+json = { text = "develop the print" }
+expect = { status = 201 }
+save = { note_id = "$.id", token = "$.token" }
+
+[[step]]
+name = "fetch_hides_token"
+kind = "http"
+url = "{base_url}/notes/{note_id}"
+expect = { status = 200, body_contains = "develop the print" }
+
+[[step]]
+name = "archive"
+kind = "http"
+method = "POST"
+url = "{base_url}/notes/{note_id}/archive"
+expect = { status = 200, body_contains = "true" }
+
+[[step]]
+name = "archive_again_idempotent"
+kind = "http"
+method = "POST"
+url = "{base_url}/notes/{note_id}/archive"
+expect = { status = 200, body_contains = "true" }

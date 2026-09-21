@@ -1,0 +1,9 @@
+feature_id = "note-lifecycle"
+version = "1"
+scenario = "note_lifecycle"
+
+[[criterion]]
+id = "create_fetch_archive"
+points = 20
+description = "create returns 201 with an id; fetch shows the text and never the token; archive returns archived=true twice (idempotent)"
+evidence = ["http_transcript"]

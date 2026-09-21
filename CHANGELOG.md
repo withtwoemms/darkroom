@@ -41,6 +41,23 @@ versioned independently of the package — see `ROADMAP.md`.
   scenario but keeps the evidence captured before it — a failing
   scenario is still judgeable (#28)
 
+- `darkroom drive [--scenario] [--drives]` — the exam as a CLI: runs the
+  drive scripts (defaulting to the project home's `drives/`), prints
+  per-step results, and verifies the produced manifest against the
+  contract in the same invocation; the adapter's `test` command can now
+  simply be `darkroom drive`, wiring the loop to the external exam (#29)
+- The harness diagnostics pipeline, restoring the source framework's
+  builder-visible test log: drive writes `harness.log` beside the
+  manifest (boot outcomes and per-step results — spec-level information,
+  never criteria or scores); a scenario that cannot boot is a failed
+  scenario, not a failed drive (later scenarios still run); the assessor
+  captures the failing test command's output tail into its notes; the
+  judge prompt gains `Harness notes:` and the builder prompt gains a
+  `Harness diagnostics` section read from the latest run — so an empty
+  repo bootstraps from feedback alone, no seeded skeleton required (#29)
+- `examples/relay-service/` — a stdlib-only example tenant with specs,
+  rubrics, a derived contract, and drive scripts; exercised green by CI (#29)
+
 ### Changed
 
 - Loop state relocated from the tenant's `.darkroom/state` to the

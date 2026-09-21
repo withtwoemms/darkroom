@@ -43,6 +43,11 @@ class AdapterAssessor:
             timeout=self.timeout,
         )
         tests_passed = completed.returncode == 0
+        output_tail = (
+            (completed.stdout + completed.stderr)
+            .decode("utf-8", errors="replace")
+            .strip()[-1500:]
+        )
 
         manifest_path = self._newest_manifest(adapter)
         if manifest_path is None:
@@ -50,7 +55,8 @@ class AdapterAssessor:
                 manifest_path=None,
                 tests_passed=tests_passed,
                 verify_ok=False,
-                notes="no run manifest found after test command",
+                notes="no run manifest found after test command"
+                + (f"; test output: {output_tail}" if output_tail else ""),
             )
 
         contract = None
@@ -60,6 +66,8 @@ class AdapterAssessor:
                 contract = load_contract(contract_file)
         result = verify([manifest_path], contract)
         notes = "; ".join(f.message for f in result.errors[:5])
+        if not tests_passed and output_tail:
+            notes = (notes + " | " if notes else "") + f"test output: {output_tail}"
         return Assessment(
             manifest_path=manifest_path,
             tests_passed=tests_passed,

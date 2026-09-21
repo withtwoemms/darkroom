@@ -463,6 +463,59 @@ def _cmd_vault(args) -> int:
         return 2
 
 
+def _cmd_drive(args) -> int:
+    from darkroom.adapter import load_adapter
+    from darkroom.drive import DriveError, drive
+    from darkroom.homedir import default_drives, ensure_project_home
+    from darkroom.roles import AdapterAssessor
+
+    adapter_path = _find_adapter_or_error(args.project)
+    if adapter_path is None:
+        return 2
+    adapter = load_adapter(adapter_path)
+    if args.drives is not None:
+        drives_dir = args.drives
+    else:
+        ensure_project_home(adapter.name)
+        drives_dir = default_drives(adapter.name)
+
+    try:
+        report = drive(adapter, drives_dir, scenario=args.scenario)
+    except DriveError as exc:
+        print(f"error: {exc}")
+        return 2
+
+    for result in report.results:
+        marks = " · ".join(
+            f"{s.name} {'✓' if s.ok else 'FAIL'}" for s in result.steps
+        )
+        print(f"{result.scenario}: {marks}")
+        for step in result.steps:
+            if not step.ok:
+                print(f"  {step.name}: {step.detail}")
+
+    verify_ok = True
+    manifest_path = AdapterAssessor._newest_manifest(adapter)
+    if manifest_path is not None:
+        contract = None
+        if adapter.contract_path is not None:
+            contract_file = adapter.resolve(adapter.contract_path)
+            if contract_file.exists():
+                from darkroom.contract import load_contract
+
+                contract = load_contract(contract_file)
+        result = verify([manifest_path], contract)
+        verify_ok = result.ok
+        checked = "structure only" if contract is None else "contract"
+        print(f"verify: {'ok' if result.ok else 'FAILED'} ({checked})")
+        for finding in result.errors[:5]:
+            print(f"  {finding.message}")
+
+    green = sum(1 for r in report.results if r.ok)
+    print(f"{green}/{len(report.results)} scenario(s) green")
+    return 0 if report.ok and verify_ok else 1
+
+
 def _cmd_home(args) -> int:
     from darkroom.homedir import ensure_project_home, project_home
 
@@ -571,6 +624,17 @@ def main(argv=None) -> int:
     )
     run_parser.add_argument("--timeout", type=float, default=600)
     run_parser.set_defaults(func=_cmd_run)
+
+    drive_parser = sub.add_parser(
+        "drive", help="run drive scripts: the exam, executed against a black box"
+    )
+    drive_parser.add_argument("--scenario", default=None)
+    drive_parser.add_argument(
+        "--drives", type=Path, default=None,
+        help="drive-script directory (default: the project's darkroom home drives)",
+    )
+    drive_parser.add_argument("--project", type=Path, default=None)
+    drive_parser.set_defaults(func=_cmd_drive)
 
     home_parser = sub.add_parser(
         "home", help="the project's operator home under ~/.darkroom"
