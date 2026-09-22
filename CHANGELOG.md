@@ -23,6 +23,13 @@ versioned independently of the package — see `ROADMAP.md`.
   tickets (1.0: the queue/locks/history layout, flat-frontmatter
   documents, exclusive-create claiming, disposition-append
   resolution) (#40)
+- `docs/spec/`: the exam-side pages — drive scripts (1.0: the full
+  step vocabulary with field tables, interpolation forms incl.
+  `sign()`, expectation keys, fresh-environment-per-scenario and
+  failure-stops-the-scenario semantics, the refuse-unknown-step-kinds
+  rule) and the role hook contract (1.0: judge/builder placeholder
+  sets, the missing-score-is-not-a-zero rule, the two harness
+  diagnostics channels, boundary conformance rules) (#41)
 
 ## [0.10.0] - 2026-09-22
 
