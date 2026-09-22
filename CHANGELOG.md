@@ -6,6 +6,16 @@ project follows [semantic versioning](https://semver.org/) (pre-1.0: minor
 releases may break API, patch releases never do). The manifest schema is
 versioned independently of the package — see `ROADMAP.md`.
 
+## [Unreleased]
+
+### Fixed
+
+- `darkroom auto` checkpoints its own gate write on convergence, leaving
+  a clean tree — previously the post-checkpoint `evidence-gates.json`
+  update left the tenant dirty, so a following per-scenario run was
+  refused by the clean-tree guard. Found by the first tenant's
+  multi-scenario live slate (#34)
+
 ## [0.9.1] - 2026-09-22
 
 ### Fixed
