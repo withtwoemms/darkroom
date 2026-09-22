@@ -6,7 +6,7 @@ project follows [semantic versioning](https://semver.org/) (pre-1.0: minor
 releases may break API, patch releases never do). The manifest schema is
 versioned independently of the package — see `ROADMAP.md`.
 
-## [Unreleased]
+## [0.9.0] - 2026-09-21
 
 ### Added
 
@@ -17,11 +17,6 @@ versioned independently of the package — see `ROADMAP.md`.
   drafting under the capturable-evidence rule, a gaming self-audit
   before presentation, full artifact writing, and mechanical validation
   via `darkroom preflight`; README documents installation (#25)
-
-## [0.9.0] - 2026-09-21
-
-### Added
-
 - The darkroom home (`darkroom.homedir`): `~/.darkroom` (override:
   `DARKROOM_HOME`), mode 700, partitioned per project by the adapter's
   name — operator config, vault, drives, and loop state consolidated
