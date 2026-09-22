@@ -64,6 +64,26 @@ class EvidenceContract:
         return None
 
 
+def scoped_contract(
+    contract: EvidenceContract | None, scenario: str | None
+) -> EvidenceContract | None:
+    """The contract narrowed to one scenario, for scenario-scoped runs.
+
+    A run that deliberately exercised one scenario must not fail
+    verification for the scenarios it never attempted. A scenario absent
+    from the contract scopes to an empty contract (structural checks
+    plus an uncontracted-scenario warning), never to the full one.
+    """
+    if contract is None or scenario is None:
+        return contract
+    selected = contract.for_scenario(scenario)
+    return EvidenceContract(
+        schema_version=contract.schema_version,
+        project=contract.project,
+        scenarios=[selected] if selected else [],
+    )
+
+
 def loads_contract(text: str) -> EvidenceContract:
     """Parse a TOML contract document."""
     data = tomllib.loads(text)

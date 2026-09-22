@@ -12,7 +12,7 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 
-from darkroom.contract import load_contract
+from darkroom.contract import load_contract, scoped_contract
 from darkroom.loop import Assessment, LoopContext
 from darkroom.verify import verify
 
@@ -64,7 +64,7 @@ class AdapterAssessor:
             contract_file = adapter.resolve(adapter.contract_path)
             if contract_file.exists():
                 contract = load_contract(contract_file)
-        result = verify([manifest_path], contract)
+        result = verify([manifest_path], scoped_contract(contract, ctx.scenario))
         notes = "; ".join(f.message for f in result.errors[:5])
         if not tests_passed and output_tail:
             notes = (notes + " | " if notes else "") + f"test output: {output_tail}"
