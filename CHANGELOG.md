@@ -38,6 +38,15 @@ versioned independently of the package — see `ROADMAP.md`.
   emit no parseable usage degrade to partial records (model +
   duration), and metering never fails a run. The raw material for the
   dossier's cost ledger (#42)
+- `darkroom dossier` (`darkroom.dossier`): deterministic assembly of
+  the cross-run record — iteration memory, per-criterion score
+  trajectories, `auto:` checkpoint subjects, gate peaks, and the usage
+  ledger with per-role totals — as one JSON bundle (schema 1.0, specced
+  in `docs/spec/dossier.md`) or its Markdown rendering; `--scenario`
+  scopes every section. Operator-facing only: the CLI refuses an
+  output path inside the tenant. Usage records and builder-log entries
+  now carry scenario attribution (additive fields) so cross-run spend
+  and iterations attribute per scenario (#43)
 
 ## [0.10.0] - 2026-09-22
 

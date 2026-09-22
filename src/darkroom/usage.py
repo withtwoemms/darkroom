@@ -31,6 +31,7 @@ class UsageRecord:
     output_tokens: int | None = None
     cost_usd: float | None = None
     partial: bool = False  # no parseable usage in the agent's output
+    scenario: str = ""  # scenario-scoped runs attribute their spend
 
 
 def parse_agent_output(stdout: str) -> dict | None:
@@ -77,6 +78,7 @@ def build_record(
     model: str,
     stdout: str,
     duration_seconds: float,
+    scenario: str = "",
 ) -> UsageRecord:
     parsed = parse_agent_output(stdout)
     return UsageRecord(
@@ -89,6 +91,7 @@ def build_record(
         output_tokens=parsed["output_tokens"] if parsed else None,
         cost_usd=parsed["cost_usd"] if parsed else None,
         partial=parsed is None,
+        scenario=scenario,
     )
 
 

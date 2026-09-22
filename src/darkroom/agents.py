@@ -267,7 +267,10 @@ class AgentJudge:
         )
         record_usage(
             work,
-            build_record("judge", self.iteration, self.config.model, stdout, duration),
+            build_record(
+                "judge", self.iteration, self.config.model, stdout, duration,
+                scenario=ctx.scenario or "",
+            ),
         )
 
         if not evaluation_out.exists():
@@ -350,5 +353,9 @@ class AgentBuilder:
             timeout=self.timeout,
         )
         record_usage(
-            work, build_record("builder", self.iteration, model, stdout, duration)
+            work,
+            build_record(
+                "builder", self.iteration, model, stdout, duration,
+                scenario=ctx.scenario or "",
+            ),
         )
