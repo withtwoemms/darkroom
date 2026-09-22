@@ -30,6 +30,14 @@ versioned independently of the package — see `ROADMAP.md`.
   rule) and the role hook contract (1.0: judge/builder placeholder
   sets, the missing-score-is-not-a-zero rule, the two harness
   diagnostics channels, boundary conformance rules) (#41)
+- Usage metering for agent invocations (`darkroom.usage`): every
+  judge/builder call appends one record — role, iteration, model,
+  tokens, cost, duration — to `usage.jsonl` in operator-side loop
+  state. The default invoke template gains `--output-format json` so
+  the `claude` CLI reports usage structurally; custom templates that
+  emit no parseable usage degrade to partial records (model +
+  duration), and metering never fails a run. The raw material for the
+  dossier's cost ledger (#42)
 
 ## [0.10.0] - 2026-09-22
 

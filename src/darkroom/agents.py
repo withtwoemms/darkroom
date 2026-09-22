@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 if sys.version_info >= (3, 11):
@@ -31,6 +32,7 @@ from darkroom.loop import Assessment, Escalation, JudgeReport, LoopContext, Loop
 from darkroom.manifest import load_manifest
 from darkroom.operator import RoleConfig
 from darkroom.render import default_registry, render_scenario
+from darkroom.usage import build_record, record_usage
 from darkroom.vault import RubricVault
 
 JUDGE_TEMPLATE = """\
@@ -153,7 +155,8 @@ def _invoke(
     prompt_path: Path,
     cwd: Path,
     timeout: float,
-) -> None:
+) -> tuple[str, float]:
+    """Run the templated agent command; returns (stdout, duration_seconds)."""
     command = _substitute(
         config.invoke,
         {
@@ -163,13 +166,16 @@ def _invoke(
             "prompt": str(prompt_path),
         },
     )
-    subprocess.run(
+    started = time.monotonic()
+    completed = subprocess.run(
         ["/bin/sh", "-c", command],
         cwd=cwd,
         capture_output=True,
         timeout=timeout,
         check=False,
     )
+    stdout = completed.stdout.decode("utf-8", errors="replace")
+    return stdout, time.monotonic() - started
 
 
 def _template_for(config: RoleConfig, default: str) -> str:
@@ -250,7 +256,7 @@ class AgentJudge:
         prompt_path = work / f"judge-prompt-{self.iteration}.md"
         prompt_path.write_text(prompt)
 
-        _invoke(
+        stdout, duration = _invoke(
             self.config,
             model=self.config.model,
             tools=self.config.tools,
@@ -258,6 +264,10 @@ class AgentJudge:
             prompt_path=prompt_path,
             cwd=work,
             timeout=self.timeout,
+        )
+        record_usage(
+            work,
+            build_record("judge", self.iteration, self.config.model, stdout, duration),
         )
 
         if not evaluation_out.exists():
@@ -330,7 +340,7 @@ class AgentBuilder:
         prompt_path = work / f"builder-prompt-{self.iteration}.md"
         prompt_path.write_text(prompt)
 
-        _invoke(
+        stdout, duration = _invoke(
             self.config,
             model=model,
             tools=tools,
@@ -338,4 +348,7 @@ class AgentBuilder:
             prompt_path=prompt_path,
             cwd=ctx.adapter.root,
             timeout=self.timeout,
+        )
+        record_usage(
+            work, build_record("builder", self.iteration, model, stdout, duration)
         )
