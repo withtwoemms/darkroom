@@ -138,6 +138,13 @@ def test_full_automated_convergence(tmp_path, capsys, monkeypatch):
         ["git", "log", "--oneline"], cwd=project, capture_output=True, text=True
     ).stdout
     assert "auto: iteration 1 (50.0%)" in log
+    assert "auto: records gate (answer_flow)" in log
+
+    # the loop leaves a clean tree — a following scenario can start
+    status = subprocess.run(
+        ["git", "status", "--porcelain"], cwd=project, capture_output=True, text=True
+    ).stdout
+    assert status == "", status
 
     # iteration memory exists — in the darkroom home, not the tenant
     log = tmp_path / "darkroom-home" / "projects" / "mini" / "state" / "builder-log.md"

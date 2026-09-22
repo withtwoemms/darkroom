@@ -371,12 +371,13 @@ def _cmd_auto(args) -> int:
         )
         return 2
 
+    checkpointer = GitCheckpointer()
     loop = ConvergenceLoop(
         policy=policy,
         assessor=AdapterAssessor(),
         judge=judge,
         builder=builder,
-        checkpointer=GitCheckpointer(),
+        checkpointer=checkpointer,
         on_iteration=lambda r: print(
             f"iteration {r.number}: {r.score:.1f} (best {r.best_score:.1f}) "
             f"stagnation={r.stagnation} {r.action}"
@@ -400,6 +401,11 @@ def _cmd_auto(args) -> int:
         )
         dump_gates(new_gates, gates_path)
         print(f"gates updated: {gates_path}")
+        if not checkpointer.is_clean(ctx):
+            # the gate write is loop output; the loop leaves a clean tree
+            checkpointer.checkpoint(
+                ctx, f"auto: records gate ({args.scenario or 'all'})"
+            )
 
     print(
         f"{'CONVERGED' if result.converged else 'EXHAUSTED'} after "
