@@ -37,7 +37,8 @@ darkroom = "darkroom.pytest_plugin"
 playwright = ["playwright>=1.40"]
 crypto = ["cryptography>=41"]
 vault = ["hvac>=2"]
-all = ["darkroom-ai[playwright]", "darkroom-ai[crypto]", "darkroom-ai[vault]"]
+containers = ["testcontainers>=4.8"]
+all = ["darkroom-ai[playwright]", "darkroom-ai[crypto]", "darkroom-ai[vault]", "darkroom-ai[containers]"]
 test = [
     "pytest>=7.0",
     "coverage>=7.0",

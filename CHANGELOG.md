@@ -20,6 +20,21 @@ versioned independently of the package — see `ROADMAP.md`.
   the configured backend; new `vault migrate` moves a filesystem vault
   into it, archiving local copies. CI runs the backend tests against a
   real `bao server -dev` (#36)
+- Container environments (behind the `containers` extra, testcontainers):
+  the adapter's `[environment]` declares run-me facts — `app_image`,
+  `app_port`, a `build` command, `app_env` templates with `{serve-var}`
+  and `{service.host}`/`{service.port}` substitution, and
+  `[[environment.services]]` — while containment *policy* is operator
+  authority: `[containers] mode = off | auto | required` (`required`
+  makes containment a control a builder cannot disable by editing the
+  adapter), flowing to the drive via `--containers`/`DARKROOM_CONTAINERS`.
+  Container mode runs each scenario in fresh containers on a private
+  network, records **image digests as evidence** (an `environment` log
+  item per scenario), and closes the assess-time vector: builder-authored
+  code no longer executes with the operator's UID and environment (#37)
+- The `container` drive step kind (`action = stop|start|pause|unpause`
+  on a declared service or the app) — failure-injection scenarios,
+  captured as log evidence (#37)
 
 ## [0.9.2] - 2026-09-22
 

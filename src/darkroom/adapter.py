@@ -33,6 +33,16 @@ ADAPTER_FILENAME = "darkroom.toml"
 
 
 @dataclass(frozen=True)
+class ServiceSpec:
+    """A dependency container the app needs (declared fact, not policy)."""
+
+    name: str
+    image: str
+    port: int | None = None
+    env: tuple[tuple[str, str], ...] = ()
+
+
+@dataclass(frozen=True)
 class ProjectAdapter:
     root: Path
     name: str
@@ -44,6 +54,11 @@ class ProjectAdapter:
     spec_glob: str = ""
     rubric_glob: str = ""
     defaults: dict = field(default_factory=dict)
+    app_image: str = ""
+    app_port: int = 8000
+    environment_build: str = ""
+    app_env: tuple[tuple[str, str], ...] = ()
+    services: tuple[ServiceSpec, ...] = ()
 
     def resolve(self, relative: Path) -> Path:
         relative = Path(relative)
@@ -84,9 +99,28 @@ def loads_adapter(text: str, root: Path) -> ProjectAdapter:
         if not isinstance(cmd, str) or not cmd.strip():
             raise ValueError(f"command '{cmd_name}' must be a non-empty string")
 
+    environment = data.get("environment", {})
+    services = tuple(
+        ServiceSpec(
+            name=svc.get("name", ""),
+            image=svc.get("image", ""),
+            port=svc.get("port"),
+            env=tuple(sorted((svc.get("env") or {}).items())),
+        )
+        for svc in environment.get("services", [])
+    )
+    for svc in services:
+        if not svc.name or not svc.image:
+            raise ValueError("[[environment.services]] entries need name and image")
+
     return ProjectAdapter(
         root=Path(root),
         name=name,
+        app_image=environment.get("app_image", ""),
+        app_port=int(environment.get("app_port", 8000)),
+        environment_build=environment.get("build", ""),
+        app_env=tuple(sorted((environment.get("app_env") or {}).items())),
+        services=services,
         schema_version=str(
             data.get("schema_version", CURRENT_ADAPTER_SCHEMA_VERSION)
         ),
