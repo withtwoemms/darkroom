@@ -340,18 +340,21 @@ def _cmd_auto(args) -> int:
     if operator_path is not None and not hook_mode:
         from darkroom.agents import AgentBuilder, AgentJudge
         from darkroom.operator import load_operator
-        from darkroom.vault import FilesystemVault
 
         try:
             operator = load_operator(operator_path)
         except (OSError, ValueError) as exc:
             print(f"error: could not load operator config: {exc}")
             return 2
-        from darkroom.homedir import default_vault
+        from darkroom.operator import build_vault
+        from darkroom.vault import VaultError
 
-        vault_path = operator.vault_path or default_vault(adapter.name)
         policy = operator.loop
-        vault = FilesystemVault(vault_path)
+        try:
+            vault = build_vault(operator, adapter.name)
+        except VaultError as exc:
+            print(f"error: {exc}")
+            return 2
         judge = AgentJudge(operator.judge, vault)
         builder = AgentBuilder(operator.builder)
     elif hook_mode:
@@ -430,7 +433,21 @@ def _cmd_vault(args) -> int:
     if adapter_path is None:
         return 2
     adapter = load_adapter(adapter_path)
-    if args.vault is not None:
+    operator = None
+    if getattr(args, "operator", None) is not None:
+        from darkroom.operator import load_operator
+
+        try:
+            operator = load_operator(args.operator)
+        except (OSError, ValueError) as exc:
+            print(f"error: could not load operator config: {exc}")
+            return 2
+
+    if operator is not None and operator.vault_backend != "filesystem":
+        from darkroom.operator import build_vault
+
+        vault = build_vault(operator, adapter.name)
+    elif args.vault is not None:
         vault = FilesystemVault(args.vault)
     else:
         from darkroom.homedir import default_vault, ensure_project_home
@@ -440,11 +457,46 @@ def _cmd_vault(args) -> int:
 
     try:
         if args.vault_command == "seal":
-            sealed = seal(adapter, vault)
-            print(f"sealed {len(sealed)} rubric(s) into {vault.root}:")
+            if isinstance(vault, FilesystemVault):
+                sealed = seal(adapter, vault)
+                print(f"sealed {len(sealed)} rubric(s) into {vault.root}:")
+            else:
+                rubric_files = adapter.rubric_files()
+                if not rubric_files:
+                    print("error: no rubrics match the tenant's rubric_glob")
+                    return 2
+                sealed = []
+                for source in rubric_files:
+                    feature_id = source.name.removesuffix(".rubric.toml")
+                    vault.write(feature_id, source.read_text())
+                    source.unlink()
+                    sealed.append(feature_id)
+                print(f"sealed {len(sealed)} rubric(s) into the {operator.vault_backend} vault:")
             for feature_id in sealed:
                 print(f"  {feature_id}")
             print("commit the tenant-side removal; the vault is now the authority")
+            return 0
+
+        if args.vault_command == "migrate":
+            from darkroom.homedir import default_vault
+
+            source_vault = FilesystemVault(args.vault or default_vault(adapter.name))
+            if isinstance(vault, FilesystemVault):
+                print("error: migrate needs an operator config with a non-filesystem backend")
+                return 2
+            archive = source_vault.root / "archive"
+            archive.mkdir(exist_ok=True)
+            migrated = []
+            for feature_id in source_vault.list():
+                vault.write(feature_id, source_vault.read(feature_id))
+                (source_vault.root / f"{feature_id}.rubric.toml").rename(
+                    archive / f"{feature_id}.rubric.toml"
+                )
+                migrated.append(feature_id)
+            print(
+                f"migrated {len(migrated)} rubric(s) to the "
+                f"{operator.vault_backend} vault; local copies archived in {archive}"
+            )
             return 0
 
         # derive-contract
@@ -661,6 +713,7 @@ def main(argv=None) -> int:
     for name, help_text in (
         ("seal", "move the tenant's rubrics into the vault"),
         ("derive-contract", "regenerate the evidence contract from vaulted rubrics"),
+        ("migrate", "move a filesystem vault's rubrics to the configured backend"),
     ):
         p = vault_sub.add_parser(name, help=help_text)
         p.add_argument(
@@ -673,6 +726,10 @@ def main(argv=None) -> int:
                 "--check", action="store_true",
                 help="compare instead of writing; exit 1 on drift",
             )
+        p.add_argument(
+            "--operator", type=Path, default=None,
+            help="operator config; a non-filesystem [vault] backend is used when set",
+        )
         p.set_defaults(func=_cmd_vault, check=False)
 
     auto_parser = sub.add_parser(

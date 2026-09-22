@@ -34,3 +34,20 @@ jobs:
         with:
           name: coverage-xml
           path: coverage.xml
+
+  backends:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@v5
+      - name: Install OpenBao
+        run: |
+          curl -sSL -o /tmp/bao.deb https://github.com/openbao/openbao/releases/download/v2.3.1/bao_2.3.1_linux_amd64.deb
+          sudo dpkg -i /tmp/bao.deb
+          bao --version
+      - name: Backend tests against a real dev server
+        run: |
+          make install
+          UV_PROJECT_ENVIRONMENT=.darkroom-3.12 uv run --python 3.12 -m pytest tests/integration/test_openbao.py -q

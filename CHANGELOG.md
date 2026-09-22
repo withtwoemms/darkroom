@@ -6,6 +6,21 @@ project follows [semantic versioning](https://semver.org/) (pre-1.0: minor
 releases may break API, patch releases never do). The manifest schema is
 versioned independently of the package — see `ROADMAP.md`.
 
+## [Unreleased]
+
+### Added
+
+- OpenBao / HashiCorp Vault backend for the rubric vault
+  (`darkroom.vault_openbao`, behind the `vault` extra): KV v2 storage
+  with token-gated reads (`BAO_TOKEN`/`VAULT_TOKEN` in the operator
+  process only — agents never hold credentials) and rubric-version
+  resolution by bounded newest-first walk of KV history; configured via
+  `[vault] backend/url/mount/path` in operator config, with
+  `build_vault` selecting the backend everywhere. `vault seal` writes to
+  the configured backend; new `vault migrate` moves a filesystem vault
+  into it, archiving local copies. CI runs the backend tests against a
+  real `bao server -dev` (#36)
+
 ## [0.9.2] - 2026-09-22
 
 ### Fixed
