@@ -60,6 +60,13 @@ versioned independently of the package — see `ROADMAP.md`.
 - Dossier evaluation entries order chronologically under mixed
   UTC-offset timestamps (a string sort misordered them) — found by
   assembling the first tenant's real record (#44)
+- Loop work files survive across invocations: each `auto` run now
+  writes evaluations, feedback, prompts, and usage into its own
+  `state/loop/<invocation>/` subdirectory instead of overwriting the
+  previous run's files — evaluation history accrues instead of being
+  a palimpsest of the last run. The dossier aggregates across
+  invocation subdirectories and still reads the flat legacy layout
+  (#45)
 
 ## [0.10.0] - 2026-09-22
 

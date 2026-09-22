@@ -142,7 +142,7 @@ def _work_dir(ctx: LoopContext) -> Path:
 
         ensure_project_home(ctx.adapter.name)
         base = default_state(ctx.adapter.name)
-    path = base / "loop"
+    path = base / "loop" / ctx.invocation
     path.mkdir(parents=True, exist_ok=True)
     return path
 

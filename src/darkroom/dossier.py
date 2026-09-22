@@ -69,9 +69,18 @@ def _parse_builder_log(text: str) -> list[dict]:
     return iterations
 
 
+def _evaluation_files(loop_dir: Path) -> list[Path]:
+    """Evaluation files across invocation subdirectories, plus the flat
+    legacy layout (pre-invocation loops wrote directly into loop/)."""
+    files = sorted(loop_dir.glob("evaluation-*.json"))
+    for sub in sorted(p for p in loop_dir.glob("*") if p.is_dir()):
+        files.extend(sorted(sub.glob("evaluation-*.json")))
+    return files
+
+
 def _evaluations(loop_dir: Path, scenario: str | None) -> list[dict]:
     entries = []
-    for path in sorted(loop_dir.glob("evaluation-*.json")):
+    for path in _evaluation_files(loop_dir):
         try:
             evaluation = load_evaluation_lenient(path)
         except (OSError, ValueError, KeyError):
@@ -104,7 +113,7 @@ def _evaluations(loop_dir: Path, scenario: str | None) -> list[dict]:
             (
                 evaluation.evaluated_at,
                 {
-                    "file": path.name,
+                    "file": str(path.relative_to(loop_dir)),
                     "run_id": evaluation.run_id,
                     "evaluated_at": evaluation.evaluated_at.isoformat(),
                     "rubric_version": evaluation.rubric_version,
@@ -141,8 +150,12 @@ def _checkpoints(adapter: ProjectAdapter, limit: int = 100) -> list[dict]:
 
 
 def _usage(loop_dir: Path, scenario: str | None) -> dict:
+    all_records = list(read_usage(loop_dir))  # flat legacy layout
+    if loop_dir.is_dir():
+        for sub in sorted(p for p in loop_dir.glob("*") if p.is_dir()):
+            all_records.extend(read_usage(sub))
     records = [
-        r for r in read_usage(loop_dir)
+        r for r in all_records
         if scenario is None or r.scenario == scenario
     ]
     costs = [r.cost_usd for r in records if r.cost_usd is not None]

@@ -150,6 +150,27 @@ class TestAssembleDossier:
         assert "escalated: diagnostic" in text
         assert "$0.0200" in text
 
+    def test_aggregates_across_invocation_subdirs(self, project):
+        adapter, state = project
+        # a second invocation's work dir alongside the flat legacy files
+        later = state / "loop" / "20260923T090000-ab12"
+        later.mkdir()
+        second = dict(EVALUATION, run_id="r2", evaluated_at="2026-09-23T09:01:00")
+        (later / "evaluation-1.json").write_text(json.dumps(second))
+        (later / "usage.jsonl").write_text(
+            json.dumps({
+                "role": "judge", "iteration": 1, "model": "claude-opus-5",
+                "duration_seconds": 1.0, "recorded_at": "t",
+                "input_tokens": 10, "output_tokens": 5, "cost_usd": 0.01,
+                "partial": False, "scenario": "pay_invoices",
+            }) + "\n"
+        )
+        bundle = assemble_dossier(adapter, state)
+        assert [e["run_id"] for e in bundle["evaluations"]] == ["r1", "r2"]
+        assert bundle["evaluations"][1]["file"].startswith("20260923T090000-ab12/")
+        assert bundle["usage"]["totals"]["calls"] == 3
+        assert bundle["usage"]["totals"]["cost_usd"] == 0.03
+
     def test_checkpoints_from_git(self, project):
         adapter, state = project
         subprocess.run(["git", "init", "-q"], cwd=adapter.root, check=True)
