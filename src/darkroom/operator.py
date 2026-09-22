@@ -21,8 +21,12 @@ else:  # pragma: no cover - exercised only on 3.10
 
 from darkroom.loop import LoopPolicy
 
+# --output-format json makes the CLI report token usage and cost on
+# stdout, which the loop meters into usage.jsonl; a custom template
+# without it still works — its usage records are just partial.
 DEFAULT_INVOKE = (
-    'claude -p --model {model} --allowed-tools "{tools}" {add_dirs} < {prompt}'
+    "claude -p --model {model} --output-format json "
+    '--allowed-tools "{tools}" {add_dirs} < {prompt}'
 )
 
 JUDGE_DEFAULT_TOOLS = ["Read", "Write", "Glob", "Grep"]

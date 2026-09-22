@@ -82,6 +82,10 @@ def _make_project(root: Path, vault_dir: Path, operator_path: Path) -> None:
         root / "fake_judge_agent.py",
         """
         import json, re, sys
+        print(json.dumps({  # claude-style result line: exercises metering
+            "type": "result", "total_cost_usd": 0.01,
+            "usage": {"input_tokens": 10, "output_tokens": 5},
+        }))
         prompt = open(sys.argv[1]).read()
         evaluation_out = re.search(r"JSON to: (\\S+)", prompt).group(1)
         feedback_out = re.search(r"markdown to: (\\S+)", prompt).group(1)
@@ -190,6 +194,21 @@ def test_agent_mode_convergence(tmp_path, capsys, monkeypatch):
 
     # opacity held structurally: no rubric remains anywhere in the tenant
     assert not list(project.rglob("*.rubric.toml"))
+
+    # every invocation was metered: judge records carry parsed usage,
+    # builder records (silent fake) degrade to partial — never absent
+    from darkroom.usage import read_usage
+
+    loop_dir = (
+        tmp_path / "darkroom-home" / "projects" / "mini" / "state" / "loop"
+    )
+    records = read_usage(loop_dir)
+    judges = [r for r in records if r.role == "judge"]
+    builders = [r for r in records if r.role == "builder"]
+    assert len(judges) == 2 and len(builders) == 1
+    assert all(r.cost_usd == 0.01 and not r.partial for r in judges)
+    assert all(r.partial and r.model == "claude-sonnet-5" for r in builders)
+    assert not list(project.rglob("usage.jsonl"))  # ledger never in the tenant
 
 
 def test_agent_mode_defaults_vault_to_home(tmp_path, capsys, monkeypatch):
