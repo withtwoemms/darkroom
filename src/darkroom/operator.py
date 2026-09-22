@@ -46,6 +46,9 @@ class OperatorConfig:
     builder: RoleConfig
     vault_backend: str = "filesystem"
     vault_path: Path | None = None
+    vault_url: str = ""
+    vault_mount: str = "secret"
+    vault_kv_path: str = ""
     loop: LoopPolicy = field(default_factory=LoopPolicy)
 
 
@@ -93,15 +96,42 @@ def loads_operator(text: str) -> OperatorConfig:
         ),
     )
 
-    vault_path = vault_raw.get("path")
+    backend = vault_raw.get("backend", "filesystem")
+    path_raw = vault_raw.get("path")
+    if backend == "openbao":
+        vault_path, kv_path = None, (path_raw or "")
+    else:
+        vault_path = Path(path_raw).expanduser() if path_raw else None
+        kv_path = ""
     return OperatorConfig(
         judge=judge,
         builder=builder,
-        vault_backend=vault_raw.get("backend", "filesystem"),
-        vault_path=Path(vault_path).expanduser() if vault_path else None,
+        vault_backend=backend,
+        vault_path=vault_path,
+        vault_url=vault_raw.get("url", ""),
+        vault_mount=vault_raw.get("mount", "secret"),
+        vault_kv_path=kv_path,
         loop=loop,
     )
 
 
 def load_operator(path: Path) -> OperatorConfig:
     return loads_operator(Path(path).read_text())
+
+
+def build_vault(config: OperatorConfig, project_name: str):
+    """The configured rubric vault backend for a project."""
+    if config.vault_backend == "openbao":
+        from darkroom.vault import VaultError
+        from darkroom.vault_openbao import OpenBaoVault
+
+        if not config.vault_url:
+            raise VaultError("[vault] backend = 'openbao' needs a url")
+        kv_path = config.vault_kv_path or f"darkroom/{project_name}/rubrics"
+        return OpenBaoVault(
+            url=config.vault_url, path=kv_path, mount=config.vault_mount
+        )
+    from darkroom.homedir import default_vault
+    from darkroom.vault import FilesystemVault
+
+    return FilesystemVault(config.vault_path or default_vault(project_name))
