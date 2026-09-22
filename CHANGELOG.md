@@ -17,6 +17,12 @@ versioned independently of the package — see `ROADMAP.md`.
   precedent), evidence contract (1.0, with the no-scoring-information
   invariant and scoping rules), and evaluation (1.0, with the
   strict/lenient loading disciplines and citation requirements) (#39)
+- `docs/spec/`: the judgment-side pages — gates (1.0: peak records,
+  the four check findings with the regression/stale-peak distinction
+  as a conformance rule, ratchet-and-re-baseline update semantics) and
+  tickets (1.0: the queue/locks/history layout, flat-frontmatter
+  documents, exclusive-create claiming, disposition-append
+  resolution) (#40)
 
 ## [0.10.0] - 2026-09-22
 
