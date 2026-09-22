@@ -242,9 +242,13 @@ class ConvergenceLoop:
         lines = [
             f"## iteration {record.number} — {datetime.now().isoformat()}",
             "",
-            f"score: {record.score:.1f} (best {record.best_score:.1f}) · "
-            f"stagnation: {record.stagnation} · action: {record.action}",
         ]
+        if ctx.scenario:
+            lines.append(f"scenario: {ctx.scenario}")
+        lines.append(
+            f"score: {record.score:.1f} (best {record.best_score:.1f}) · "
+            f"stagnation: {record.stagnation} · action: {record.action}"
+        )
         if record.escalation.diagnostic or record.escalation.escalate_model:
             dials = []
             if record.escalation.diagnostic:

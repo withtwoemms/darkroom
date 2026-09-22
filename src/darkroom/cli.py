@@ -304,6 +304,48 @@ def _cmd_ticket(args) -> int:
         return 2
 
 
+def _cmd_dossier(args) -> int:
+    from darkroom.adapter import load_adapter
+    from darkroom.dossier import assemble_dossier, dumps_dossier_markdown
+    from darkroom.homedir import default_state
+
+    adapter_path = _find_adapter_or_error(args.project)
+    if adapter_path is None:
+        return 2
+    adapter = load_adapter(adapter_path)
+    state = Path(args.state) if args.state is not None else default_state(adapter.name)
+
+    if args.out is not None:
+        out = args.out.resolve()
+        try:
+            out.relative_to(adapter.root.resolve())
+            inside_tenant = True
+        except ValueError:
+            inside_tenant = False
+        if inside_tenant:
+            print(
+                "error: refusing to write the dossier inside the tenant — "
+                "it carries scores; write it to the operator home or elsewhere"
+            )
+            return 2
+
+    bundle = assemble_dossier(adapter, state, scenario=args.scenario)
+    if args.format == "json":
+        import json as json_module
+
+        text = json_module.dumps(bundle, indent=2)
+    else:
+        text = dumps_dossier_markdown(bundle)
+
+    if args.out is not None:
+        args.out.parent.mkdir(parents=True, exist_ok=True)
+        args.out.write_text(text + "\n" if not text.endswith("\n") else text)
+        print(f"dossier written: {args.out}")
+    else:
+        print(text)
+    return 0
+
+
 def _cmd_auto(args) -> int:
     from darkroom.adapter import load_adapter
     from darkroom.hooks import CommandBuilder, CommandJudge
@@ -771,6 +813,23 @@ def main(argv=None) -> int:
     auto_parser.add_argument("--project", type=Path, default=None)
     auto_parser.add_argument("--state", type=Path, default=None)
     auto_parser.set_defaults(func=_cmd_auto)
+
+    dossier_parser = sub.add_parser(
+        "dossier",
+        help="assemble the cross-run record: iterations, scores, gates, spend",
+    )
+    dossier_parser.add_argument("--scenario", default=None)
+    dossier_parser.add_argument(
+        "--format", choices=("md", "json"), default="md"
+    )
+    dossier_parser.add_argument(
+        "--out", type=Path, default=None,
+        help="write to a file instead of stdout (never inside the tenant — "
+             "the dossier carries scores)",
+    )
+    dossier_parser.add_argument("--project", type=Path, default=None)
+    dossier_parser.add_argument("--state", type=Path, default=None)
+    dossier_parser.set_defaults(func=_cmd_dossier)
 
     ticket_parser = sub.add_parser("ticket", help="filesystem ticket queues")
     ticket_sub = ticket_parser.add_subparsers(dest="ticket_command", required=True)
