@@ -101,16 +101,26 @@ def _evaluations(loop_dir: Path, scenario: str | None) -> list[dict]:
         if scenario is not None and not scenarios:
             continue
         entries.append(
-            {
-                "file": path.name,
-                "run_id": evaluation.run_id,
-                "evaluated_at": evaluation.evaluated_at.isoformat(),
-                "rubric_version": evaluation.rubric_version,
-                "scenarios": scenarios,
-            }
+            (
+                evaluation.evaluated_at,
+                {
+                    "file": path.name,
+                    "run_id": evaluation.run_id,
+                    "evaluated_at": evaluation.evaluated_at.isoformat(),
+                    "rubric_version": evaluation.rubric_version,
+                    "scenarios": scenarios,
+                },
+            )
         )
-    entries.sort(key=lambda e: e["evaluated_at"])
-    return entries
+    # chronological, robust to mixed naive/aware timestamps (a string
+    # sort misorders mixed UTC-offset records)
+    def _sortable(moment: datetime) -> float:
+        if moment.tzinfo is None:
+            moment = moment.astimezone()
+        return moment.timestamp()
+
+    entries.sort(key=lambda pair: _sortable(pair[0]))
+    return [entry for _, entry in entries]
 
 
 def _checkpoints(adapter: ProjectAdapter, limit: int = 100) -> list[dict]:

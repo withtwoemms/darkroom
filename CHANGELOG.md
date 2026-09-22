@@ -47,6 +47,19 @@ versioned independently of the package — see `ROADMAP.md`.
   output path inside the tenant. Usage records and builder-log entries
   now carry scenario attribution (additive fields) so cross-run spend
   and iterations attribute per scenario (#43)
+- The chronicle skill (`skills/darkroom-chronicle/`): narrates a
+  project's delivery from its dossier — progression as a story,
+  collation of what the judge witnessed (sticking points with the
+  check-the-exam recommendation, novelty callouts, the rubric-drift
+  incomparability rule), spend accounting, and at most three
+  actionable surfacings; every claim traceable to a dossier field,
+  operator-facing only (#44)
+
+### Fixed
+
+- Dossier evaluation entries order chronologically under mixed
+  UTC-offset timestamps (a string sort misordered them) — found by
+  assembling the first tenant's real record (#44)
 
 ## [0.10.0] - 2026-09-22
 
