@@ -6,6 +6,18 @@ project follows [semantic versioning](https://semver.org/) (pre-1.0: minor
 releases may break API, patch releases never do). The manifest schema is
 versioned independently of the package — see `ROADMAP.md`.
 
+## [Unreleased]
+
+### Added
+
+- `docs/spec/`: format specifications independent of the Python
+  implementation — scaffolding (conformance language, shared
+  versioning policy, the trust-boundary map) plus the evidence-side
+  pages: manifest (2.0, with the v1→v2 migration as the major-bump
+  precedent), evidence contract (1.0, with the no-scoring-information
+  invariant and scoping rules), and evaluation (1.0, with the
+  strict/lenient loading disciplines and citation requirements) (#39)
+
 ## [0.10.0] - 2026-09-22
 
 ### Added
