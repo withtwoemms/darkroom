@@ -49,6 +49,7 @@ class OperatorConfig:
     vault_url: str = ""
     vault_mount: str = "secret"
     vault_kv_path: str = ""
+    containers_mode: str = "auto"
     loop: LoopPolicy = field(default_factory=LoopPolicy)
 
 
@@ -111,6 +112,7 @@ def loads_operator(text: str) -> OperatorConfig:
         vault_url=vault_raw.get("url", ""),
         vault_mount=vault_raw.get("mount", "secret"),
         vault_kv_path=kv_path,
+        containers_mode=data.get("containers", {}).get("mode", "auto"),
         loop=loop,
     )
 

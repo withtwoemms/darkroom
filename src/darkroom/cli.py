@@ -346,10 +346,13 @@ def _cmd_auto(args) -> int:
         except (OSError, ValueError) as exc:
             print(f"error: could not load operator config: {exc}")
             return 2
+        import os
+
         from darkroom.operator import build_vault
         from darkroom.vault import VaultError
 
         policy = operator.loop
+        os.environ["DARKROOM_CONTAINERS"] = operator.containers_mode
         try:
             vault = build_vault(operator, adapter.name)
         except VaultError as exc:
@@ -537,8 +540,13 @@ def _cmd_drive(args) -> int:
         ensure_project_home(adapter.name)
         drives_dir = default_drives(adapter.name)
 
+    import os
+
+    mode = args.containers or os.environ.get("DARKROOM_CONTAINERS", "auto")
     try:
-        report = drive(adapter, drives_dir, scenario=args.scenario)
+        report = drive(
+            adapter, drives_dir, scenario=args.scenario, containers_mode=mode
+        )
     except DriveError as exc:
         print(f"error: {exc}")
         return 2
@@ -694,6 +702,10 @@ def main(argv=None) -> int:
         help="drive-script directory (default: the project's darkroom home drives)",
     )
     drive_parser.add_argument("--project", type=Path, default=None)
+    drive_parser.add_argument(
+        "--containers", choices=["off", "auto", "required"], default=None,
+        help="container mode (default: DARKROOM_CONTAINERS env or auto)",
+    )
     drive_parser.set_defaults(func=_cmd_drive)
 
     home_parser = sub.add_parser(

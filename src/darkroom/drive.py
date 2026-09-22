@@ -16,6 +16,8 @@ Step kinds:
     assert   a simple equality/inequality over interpolated values,
              captured as log evidence
     wait     sleep
+    container  stop/start/pause/unpause a declared service (container
+             mode only) — failure injection, captured as log evidence
 
 Interpolation: ``{name}`` from saved values, ``{base_url}``,
 ``{keys.<n>.public}``, and the call form ``{sign(keys.<n>, <var>)}``.
@@ -274,6 +276,132 @@ class _Server:
             self.process.kill()
 
 
+def resolve_container_mode(mode: str, adapter: ProjectAdapter) -> bool:
+    """Whether this drive runs the app in containers.
+
+    ``off``: never. ``required``: containers or refuse — the hardened
+    posture (a builder editing the adapter to drop the image cannot
+    disable containment). ``auto``: containers when an app image is
+    declared and the runtime is available.
+    """
+    if mode == "off":
+        return False
+    have_lib = True
+    try:
+        import testcontainers  # noqa: F401
+    except ImportError:
+        have_lib = False
+    if mode == "required":
+        if not adapter.app_image:
+            raise DriveError(
+                "containers mode is 'required' but the adapter declares no "
+                "[environment] app_image"
+            )
+        if not have_lib:
+            raise DriveError(
+                "containers mode is 'required' but the containers extra is "
+                "missing: pip install 'darkroom-ai[containers]'"
+            )
+        return True
+    return bool(adapter.app_image) and have_lib
+
+
+def _image_digest(image: str) -> str:
+    result = subprocess.run(
+        ["docker", "image", "inspect", "--format",
+         "{{if .RepoDigests}}{{index .RepoDigests 0}}{{else}}{{.Id}}{{end}}",
+         image],
+        capture_output=True, text=True,
+    )
+    return result.stdout.strip() if result.returncode == 0 else "unknown"
+
+
+class _ContainerEnvironment:
+    """App + declared services in fresh containers on a private network."""
+
+    def __init__(self, adapter: ProjectAdapter, serve_vars: dict):
+        from testcontainers.core.container import DockerContainer
+        from testcontainers.core.network import Network
+
+        self.adapter = adapter
+        self.network = Network().create()
+        self.containers: dict[str, object] = {}
+
+        substitutions = {str(k): str(v) for k, v in serve_vars.items()}
+        for svc in adapter.services:
+            container = DockerContainer(svc.image).with_network(self.network)
+            container.with_network_aliases(svc.name)
+            for key, value in svc.env:
+                container.with_env(key, value)
+            container.start()
+            self.containers[svc.name] = container
+            substitutions[f"{svc.name}.host"] = svc.name
+            if svc.port is not None:
+                substitutions[f"{svc.name}.port"] = str(svc.port)
+
+        app = DockerContainer(adapter.app_image).with_network(self.network)
+        app.with_network_aliases("app")
+        app.with_exposed_ports(adapter.app_port)
+        for key, template in adapter.app_env:
+            value = template
+            for name, sub in substitutions.items():
+                value = value.replace("{" + name + "}", sub)
+            app.with_env(key, value)
+        app.start()
+        self.containers["app"] = app
+        host = app.get_container_host_ip()
+        port = app.get_exposed_port(adapter.app_port)
+        self.base_url = f"http://{host}:{port}"
+
+    def digests(self) -> dict[str, str]:
+        images = {"app": self.adapter.app_image}
+        images.update({svc.name: svc.image for svc in self.adapter.services})
+        return {name: _image_digest(image) for name, image in images.items()}
+
+    def container_id(self, name: str) -> str | None:
+        container = self.containers.get(name)
+        wrapped = getattr(container, "_container", None)
+        return getattr(wrapped, "id", None)
+
+    def stop(self) -> None:
+        for container in self.containers.values():
+            try:
+                container.stop()
+            except Exception:
+                pass
+        try:
+            self.network.remove()
+        except Exception:
+            pass
+
+
+def _run_container_step(
+    step: dict, environment, capture: EvidenceCapture
+) -> str | None:
+    if environment is None:
+        raise DriveError(
+            f"container step '{step.get('name')}' needs container mode"
+        )
+    action = step.get("action", "")
+    service = step.get("service", "")
+    if action not in ("stop", "start", "pause", "unpause"):
+        raise DriveError(f"unknown container action '{action}'")
+    container_id = environment.container_id(service)
+    if container_id is None:
+        raise DriveError(f"no container named '{service}' in this scenario")
+    result = subprocess.run(
+        ["docker", action, container_id], capture_output=True, text=True
+    )
+    capture.log(
+        step.get("name", f"{action}_{service}"),
+        {"action": action, "service": service, "ok": result.returncode == 0,
+         "stderr": result.stderr.strip()},
+    )
+    return None if result.returncode == 0 else (
+        f"docker {action} {service} failed: {result.stderr.strip()}"
+    )
+
+
 # --- the engine -----------------------------------------------------------
 
 def load_drive(path: Path) -> dict:
@@ -283,19 +411,32 @@ def load_drive(path: Path) -> dict:
     return script
 
 
-def drive_scenario(adapter: ProjectAdapter, script: dict) -> ScenarioResult:
+def drive_scenario(
+    adapter: ProjectAdapter, script: dict, containers: bool = False
+) -> ScenarioResult:
     scenario = script["scenario"]
     result = ScenarioResult(scenario=scenario)
-    needs_server = any(s.get("kind") == "http" for s in script.get("step", []))
+    steps = script.get("step", [])
+    needs_server = any(s.get("kind") == "http" for s in steps) or (
+        containers and any(s.get("kind") == "container" for s in steps)
+    )
     server = None
+    environment = None
     ctx = Context()
     try:
         if needs_server:
-            server = _Server(adapter, script.get("serve", {}))
-            ctx.values["base_url"] = server.base_url
-            _wait_healthy(server.base_url)
+            if containers:
+                environment = _ContainerEnvironment(adapter, script.get("serve", {}))
+                ctx.values["base_url"] = environment.base_url
+                _wait_healthy(environment.base_url)
+            else:
+                server = _Server(adapter, script.get("serve", {}))
+                ctx.values["base_url"] = server.base_url
+                _wait_healthy(server.base_url)
 
         capture = EvidenceCapture(scenario)
+        if environment is not None:
+            capture.log("environment", {"images": environment.digests()})
         for step in script.get("step", []):
             kind = step.get("kind", "http")
             name = step.get("name", kind)
@@ -309,6 +450,8 @@ def drive_scenario(adapter: ProjectAdapter, script: dict) -> ScenarioResult:
                     failure = None
                 elif kind == "assert":
                     failure = _run_assert_step(step, ctx, capture)
+                elif kind == "container":
+                    failure = _run_container_step(step, environment, capture)
                 elif kind == "wait":
                     time.sleep(float(step.get("seconds", 1)))
                     failure = None
@@ -325,6 +468,8 @@ def drive_scenario(adapter: ProjectAdapter, script: dict) -> ScenarioResult:
     finally:
         if server is not None:
             server.stop()
+        if environment is not None:
+            environment.stop()
     return result
 
 
@@ -332,6 +477,7 @@ def drive(
     adapter: ProjectAdapter,
     drives_dir: Path,
     scenario: str | None = None,
+    containers_mode: str = "auto",
 ) -> DriveReport:
     """Run drive scripts under an evidence run; returns the report.
 
@@ -352,6 +498,18 @@ def drive(
             f"in {drives_dir}"
         )
 
+    containers = resolve_container_mode(containers_mode, adapter)
+    if containers and adapter.environment_build:
+        built = subprocess.run(
+            ["/bin/sh", "-c", adapter.environment_build],
+            cwd=adapter.root, capture_output=True, text=True,
+        )
+        if built.returncode != 0:
+            raise DriveError(
+                "environment build failed: "
+                + (built.stdout + built.stderr).strip()[-800:]
+            )
+
     saved_env = {
         key: os.environ.get(key) for key in ("EVIDENCE_MODE", "EVIDENCE_DIR")
     }
@@ -366,7 +524,9 @@ def drive(
             name = path.name[: -len(DRIVE_SUFFIX)]
             try:
                 script = load_drive(path)
-                report.results.append(drive_scenario(adapter, script))
+                report.results.append(
+                    drive_scenario(adapter, script, containers=containers)
+                )
             except DriveError as exc:
                 # a scenario that cannot even boot is a failed scenario,
                 # not a failed drive — later scenarios still run, and the
