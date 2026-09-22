@@ -6,6 +6,16 @@ project follows [semantic versioning](https://semver.org/) (pre-1.0: minor
 releases may break API, patch releases never do). The manifest schema is
 versioned independently of the package — see `ROADMAP.md`.
 
+## [Unreleased]
+
+### Fixed
+
+- Scenario-scoped runs verify against a scenario-scoped contract:
+  `darkroom drive --scenario X` and the loop's assessor no longer fail
+  verification for scenarios the run deliberately did not attempt —
+  previously making per-scenario `darkroom auto` convergence impossible
+  under a multi-scenario contract. Found by the first tenant dry run (#32)
+
 ## [0.9.0] - 2026-09-21
 
 ### Added

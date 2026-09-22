@@ -501,9 +501,11 @@ def _cmd_drive(args) -> int:
         if adapter.contract_path is not None:
             contract_file = adapter.resolve(adapter.contract_path)
             if contract_file.exists():
-                from darkroom.contract import load_contract
+                from darkroom.contract import load_contract, scoped_contract
 
-                contract = load_contract(contract_file)
+                contract = scoped_contract(
+                    load_contract(contract_file), args.scenario
+                )
         result = verify([manifest_path], contract)
         verify_ok = result.ok
         checked = "structure only" if contract is None else "contract"
