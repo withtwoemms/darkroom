@@ -202,7 +202,11 @@ def test_agent_mode_convergence(tmp_path, capsys, monkeypatch):
     loop_dir = (
         tmp_path / "darkroom-home" / "projects" / "mini" / "state" / "loop"
     )
-    records = read_usage(loop_dir)
+    # one invocation, one work subdirectory; nothing in the flat layout
+    invocations = [p for p in loop_dir.iterdir() if p.is_dir()]
+    assert len(invocations) == 1
+    assert read_usage(loop_dir) == []
+    records = read_usage(invocations[0])
     judges = [r for r in records if r.role == "judge"]
     builders = [r for r in records if r.role == "builder"]
     assert len(judges) == 2 and len(builders) == 1

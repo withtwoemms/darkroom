@@ -36,7 +36,7 @@ from darkroom.loop import Assessment, Escalation, JudgeReport, LoopContext, Loop
 
 def _work_dir(ctx: LoopContext) -> Path:
     if ctx.state_dir is not None:
-        path = ctx.state_dir / "loop"
+        path = ctx.state_dir / "loop" / ctx.invocation
     else:
         path = Path(tempfile.mkdtemp(prefix="darkroom-loop-"))
     path.mkdir(parents=True, exist_ok=True)

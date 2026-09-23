@@ -59,11 +59,21 @@ class Escalation:
         )
 
 
+def _invocation_stamp() -> str:
+    import uuid
+
+    return f"{datetime.now().strftime('%Y%m%dT%H%M%S')}-{uuid.uuid4().hex[:4]}"
+
+
 @dataclass
 class LoopContext:
     adapter: ProjectAdapter
     scenario: str | None = None
     state_dir: Path | None = None
+    # each loop invocation gets its own work subdirectory under
+    # state/loop/, so evaluations, feedback, and usage from earlier
+    # invocations survive as history instead of being overwritten
+    invocation: str = field(default_factory=_invocation_stamp)
 
 
 @dataclass
