@@ -1,0 +1,28 @@
+scenario = "notes_page"
+
+[[step]]
+name = "open_notes_page"
+kind = "goto"
+url = "{base_url}/"
+expect = { status = 200, title_contains = "Relay Notes", selector_visible = "#note-form" }
+
+[[step]]
+name = "empty_state"
+kind = "screenshot"
+full_page = true
+
+[[step]]
+name = "type_note"
+kind = "fill"
+fields = { "#note-text" = "fix the enlarger" }
+
+[[step]]
+name = "save_note"
+kind = "click"
+selector = "#save"
+expect = { body_contains = "fix the enlarger", selector_visible = "#notes li" }
+
+[[step]]
+name = "saved_state"
+kind = "screenshot"
+full_page = true

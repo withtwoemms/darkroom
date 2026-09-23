@@ -1,0 +1,15 @@
+feature_id = "notes-page"
+version = "1"
+scenario = "notes_page"
+
+[[criterion]]
+id = "page_renders_form"
+points = 10
+description = "the page loads with the Relay Notes title and a visible note form"
+evidence = ["log", "screenshot"]
+
+[[criterion]]
+id = "saved_note_visible"
+points = 10
+description = "after typing a note and clicking Save, the note text appears in the rendered list — shown in the final screenshot"
+evidence = ["log", "screenshot"]
