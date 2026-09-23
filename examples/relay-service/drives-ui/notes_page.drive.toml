@@ -1,4 +1,5 @@
 scenario = "notes_page"
+record = true  # screencast of the whole scenario, captured as video evidence
 
 [[step]]
 name = "open_notes_page"
