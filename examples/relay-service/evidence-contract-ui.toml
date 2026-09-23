@@ -14,3 +14,6 @@ name = "notes_page"
   kind = "screenshot"
   min_count = 2
   steps = ["empty_state", "saved_state"]
+
+  [[scenario.requires]]
+  kind = "video"

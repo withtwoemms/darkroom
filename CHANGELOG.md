@@ -6,6 +6,19 @@ project follows [semantic versioning](https://semver.org/) (pre-1.0: minor
 releases may break API, patch releases never do). The manifest schema is
 versioned independently of the package — see `ROADMAP.md`.
 
+## [Unreleased]
+
+### Added
+
+- Screencast recording for browser scenarios: `record = true` in a
+  drive script records the whole scenario through Playwright's
+  context recorder and registers the webm as one `video` evidence
+  item (step `screencast`) at teardown — continuity evidence of the
+  manipulation itself, opt-in because video fattens evidence dirs.
+  Drive-script spec 1.1 → 1.2 (additive). The example UI slice now
+  records, its contract requires the video, and CI uploads the
+  example screencast as an actions artifact on every run (#51)
+
 ## [0.12.0] - 2026-09-22
 
 ### Added

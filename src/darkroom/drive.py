@@ -248,9 +248,13 @@ BROWSER_STEP_KINDS = ("goto", "click", "fill", "screenshot")
 
 
 class _BrowserSession:
-    """One live browser per scenario — the visual counterpart of _Server."""
+    """One live browser per scenario — the visual counterpart of _Server.
 
-    def __init__(self, timeout_ms: float = 10_000):
+    With ``record_dir`` set, the context records a screencast; ``stop``
+    then returns the finalized video path for evidence registration.
+    """
+
+    def __init__(self, record_dir: Path | None = None, timeout_ms: float = 10_000):
         try:
             from playwright.sync_api import sync_playwright
         except ImportError:
@@ -268,15 +272,31 @@ class _BrowserSession:
                 f"could not launch chromium ({str(exc).splitlines()[0]}); "
                 "run: playwright install chromium"
             ) from None
-        self.page = self.browser.new_page()
+        options = {"record_video_dir": str(record_dir)} if record_dir else {}
+        self.context = self.browser.new_context(**options)
+        self.page = self.context.new_page()
         self.page.set_default_timeout(timeout_ms)
 
-    def stop(self) -> None:
+    def stop(self) -> Path | None:
+        """Tear down; returns the screencast path when recording."""
+        video = None
+        try:
+            video = self.page.video
+        except Exception:
+            pass
+        path: Path | None = None
+        try:
+            self.context.close()  # finalizes any recording
+            if video is not None:
+                path = Path(video.path())
+        except Exception:
+            path = None
         for closing in (self.browser.close, self._playwright.stop):
             try:
                 closing()
             except Exception:
                 pass
+        return path
 
 
 def _check_browser_expect(expect: dict, page, status: int | None) -> str | None:
@@ -544,6 +564,7 @@ def drive_scenario(
     server = None
     environment = None
     browser = None
+    capture = None
     ctx = Context()
     try:
         if needs_server:
@@ -557,7 +578,12 @@ def drive_scenario(
                 _wait_healthy(server.base_url)
 
         if needs_browser:
-            browser = _BrowserSession()
+            record_dir = None
+            if script.get("record"):
+                import tempfile
+
+                record_dir = Path(tempfile.mkdtemp(prefix="darkroom-screencast-"))
+            browser = _BrowserSession(record_dir=record_dir)
 
         capture = EvidenceCapture(scenario)
         if environment is not None:
@@ -594,7 +620,13 @@ def drive_scenario(
                 break
     finally:
         if browser is not None:
-            browser.stop()
+            screencast = browser.stop()
+            if (
+                screencast is not None
+                and screencast.exists()
+                and capture is not None
+            ):
+                capture.video("screencast", screencast)
         if server is not None:
             server.stop()
         if environment is not None:

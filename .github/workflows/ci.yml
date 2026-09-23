@@ -66,3 +66,15 @@ jobs:
       - name: Browser drive tests against real chromium
         run: |
           UV_PROJECT_ENVIRONMENT=.darkroom-3.12 uv run --python 3.12 -m pytest tests/integration/test_browser_drive.py -q
+      - name: Record the example screencast
+        run: |
+          cp -r examples/relay-service /tmp/relay-service
+          cd /tmp/relay-service
+          UV_PROJECT_ENVIRONMENT=$GITHUB_WORKSPACE/.darkroom-3.12 uv run --python 3.12 --project $GITHUB_WORKSPACE \
+            darkroom drive --drives drives-ui --scenario notes_page
+      - name: Upload the example screencast
+        uses: actions/upload-artifact@v4
+        with:
+          name: example-screencast
+          path: /tmp/relay-service/evidence/runs/*/notes_page/*.webm
+          if-no-files-found: error

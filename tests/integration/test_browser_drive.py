@@ -148,6 +148,46 @@ class TestBrowserDrive:
         shot = items[-1]
         assert (manifest_path.parent / shot.path).stat().st_size > 0
 
+    def test_record_captures_screencast(self, tenant, monkeypatch):
+        adapter, drives = tenant
+        monkeypatch.delenv("EVIDENCE_MODE", raising=False)
+        monkeypatch.delenv("EVIDENCE_DIR", raising=False)
+        (drives / "recorded.drive.toml").write_text(textwrap.dedent("""
+            scenario = "recorded"
+            record = true
+
+            [[step]]
+            name = "open"
+            kind = "goto"
+            url = "{base_url}/"
+            expect = { status = 200 }
+
+            [[step]]
+            name = "type_and_save"
+            kind = "fill"
+            fields = { "#note-text" = "on camera" }
+
+            [[step]]
+            name = "save"
+            kind = "click"
+            selector = "#save"
+            expect = { body_contains = "on camera" }
+        """))
+        report = drive(adapter, drives, containers_mode="off")
+        assert report.ok, [
+            (s.name, s.detail) for r in report.results for s in r.steps if not s.ok
+        ]
+        manifest_path = next(
+            adapter.resolve(adapter.evidence_dir).glob("runs/*/manifest.json")
+        )
+        manifest = load_manifest(manifest_path)
+        videos = [
+            i for i in manifest.scenarios[0].items if i.kind == "video"
+        ]
+        assert len(videos) == 1
+        assert videos[0].step == "screencast"
+        assert (manifest_path.parent / videos[0].path).stat().st_size > 0
+
     def test_shipped_ui_example_runs_green(self, tmp_path, capsys, monkeypatch):
         project = tmp_path / "relay-service"
         shutil.copytree(EXAMPLE, project)

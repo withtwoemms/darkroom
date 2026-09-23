@@ -1,6 +1,6 @@
 # Drive Scripts
 
-**Format:** TOML · **Schema version:** 1.1 · **File:** one script per
+**Format:** TOML · **Schema version:** 1.2 · **File:** one script per
 scenario, named `<anything>.drive.toml`, conventionally in the
 operator home's `drives/` directory.
 
@@ -29,6 +29,7 @@ reveal criteria or scoring is misauthored.
 |-------|------|----------|---------|
 | `scenario` | string | yes | the scenario this script exercises |
 | `[serve]` | table | no | variables substituted into the adapter's serve command / container env |
+| `record` *(1.2)* | boolean (default false) | no | browser scenarios only: record a screencast of the whole scenario, registered as one `video` evidence item (step `screencast`) at teardown |
 | `[[step]]` | array of tables | yes | the steps, executed in order |
 
 Every step carries:
@@ -190,8 +191,9 @@ An `expect` table may check:
 
 `1.0` named the document shape, the six original step kinds,
 interpolation forms, and expectation keys; `1.1` added the four
-browser step kinds and three browser expectation keys — additive, per
-the shared policy, so every `1.0` script remains valid. New step
+browser step kinds and three browser expectation keys; `1.2` added
+the `record` flag — each additive, per the shared policy, so every
+earlier script remains valid. New step
 kinds, fields, or expectation keys arrive as minor bumps; consumers
 (engines) MUST refuse unknown step kinds loudly rather than skip
 them — a silently skipped step would make an exam pass vacuously.
