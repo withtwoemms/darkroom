@@ -31,6 +31,20 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         parts = self.path.strip("/").split("/")
+        if self.path == "/notes/form":
+            from urllib.parse import parse_qs
+
+            length = int(self.headers.get("Content-Length", 0))
+            data = parse_qs(self.rfile.read(length).decode())
+            for text in data.get("text", []):
+                note_id = uuid.uuid4().hex[:8]
+                NOTES[note_id] = {
+                    "id": note_id,
+                    "text": text,
+                    "token": uuid.uuid4().hex,
+                    "archived": False,
+                }
+            return self._page()
         if self.path == "/notes":
             note_id = uuid.uuid4().hex[:8]
             NOTES[note_id] = {
@@ -48,7 +62,28 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(200, note)
         self._json(404, {"error": "unknown route"})
 
+    def _page(self):
+        import html
+
+        items = "".join(
+            f"<li>{html.escape(n['text'])}</li>" for n in NOTES.values()
+        )
+        body = (
+            "<!doctype html><title>Relay Notes</title><h1>Relay Notes</h1>"
+            '<form id="note-form" method="post" action="/notes/form">'
+            '<input type="text" name="text" id="note-text">'
+            '<button type="submit" id="save">Save</button></form>'
+            f'<ul id="notes">{items}</ul>'
+        ).encode()
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
     def do_GET(self):
+        if self.path == "/":
+            return self._page()
         note = NOTES.get(self.path.strip("/").split("/")[-1])
         if note is None:
             return self._json(404, {"error": "no such note"})

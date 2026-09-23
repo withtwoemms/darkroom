@@ -19,6 +19,12 @@ versioned independently of the package — see `ROADMAP.md`.
   live page; a browser failure is a judgeable step failure, never a
   crashed drive. CI runs the browser tests against real chromium.
   The exam engine reaches visual tenants (#47)
+- Drive-script spec 1.0 → 1.1 (`docs/spec/drive-scripts.md`): the four
+  browser step kinds and three browser expectation keys, additive per
+  the shared versioning policy — the policy's first exercise. The
+  example tenant grows a UI slice: a rendered notes page, a
+  `notes_page` scenario (feature + rubric + browser drive script +
+  its own contract), run against real chromium in CI (#48)
 
 ## [0.11.0] - 2026-09-22
 

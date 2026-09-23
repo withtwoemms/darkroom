@@ -1,0 +1,16 @@
+schema_version = "1.0"
+project = "relay-service"
+
+# the UI slice's contract — kept separate from evidence-contract.toml so
+# the HTTP slate stays runnable without a browser installed
+
+[[scenario]]
+name = "notes_page"
+
+  [[scenario.requires]]
+  kind = "log"
+
+  [[scenario.requires]]
+  kind = "screenshot"
+  min_count = 2
+  steps = ["empty_state", "saved_state"]

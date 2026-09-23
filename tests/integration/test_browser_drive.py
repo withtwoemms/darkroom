@@ -7,15 +7,20 @@ the existing producer, and a failing selector expectation stopping
 the scenario while keeping its evidence.
 """
 
+import shutil
 import textwrap
+from pathlib import Path
 
 import pytest
 
 pytest.importorskip("playwright")
 
 from darkroom.adapter import loads_adapter  # noqa: E402
+from darkroom.cli import main  # noqa: E402
 from darkroom.drive import drive  # noqa: E402
 from darkroom.manifest import load_manifest  # noqa: E402
+
+EXAMPLE = Path(__file__).parent.parent.parent / "examples" / "relay-service"
 
 
 def _chromium_available() -> bool:
@@ -142,6 +147,30 @@ class TestBrowserDrive:
         assert kinds == ["log", "log", "log", "screenshot"]
         shot = items[-1]
         assert (manifest_path.parent / shot.path).stat().st_size > 0
+
+    def test_shipped_ui_example_runs_green(self, tmp_path, capsys, monkeypatch):
+        project = tmp_path / "relay-service"
+        shutil.copytree(EXAMPLE, project)
+        monkeypatch.chdir(project)
+        monkeypatch.delenv("EVIDENCE_MODE", raising=False)
+        monkeypatch.delenv("EVIDENCE_DIR", raising=False)
+
+        code = main(
+            ["drive", "--drives", "drives-ui", "--scenario", "notes_page"]
+        )
+        out = capsys.readouterr().out
+        assert code == 0, out
+        assert "notes_page:" in out
+
+        manifest = next(project.glob("evidence/runs/*/manifest.json"))
+        assert main(
+            ["verify", str(manifest),
+             "--contract", str(project / "evidence-contract-ui.toml")]
+        ) == 0
+        items = load_manifest(manifest).scenarios[0].items
+        assert [i.step for i in items if i.kind == "screenshot"] == [
+            "empty_state", "saved_state",
+        ]
 
     def test_failing_expectation_stops_scenario_keeps_evidence(
         self, tenant, monkeypatch

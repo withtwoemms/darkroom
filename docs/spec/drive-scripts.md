@@ -1,6 +1,6 @@
 # Drive Scripts
 
-**Format:** TOML · **Schema version:** 1.0 · **File:** one script per
+**Format:** TOML · **Schema version:** 1.1 · **File:** one script per
 scenario, named `<anything>.drive.toml`, conventionally in the
 operator home's `drives/` directory.
 
@@ -99,6 +99,45 @@ environment; captured as `log` evidence.
 | `action` | string | `stop`, `start`, `pause`, or `unpause` |
 | `service` | string | a declared service name, or `app` |
 
+### Browser steps *(since 1.1)*
+
+`goto`, `click`, `fill`, and `screenshot` drive a real browser
+(engines need the Playwright extra and an installed chromium). A
+scenario containing any browser step gets **one fresh browser
+session** for its duration, booted alongside the served system —
+the visual counterpart of the fresh-environment rule. Actions are
+captured as `log` evidence; screenshots as `screenshot` evidence via
+the ordinary producer, so browser steps introduce **no new evidence
+kind**.
+
+`goto`:
+
+| Field | Type | Meaning |
+|-------|------|---------|
+| `url` | string (interpolated) | page to navigate to |
+
+`click`:
+
+| Field | Type | Meaning |
+|-------|------|---------|
+| `selector` | string (interpolated) | element to click |
+
+`fill`:
+
+| Field | Type | Meaning |
+|-------|------|---------|
+| `fields` | table selector → value (both interpolated) | form fields to fill, in order |
+
+`screenshot`:
+
+| Field | Type | Meaning |
+|-------|------|---------|
+| `full_page` | boolean (default false) | capture the full page rather than the viewport |
+
+A browser-level failure (timeout, missing selector, navigation
+error) is an ordinary step failure — the scenario stops, its
+evidence is kept.
+
 ## Interpolation
 
 String values marked *interpolated* substitute, at execution time:
@@ -120,10 +159,13 @@ An `expect` table may check:
 
 | Key | Applies to | Meaning |
 |-----|-----------|---------|
-| `status` | http | exact response status |
+| `status` | http, goto | exact response status |
 | `status_in` | http | status is one of the listed values |
 | `exit_code` | command | exact exit code |
-| `body_contains` | http, command | substring of the response body (or stdout) |
+| `body_contains` | http, command, browser steps | substring of the response body, stdout, or live page content |
+| `title_contains` *(1.1)* | browser steps | substring of the page title |
+| `url_contains` *(1.1)* | browser steps | substring of the current page URL |
+| `selector_visible` *(1.1)* | browser steps | the selector resolves to a visible element |
 
 ## Execution semantics
 
@@ -146,11 +188,13 @@ An `expect` table may check:
 
 ## Versioning
 
-`1.0` names the document shape, step vocabulary, interpolation forms,
-and expectation keys above. New step kinds, fields, or expectation
-keys arrive as minor bumps; consumers (engines) MUST refuse unknown
-step kinds loudly rather than skip them — a silently skipped step
-would make an exam pass vacuously.
+`1.0` named the document shape, the six original step kinds,
+interpolation forms, and expectation keys; `1.1` added the four
+browser step kinds and three browser expectation keys — additive, per
+the shared policy, so every `1.0` script remains valid. New step
+kinds, fields, or expectation keys arrive as minor bumps; consumers
+(engines) MUST refuse unknown step kinds loudly rather than skip
+them — a silently skipped step would make an exam pass vacuously.
 
 ## Example
 
