@@ -51,3 +51,18 @@ jobs:
         run: |
           make install
           UV_PROJECT_ENVIRONMENT=.darkroom-3.12 uv run --python 3.12 -m pytest tests/integration/test_openbao.py -q
+
+  browsers:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@v5
+      - name: Install chromium
+        run: |
+          make install
+          UV_PROJECT_ENVIRONMENT=.darkroom-3.12 uv run --python 3.12 playwright install --with-deps chromium
+      - name: Browser drive tests against real chromium
+        run: |
+          UV_PROJECT_ENVIRONMENT=.darkroom-3.12 uv run --python 3.12 -m pytest tests/integration/test_browser_drive.py -q

@@ -6,6 +6,20 @@ project follows [semantic versioning](https://semver.org/) (pre-1.0: minor
 releases may break API, patch releases never do). The manifest schema is
 versioned independently of the package — see `ROADMAP.md`.
 
+## [Unreleased]
+
+### Added
+
+- Browser steps in the drive vocabulary (`goto`, `click`, `fill`,
+  `screenshot` — the `playwright` extra plus an installed chromium):
+  one fresh browser session per scenario alongside the served app;
+  actions captured as log evidence, screenshots through the existing
+  producer (no new evidence kind); `expect` gains `title_contains`,
+  `url_contains`, `body_contains`, and `selector_visible` over the
+  live page; a browser failure is a judgeable step failure, never a
+  crashed drive. CI runs the browser tests against real chromium.
+  The exam engine reaches visual tenants (#47)
+
 ## [0.11.0] - 2026-09-22
 
 ### Added
