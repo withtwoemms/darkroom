@@ -6,6 +6,8 @@ Evidence capture and manifest management for autonomous software delivery.
 
 The name references the *dark factory* pattern -- lights-off autonomous production -- and the *clean room* pattern -- independent implementation from specification. A darkroom is a controlled, light-sealed environment where evidence is developed and evaluated without contamination from the implementation side.
 
+**New here? Start with the [Quickstart](docs/quickstart.md)** — four stages, ~15 minutes: first evidence, the exam, the convergence loop with zero spend, then real agents. Its runnable stages are executed by CI, so it cannot rot.
+
 ## Install
 
 ```bash

@@ -25,6 +25,11 @@ versioned independently of the package — see `ROADMAP.md`.
   example tenant grows a UI slice: a rendered notes page, a
   `notes_page` scenario (feature + rubric + browser drive script +
   its own contract), run against real chromium in CI (#48)
+- `docs/quickstart.md`: the marked trail — four stages in ~15 minutes
+  (first evidence, the exam, the convergence loop with shell hooks
+  and zero spend, then real agents), each stage copy-paste runnable;
+  stages 1–3 are executed verbatim by a CI integration test so the
+  guide cannot silently rot. README links it up top (#49)
 
 ## [0.11.0] - 2026-09-22
 
