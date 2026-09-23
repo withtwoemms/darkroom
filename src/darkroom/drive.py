@@ -18,6 +18,16 @@ Step kinds:
     wait     sleep
     container  stop/start/pause/unpause a declared service (container
              mode only) — failure injection, captured as log evidence
+    goto     navigate a real browser page (requires the ``playwright``
+             extra + an installed browser); action captured as log
+             evidence, ``expect`` adds title_contains / body_contains /
+             url_contains / selector_visible over the live page
+    click    click a selector on the current page
+    fill     fill form fields ({selector = value} table)
+    screenshot  capture the current page via the screenshot producer
+
+A scenario containing browser steps gets one browser session (fresh
+per scenario, like the server): pages navigate against ``{base_url}``.
 
 Interpolation: ``{name}`` from saved values, ``{base_url}``,
 ``{keys.<n>.public}``, and the call form ``{sign(keys.<n>, <var>)}``.
@@ -232,6 +242,114 @@ def _run_assert_step(step: dict, ctx: Context, capture: EvidenceCapture) -> str 
     return None if ok else f"assertion failed: {resolved}"
 
 
+# --- browser steps --------------------------------------------------------
+
+BROWSER_STEP_KINDS = ("goto", "click", "fill", "screenshot")
+
+
+class _BrowserSession:
+    """One live browser per scenario — the visual counterpart of _Server."""
+
+    def __init__(self, timeout_ms: float = 10_000):
+        try:
+            from playwright.sync_api import sync_playwright
+        except ImportError:
+            raise DriveError(
+                "browser steps need the playwright extra: "
+                "pip install 'darkroom-ai[playwright]' "
+                "(then: playwright install chromium)"
+            ) from None
+        self._playwright = sync_playwright().start()
+        try:
+            self.browser = self._playwright.chromium.launch(headless=True)
+        except Exception as exc:
+            self._playwright.stop()
+            raise DriveError(
+                f"could not launch chromium ({str(exc).splitlines()[0]}); "
+                "run: playwright install chromium"
+            ) from None
+        self.page = self.browser.new_page()
+        self.page.set_default_timeout(timeout_ms)
+
+    def stop(self) -> None:
+        for closing in (self.browser.close, self._playwright.stop):
+            try:
+                closing()
+            except Exception:
+                pass
+
+
+def _check_browser_expect(expect: dict, page, status: int | None) -> str | None:
+    if "status" in expect and status != expect["status"]:
+        return f"expected status {expect['status']}, got {status}"
+    if "title_contains" in expect:
+        title = page.title()
+        if expect["title_contains"] not in title:
+            return f"title '{title}' does not contain '{expect['title_contains']}'"
+    if "url_contains" in expect and expect["url_contains"] not in page.url:
+        return f"url '{page.url}' does not contain '{expect['url_contains']}'"
+    if "body_contains" in expect:
+        if expect["body_contains"] not in page.content():
+            return f"page body does not contain '{expect['body_contains']}'"
+    if "selector_visible" in expect:
+        selector = expect["selector_visible"]
+        if not page.locator(selector).first.is_visible():
+            return f"selector '{selector}' is not visible"
+    return None
+
+
+def _run_browser_step(
+    step: dict, kind: str, ctx: Context, capture: EvidenceCapture, session
+) -> str | None:
+    if session is None:
+        raise DriveError(f"browser step '{step.get('name')}' has no browser session")
+    page = session.page
+    status: int | None = None
+    try:
+        if kind == "goto":
+            url = ctx.interpolate(step["url"])
+            response = page.goto(url)
+            status = response.status if response is not None else None
+            capture.log(
+                step.get("name", "goto"),
+                {"action": "goto", "url": url, "status": status},
+            )
+        elif kind == "click":
+            selector = ctx.interpolate(step["selector"])
+            page.click(selector)
+            capture.log(
+                step.get("name", "click"),
+                {"action": "click", "selector": selector},
+            )
+        elif kind == "fill":
+            fields = {
+                ctx.interpolate(sel): ctx.interpolate(str(value))
+                for sel, value in step.get("fields", {}).items()
+            }
+            if not fields:
+                raise DriveError(
+                    f"fill step '{step.get('name')}' needs a fields table"
+                )
+            for selector, value in fields.items():
+                page.fill(selector, value)
+            capture.log(
+                step.get("name", "fill"),
+                {"action": "fill", "fields": fields},
+            )
+        elif kind == "screenshot":
+            capture.screenshot(
+                page,
+                step.get("name", "screenshot"),
+                full_page=bool(step.get("full_page", False)),
+            )
+        expect = ctx.interpolate_json(step.get("expect", {}))
+        return _check_browser_expect(expect, page, status)
+    except DriveError:
+        raise
+    except Exception as exc:  # a browser failure is a step failure, judgeable
+        return f"{kind} failed: {str(exc).splitlines()[0]}"
+
+
 # --- server lifecycle -----------------------------------------------------
 
 def _free_port() -> int:
@@ -417,11 +535,15 @@ def drive_scenario(
     scenario = script["scenario"]
     result = ScenarioResult(scenario=scenario)
     steps = script.get("step", [])
-    needs_server = any(s.get("kind") == "http" for s in steps) or (
-        containers and any(s.get("kind") == "container" for s in steps)
+    needs_browser = any(s.get("kind") in BROWSER_STEP_KINDS for s in steps)
+    needs_server = (
+        any(s.get("kind") == "http" for s in steps)
+        or needs_browser
+        or (containers and any(s.get("kind") == "container" for s in steps))
     )
     server = None
     environment = None
+    browser = None
     ctx = Context()
     try:
         if needs_server:
@@ -433,6 +555,9 @@ def drive_scenario(
                 server = _Server(adapter, script.get("serve", {}))
                 ctx.values["base_url"] = server.base_url
                 _wait_healthy(server.base_url)
+
+        if needs_browser:
+            browser = _BrowserSession()
 
         capture = EvidenceCapture(scenario)
         if environment is not None:
@@ -452,6 +577,8 @@ def drive_scenario(
                     failure = _run_assert_step(step, ctx, capture)
                 elif kind == "container":
                     failure = _run_container_step(step, environment, capture)
+                elif kind in BROWSER_STEP_KINDS:
+                    failure = _run_browser_step(step, kind, ctx, capture, browser)
                 elif kind == "wait":
                     time.sleep(float(step.get("seconds", 1)))
                     failure = None
@@ -466,6 +593,8 @@ def drive_scenario(
             if failure is not None:
                 break
     finally:
+        if browser is not None:
+            browser.stop()
         if server is not None:
             server.stop()
         if environment is not None:
