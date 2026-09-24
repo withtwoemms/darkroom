@@ -19,6 +19,17 @@ versioned independently of the package — see `ROADMAP.md`.
   writing time — becomes an authoring-time error; a rubric with no
   drive script is a warning. Exits nonzero on errors, for operator
   pre-campaign hygiene (#58)
+- The blocker protocol: a builder that concludes the exam itself is
+  defective raises `HARNESS-BLOCKER.md` at the project root — the
+  loop detects it in the iteration's changed files, records it
+  (`IterationRecord.blocker_raised`, a builder-log line, a console
+  marker), and by default **pauses model escalation while it
+  stands** (`[loop] pause_escalation_on_blocker`), since frontier
+  spend cannot fix an operator-side defect. The builder template
+  names the channel; role-hooks spec 1.0 → 1.1 specifies it; the
+  dossier (schema 1.1) carries a `blocker` field per iteration.
+  Field precedent: builders invented this channel unprompted, and
+  were right each time (#59)
 
 ## [0.14.1] - 2026-09-24
 

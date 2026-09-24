@@ -17,8 +17,8 @@ package.
 | gates.md | regression gates (JSON) | 1.0 |
 | tickets.md | tickets (Markdown + frontmatter) | 1.0 |
 | drive-scripts.md | drive scripts (TOML) | 1.3 |
-| role-hooks.md | judge/builder hook contract | 1.0 |
-| dossier.md | cross-run dossier bundle (JSON) | 1.0 |
+| role-hooks.md | judge/builder hook contract | 1.1 |
+| dossier.md | cross-run dossier bundle (JSON) | 1.1 |
 
 ## Conformance language
 

@@ -1,7 +1,7 @@
 # The Role Hook Contract
 
 **Format:** command templates + file contract · **Schema version:**
-1.0 · **Where:** operator config (judge/builder command templates).
+1.1 · **Where:** operator config (judge/builder command templates).
 
 ## Purpose
 
@@ -69,6 +69,20 @@ feedback without the judge's material leaking:
 | `harness.log`, beside the manifest | **builder-visible** | step names and failure details — spec-level information only (the sanitized scenarios already state them); criteria and scores never appear |
 | harness notes, embedded in the judge's inputs and surfaced in the evaluation's `notes` | judge/operator | the same diagnostics in the judge's context, so an exam defect (missing evidence, boot failure) is attributed to the exam, not the application |
 
+## The blocker channel *(1.1)*
+
+A builder that concludes the exam itself is defective — no
+tenant-side change can pass it — may raise a **blocker**: a file
+named `HARNESS-BLOCKER.md` at the project root stating precisely
+why, citing what was reproduced. The loop detects it in the
+iteration's changed files, records it on the iteration, surfaces it
+to the operator, and (by default policy) **pauses model escalation
+while it stands** — frontier spend cannot fix an operator-side
+defect. Blocker content is builder-authored and spec-level: it may
+cite steps, transcripts, and diagnostics, never rubric text or
+scores (it has no access to them). Field precedent: builders
+invented this channel unprompted, and were right each time.
+
 ## Execution semantics
 
 - Hooks run via `sh -c` in the project root, non-interactively, under
@@ -80,8 +94,8 @@ feedback without the judge's material leaking:
 
 ## Versioning
 
-`1.0` names the placeholder sets and the rules above. New
-placeholders arrive as minor bumps; a template using only `1.0`
+`1.0` named the placeholder sets and the rules above; `1.1` added
+the blocker channel. New placeholders arrive as minor bumps; a template using only `1.0`
 placeholders remains valid. Unknown placeholders in a template are a
 configuration error, not a formatting no-op.
 
