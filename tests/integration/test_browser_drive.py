@@ -212,6 +212,105 @@ class TestBrowserDrive:
             "empty_state", "saved_state",
         ]
 
+    def test_viewport_and_webauthn_session_options(self, tmp_path, monkeypatch):
+        monkeypatch.delenv("EVIDENCE_MODE", raising=False)
+        monkeypatch.delenv("EVIDENCE_DIR", raising=False)
+        root = tmp_path / "tenant"
+        root.mkdir()
+        (root / "app.py").write_text(textwrap.dedent("""
+            import sys
+            from http.server import BaseHTTPRequestHandler, HTTPServer
+
+            PAGE = '''<!doctype html>
+            <title>Passkey Bench</title>
+            <div id="width"></div>
+            <button id="enroll">enroll</button>
+            <button id="assert">assert</button>
+            <div id="out"></div>
+            <script>
+            document.getElementById("width").textContent = "w=" + window.innerWidth;
+            let credId = null;
+            const doEnroll = async () => {
+              const cred = await navigator.credentials.create({publicKey: {
+                challenge: new Uint8Array(32), rp: {name: "bench"},
+                user: {id: new Uint8Array(16), name: "u", displayName: "u"},
+                pubKeyCredParams: [{type: "public-key", alg: -7}],
+                authenticatorSelection: {authenticatorAttachment: "platform",
+                                         userVerification: "required"}}});
+              credId = cred.rawId;
+              document.getElementById("out").textContent = "enrolled";
+            };
+            document.getElementById("enroll").onclick = async () => {
+              try { await doEnroll(); }
+              catch (e) { document.getElementById("out").textContent = "error:" + e; }
+            };
+            document.getElementById("assert").onclick = async () => {
+              await navigator.credentials.get({publicKey: {
+                challenge: new Uint8Array(32),
+                allowCredentials: [{type: "public-key", id: credId}],
+                userVerification: "required"}});
+              document.getElementById("out").textContent = "asserted";
+            };
+            </script>'''
+
+            class Handler(BaseHTTPRequestHandler):
+                def log_message(self, *a): pass
+                def do_GET(self):
+                    body = PAGE.encode()
+                    self.send_response(200)
+                    self.send_header("Content-Type", "text/html")
+                    self.send_header("Content-Length", str(len(body)))
+                    self.end_headers()
+                    self.wfile.write(body)
+
+            HTTPServer(("127.0.0.1", int(sys.argv[1])), Handler).serve_forever()
+        """))
+        import sys as _sys
+
+        adapter = loads_adapter(
+            textwrap.dedent(f"""
+            [project]
+            name = "passkey-bench"
+            [commands]
+            serve = "{_sys.executable} app.py {{port}}"
+            [evidence]
+            dir = "evidence"
+            """),
+            root=root,
+        )
+        drives = tmp_path / "drives"
+        drives.mkdir()
+        (drives / "passkey.drive.toml").write_text(textwrap.dedent("""
+            scenario = "passkey_flow"
+
+            [browser]
+            webauthn = true
+            viewport = { width = 390, height = 844 }
+
+            [[step]]
+            name = "open"
+            kind = "goto"
+            url = "{base_url}/"
+            expect = { status = 200, body_contains = "w=390" }
+
+            [[step]]
+            name = "enroll_passkey"
+            kind = "click"
+            selector = "#enroll"
+            expect = { selector_visible = "text=enrolled" }
+
+            [[step]]
+            name = "assert_passkey"
+            kind = "click"
+            selector = "#assert"
+            expect = { selector_visible = "text=asserted" }
+        """))
+        report = drive(adapter, drives, containers_mode="off")
+        failures = [
+            (s.name, s.detail) for r in report.results for s in r.steps if not s.ok
+        ]
+        assert report.ok, failures
+
     def test_failing_expectation_stops_scenario_keeps_evidence(
         self, tenant, monkeypatch
     ):

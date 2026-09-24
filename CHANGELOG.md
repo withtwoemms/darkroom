@@ -6,6 +6,25 @@ project follows [semantic versioning](https://semver.org/) (pre-1.0: minor
 releases may break API, patch releases never do). The manifest schema is
 versioned independently of the package — see `ROADMAP.md`.
 
+## [Unreleased]
+
+### Added
+
+- Browser-session options (`[browser]` in drive scripts, spec 1.3):
+  `viewport = { width, height }` for phone-width criteria, and
+  `webauthn = true` attaching a CDP virtual authenticator (platform,
+  user-verifying, presence auto-simulated) so passkey enrollment and
+  assertion run headlessly — with `{base_url}` addressing the server
+  as `localhost` in webauthn scenarios, since WebAuthn rejects IP
+  origins. Browser expectations now wait (bounded, ~5s) for
+  `body_contains`/`selector_visible`, so asynchronously-settling
+  pages are assertable (#53)
+- Literal-brace escapes in drive interpolation: `{{` and `}}`
+  resolve to `{` and `}` after substitution, so shell fragments like
+  curl's `%{http_code}` no longer collide with placeholders — found
+  the hard way by a tenant exam that exhausted a run on the
+  collision (#53)
+
 ## [0.13.0] - 2026-09-23
 
 ### Added
