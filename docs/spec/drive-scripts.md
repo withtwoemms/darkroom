@@ -1,6 +1,6 @@
 # Drive Scripts
 
-**Format:** TOML · **Schema version:** 1.2 · **File:** one script per
+**Format:** TOML · **Schema version:** 1.3 · **File:** one script per
 scenario, named `<anything>.drive.toml`, conventionally in the
 operator home's `drives/` directory.
 
@@ -30,6 +30,7 @@ reveal criteria or scoring is misauthored.
 | `scenario` | string | yes | the scenario this script exercises |
 | `[serve]` | table | no | variables substituted into the adapter's serve command / container env |
 | `record` *(1.2)* | boolean (default false) | no | browser scenarios only: record a screencast of the whole scenario, registered as one `video` evidence item (step `screencast`) at teardown |
+| `[browser]` *(1.3)* | table | no | browser-session options: `viewport = { width, height }` sizes the page (phone-width criteria); `webauthn = true` attaches a virtual authenticator (platform, user-verifying, presence auto-simulated) so passkey flows run headlessly — the scenario's `{base_url}` then addresses the server as `localhost`, since WebAuthn rejects IP origins |
 | `[[step]]` | array of tables | yes | the steps, executed in order |
 
 Every step carries:
@@ -150,7 +151,10 @@ String values marked *interpolated* substitute, at execution time:
 - `{sign(keys.<n>, <var>)}` — the base64 Ed25519 signature of
   variable `<var>`'s value under key `<n>`.
 
-An unknown placeholder is an error, not empty text. `expect` tables
+An unknown placeholder is an error, not empty text. *(1.3)* `{{`
+and `}}` are literal-brace escapes — shell fragments like curl's
+`%{http_code}` are written `%{{http_code}}` and resolve to literal
+braces after substitution. `expect` tables
 are interpolated like any other value, so expectations can reference
 saved values.
 
@@ -192,8 +196,10 @@ An `expect` table may check:
 `1.0` named the document shape, the six original step kinds,
 interpolation forms, and expectation keys; `1.1` added the four
 browser step kinds and three browser expectation keys; `1.2` added
-the `record` flag — each additive, per the shared policy, so every
-earlier script remains valid. New step
+the `record` flag; `1.3` added the `[browser]` session table
+(viewport, webauthn), literal-brace escapes, and bounded waiting
+(~5s) on browser expectations — each additive, per the shared
+policy, so every earlier script remains valid. New step
 kinds, fields, or expectation keys arrive as minor bumps; consumers
 (engines) MUST refuse unknown step kinds loudly rather than skip
 them — a silently skipped step would make an exam pass vacuously.

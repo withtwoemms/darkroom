@@ -102,6 +102,11 @@ class Context:
         self.private_keys: dict[str, object] = {}
 
     def interpolate(self, text: str) -> str:
+        # {{ and }} are literal-brace escapes, so shell fragments like
+        # curl's %{http_code} can be written %{{http_code}} — resolved
+        # after placeholder substitution
+        text = text.replace("{{", "\x00").replace("}}", "\x01")
+
         def _sign(match: re.Match) -> str:
             key_ref, var = match.group(1), match.group(2)
             private = self.private_keys.get(key_ref)
@@ -117,7 +122,8 @@ class Context:
         def _value(match: re.Match) -> str:
             return self.lookup(match.group(1))
 
-        return _PLACEHOLDER.sub(_value, text)
+        text = _PLACEHOLDER.sub(_value, text)
+        return text.replace("\x00", "{").replace("\x01", "}")
 
     def lookup(self, name: str) -> str:
         if name not in self.values:
@@ -252,9 +258,18 @@ class _BrowserSession:
 
     With ``record_dir`` set, the context records a screencast; ``stop``
     then returns the finalized video path for evidence registration.
+    ``viewport`` sizes the page (phone-width criteria); ``webauthn``
+    attaches a CDP virtual authenticator (platform, user-verifying,
+    presence auto-simulated) so passkey flows run headlessly.
     """
 
-    def __init__(self, record_dir: Path | None = None, timeout_ms: float = 10_000):
+    def __init__(
+        self,
+        record_dir: Path | None = None,
+        viewport: dict | None = None,
+        webauthn: bool = False,
+        timeout_ms: float = 10_000,
+    ):
         try:
             from playwright.sync_api import sync_playwright
         except ImportError:
@@ -272,10 +287,31 @@ class _BrowserSession:
                 f"could not launch chromium ({str(exc).splitlines()[0]}); "
                 "run: playwright install chromium"
             ) from None
-        options = {"record_video_dir": str(record_dir)} if record_dir else {}
+        options: dict = {"record_video_dir": str(record_dir)} if record_dir else {}
+        if viewport:
+            options["viewport"] = {
+                "width": int(viewport.get("width", 1280)),
+                "height": int(viewport.get("height", 720)),
+            }
         self.context = self.browser.new_context(**options)
         self.page = self.context.new_page()
         self.page.set_default_timeout(timeout_ms)
+        if webauthn:
+            cdp = self.context.new_cdp_session(self.page)
+            cdp.send("WebAuthn.enable")
+            cdp.send(
+                "WebAuthn.addVirtualAuthenticator",
+                {
+                    "options": {
+                        "protocol": "ctap2",
+                        "transport": "internal",
+                        "hasResidentKey": True,
+                        "hasUserVerification": True,
+                        "isUserVerified": True,
+                        "automaticPresenceSimulation": True,
+                    }
+                },
+            )
 
     def stop(self) -> Path | None:
         """Tear down; returns the screencast path when recording."""
@@ -299,7 +335,11 @@ class _BrowserSession:
         return path
 
 
+_EXPECT_WAIT_MS = 5_000
+
+
 def _check_browser_expect(expect: dict, page, status: int | None) -> str | None:
+    """Browser expectations wait (bounded) — pages settle asynchronously."""
     if "status" in expect and status != expect["status"]:
         return f"expected status {expect['status']}, got {status}"
     if "title_contains" in expect:
@@ -309,11 +349,19 @@ def _check_browser_expect(expect: dict, page, status: int | None) -> str | None:
     if "url_contains" in expect and expect["url_contains"] not in page.url:
         return f"url '{page.url}' does not contain '{expect['url_contains']}'"
     if "body_contains" in expect:
-        if expect["body_contains"] not in page.content():
-            return f"page body does not contain '{expect['body_contains']}'"
+        needle = expect["body_contains"]
+        deadline = time.monotonic() + _EXPECT_WAIT_MS / 1000
+        while needle not in page.content():
+            if time.monotonic() >= deadline:
+                return f"page body does not contain '{needle}'"
+            page.wait_for_timeout(200)
     if "selector_visible" in expect:
         selector = expect["selector_visible"]
-        if not page.locator(selector).first.is_visible():
+        try:
+            page.locator(selector).first.wait_for(
+                state="visible", timeout=_EXPECT_WAIT_MS
+            )
+        except Exception:
             return f"selector '{selector}' is not visible"
     return None
 
@@ -575,6 +623,11 @@ def drive_scenario(
             else:
                 server = _Server(adapter, script.get("serve", {}))
                 ctx.values["base_url"] = server.base_url
+                if script.get("browser", {}).get("webauthn"):
+                    # WebAuthn RP IDs must be valid domains — an IP
+                    # origin is rejected, so passkey scenarios address
+                    # the same server as localhost
+                    ctx.values["base_url"] = f"http://localhost:{server.port}"
                 _wait_healthy(server.base_url)
 
         if needs_browser:
@@ -583,7 +636,12 @@ def drive_scenario(
                 import tempfile
 
                 record_dir = Path(tempfile.mkdtemp(prefix="darkroom-screencast-"))
-            browser = _BrowserSession(record_dir=record_dir)
+            browser_options = script.get("browser", {})
+            browser = _BrowserSession(
+                record_dir=record_dir,
+                viewport=browser_options.get("viewport"),
+                webauthn=bool(browser_options.get("webauthn")),
+            )
 
         capture = EvidenceCapture(scenario)
         if environment is not None:
