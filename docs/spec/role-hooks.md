@@ -83,6 +83,15 @@ cite steps, transcripts, and diagnostics, never rubric text or
 scores (it has no access to them). Field precedent: builders
 invented this channel unprompted, and were right each time.
 
+The invariant that keeps this safe: **a builder-writable signal may
+only reduce resources spent on the builder** — a blocker never halts
+the loop, never alters scoring or stagnation accounting, never
+touches gates, and never changes any outcome. The loop runs to
+convergence or exhaustion regardless; the exhaust record, blocker
+flagged, is itself the operator's evidence. Extensions that would
+let a blocker terminate a run hand the builder a stop button and
+MUST NOT be implemented.
+
 ## Execution semantics
 
 - Hooks run via `sh -c` in the project root, non-interactively, under
