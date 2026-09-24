@@ -304,6 +304,45 @@ def _cmd_ticket(args) -> int:
         return 2
 
 
+def _cmd_audit(args) -> int:
+    from darkroom.adapter import load_adapter
+    from darkroom.audit import audit, has_errors
+    from darkroom.homedir import default_drives, find_operator_config
+    from darkroom.operator import build_vault, load_operator
+    from darkroom.vault import VaultError
+
+    adapter_path = _find_adapter_or_error(args.project)
+    if adapter_path is None:
+        return 2
+    adapter = load_adapter(adapter_path)
+
+    operator_path = args.operator or find_operator_config(adapter.name)
+    if operator_path is None:
+        print(
+            "error: no operator config found (the audit reads the vault; "
+            "pass --operator or create the project home)"
+        )
+        return 2
+    try:
+        operator = load_operator(operator_path)
+        vault = build_vault(operator, adapter.name)
+    except (OSError, ValueError, VaultError) as exc:
+        print(f"error: {exc}")
+        return 2
+
+    drives = Path(args.drives) if args.drives else default_drives(adapter.name)
+    findings = audit(vault, drives)
+    for f in findings:
+        print(f"{f.severity} [{f.scenario}]: {f.message}")
+    errors = sum(1 for f in findings if f.severity == "error")
+    warnings = len(findings) - errors
+    print(
+        f"audit: {errors} error(s), {warnings} warning(s) across the vault"
+        if findings else "audit: every criterion is witnessable by its drive"
+    )
+    return 1 if has_errors(findings) else 0
+
+
 def _cmd_dossier(args) -> int:
     from darkroom.adapter import load_adapter
     from darkroom.dossier import assemble_dossier, dumps_dossier_markdown
@@ -813,6 +852,16 @@ def main(argv=None) -> int:
     auto_parser.add_argument("--project", type=Path, default=None)
     auto_parser.add_argument("--state", type=Path, default=None)
     auto_parser.set_defaults(func=_cmd_auto)
+
+    audit_parser = sub.add_parser(
+        "audit",
+        help="witnessability lint: every rubric criterion's evidence kinds "
+             "must be producible by its scenario's drive script",
+    )
+    audit_parser.add_argument("--operator", type=Path, default=None)
+    audit_parser.add_argument("--drives", type=Path, default=None)
+    audit_parser.add_argument("--project", type=Path, default=None)
+    audit_parser.set_defaults(func=_cmd_audit)
 
     dossier_parser = sub.add_parser(
         "dossier",
