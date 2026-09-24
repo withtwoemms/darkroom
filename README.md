@@ -26,7 +26,7 @@ The name references the [*dark factory* pattern](https://withtwoemms.github.io/b
 light-sealed environment where evidence is developed and evaluated
 without contamination from the implementation side.
 
-**New here? Start with the [Quickstart](docs/quickstart.md)**: four
+**New here? Start with the [Quickstart](https://github.com/withtwoemms/darkroom/blob/main/docs/quickstart.md)**: four
 stages, ~15 minutes, covering first evidence, the exam, the convergence loop
 with zero spend, then real agents. Its runnable stages are executed
 by CI, so it cannot rot.
@@ -162,7 +162,7 @@ static contact sheet.
 Every artifact (manifest, contract, evaluation, gates, tickets,
 drive scripts, role hooks, dossier) is a written, versioned format
 with conformance rules and a trust-boundary map: see
-[docs/spec/](docs/spec/). Any harness in any language can emit a
+[docs/spec/](https://github.com/withtwoemms/darkroom/tree/main/docs/spec). Any harness in any language can emit a
 darkroom manifest; any judge infrastructure can consume one.
 
 ## Claude skills
@@ -181,14 +181,14 @@ cp -r skills/darkroom-interview ~/.claude/skills/   # or per-project .claude/ski
 
 ## Documentation
 
-- [Quickstart](docs/quickstart.md) -- first evidence to real agents in four stages
-- [docs/spec/](docs/spec/) -- the format specifications (the handoff contracts, frozen at 1.0)
-- [ROADMAP.md](ROADMAP.md) -- milestones from foundation through v1 and beyond
-- [CHANGELOG.md](CHANGELOG.md) -- the release-by-release record
+- [Quickstart](https://github.com/withtwoemms/darkroom/blob/main/docs/quickstart.md) -- first evidence to real agents in four stages
+- [docs/spec/](https://github.com/withtwoemms/darkroom/tree/main/docs/spec) -- the format specifications (the handoff contracts, frozen at 1.0)
+- [ROADMAP.md](https://github.com/withtwoemms/darkroom/blob/main/ROADMAP.md) -- milestones from foundation through v1 and beyond
+- [CHANGELOG.md](https://github.com/withtwoemms/darkroom/blob/main/CHANGELOG.md) -- the release-by-release record
 - [The Judge & Builder: implementing a dark factory](https://withtwoemms.github.io/blog/2026/03/a-dark-factory-pattern/) -- the pattern essay: why evaluation must be structurally separated from implementation
-- [docs/vision.md](docs/vision.md) -- design fiction: building a web app in the dark
-- [docs/rubric-lifecycle.md](docs/rubric-lifecycle.md) -- how a rubric is made, hardened, and revised
-- [docs/generalization-plan.md](docs/generalization-plan.md) -- how darkroom absorbed the Judge-Builder framework
+- [docs/vision.md](https://github.com/withtwoemms/darkroom/blob/main/docs/vision.md) -- design fiction: building a web app in the dark
+- [docs/rubric-lifecycle.md](https://github.com/withtwoemms/darkroom/blob/main/docs/rubric-lifecycle.md) -- how a rubric is made, hardened, and revised
+- [docs/generalization-plan.md](https://github.com/withtwoemms/darkroom/blob/main/docs/generalization-plan.md) -- how darkroom absorbed the Judge-Builder framework
 
 ## Development
 
