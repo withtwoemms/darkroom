@@ -242,8 +242,10 @@ call. Start with one scenario and a small `max_iterations`.
 ## Where to go next
 
 - **Browser steps** — drive real pages (`goto`/`click`/`fill`/
-  `screenshot`): `pip install 'darkroom-ai[playwright]'`, then see
-  the UI slice in `examples/relay-service/`.
+  `screenshot`), screencast whole scenarios (`record = true`), set
+  phone-width viewports, and run headless passkey ceremonies
+  (`[browser] webauthn = true`): `pip install 'darkroom-ai[playwright]'`,
+  then see the UI slice in `examples/relay-service/`.
 - **Hardened backends** — containers for the system under test
   (`[containers]` extra) and an OpenBao rubric vault (`[vault]`).
 - **Pytest users**: the plugin gives any existing suite an `evidence`
