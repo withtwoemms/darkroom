@@ -6,6 +6,20 @@ project follows [semantic versioning](https://semver.org/) (pre-1.0: minor
 releases may break API, patch releases never do). The manifest schema is
 versioned independently of the package — see `ROADMAP.md`.
 
+## [Unreleased]
+
+### Added
+
+- `darkroom audit` — the witnessability lint: an operator-side static
+  cross-check of every sealed rubric criterion's declared evidence
+  kinds against what its scenario's drive script can actually produce
+  (the step-kind → evidence-kind map, plus `record` → video). The
+  costliest observed authoring defect — a criterion demanding
+  evidence no step captures, discovered at run six instead of at
+  writing time — becomes an authoring-time error; a rubric with no
+  drive script is a warning. Exits nonzero on errors, for operator
+  pre-campaign hygiene (#58)
+
 ## [0.14.1] - 2026-09-24
 
 ### Fixed
