@@ -226,6 +226,7 @@ class TestBrowserDrive:
             <div id="width"></div>
             <button id="enroll">enroll</button>
             <button id="assert">assert</button>
+            <button id="later">later</button>
             <div id="out"></div>
             <script>
             document.getElementById("width").textContent = "w=" + window.innerWidth;
@@ -250,6 +251,9 @@ class TestBrowserDrive:
                 allowCredentials: [{type: "public-key", id: credId}],
                 userVerification: "required"}});
               document.getElementById("out").textContent = "asserted";
+            };
+            document.getElementById("later").onclick = () => {
+              setTimeout(() => { location.href = "/?went=1"; }, 800);
             };
             </script>'''
 
@@ -304,6 +308,12 @@ class TestBrowserDrive:
             kind = "click"
             selector = "#assert"
             expect = { selector_visible = "text=asserted" }
+
+            [[step]]
+            name = "delayed_navigation_waits"
+            kind = "click"
+            selector = "#later"
+            expect = { url_contains = "went=1" }
         """))
         report = drive(adapter, drives, containers_mode="off")
         failures = [

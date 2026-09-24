@@ -6,6 +6,18 @@ project follows [semantic versioning](https://semver.org/) (pre-1.0: minor
 releases may break API, patch releases never do). The manifest schema is
 versioned independently of the package — see `ROADMAP.md`.
 
+## [Unreleased]
+
+### Fixed
+
+- Bounded waiting (~5s) now covers `url_contains` and
+  `title_contains` browser expectations, matching
+  `body_contains`/`selector_visible` — a click whose page script
+  navigates asynchronously (a passkey ceremony completing, a
+  redirect after a fetch) no longer races the check. Found by the
+  first tenant's founding ceremony, which exhausted a run on the
+  race (#56)
+
 ## [0.14.0] - 2026-09-23
 
 ### Added

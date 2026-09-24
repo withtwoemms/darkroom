@@ -198,7 +198,8 @@ interpolation forms, and expectation keys; `1.1` added the four
 browser step kinds and three browser expectation keys; `1.2` added
 the `record` flag; `1.3` added the `[browser]` session table
 (viewport, webauthn), literal-brace escapes, and bounded waiting
-(~5s) on browser expectations — each additive, per the shared
+(~5s) on all page-settling browser expectations (`title_contains`,
+`url_contains`, `body_contains`, `selector_visible`) — each additive, per the shared
 policy, so every earlier script remains valid. New step
 kinds, fields, or expectation keys arrive as minor bumps; consumers
 (engines) MUST refuse unknown step kinds loudly rather than skip

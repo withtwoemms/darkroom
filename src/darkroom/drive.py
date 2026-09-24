@@ -338,23 +338,33 @@ class _BrowserSession:
 _EXPECT_WAIT_MS = 5_000
 
 
+def _wait_until(page, probe) -> bool:
+    """Poll a zero-arg probe until true or the shared deadline passes."""
+    deadline = time.monotonic() + _EXPECT_WAIT_MS / 1000
+    while not probe():
+        if time.monotonic() >= deadline:
+            return False
+        page.wait_for_timeout(200)
+    return True
+
+
 def _check_browser_expect(expect: dict, page, status: int | None) -> str | None:
-    """Browser expectations wait (bounded) — pages settle asynchronously."""
+    """Browser expectations wait (bounded) — pages settle asynchronously,
+    and navigations triggered by page script land after the click returns."""
     if "status" in expect and status != expect["status"]:
         return f"expected status {expect['status']}, got {status}"
     if "title_contains" in expect:
-        title = page.title()
-        if expect["title_contains"] not in title:
-            return f"title '{title}' does not contain '{expect['title_contains']}'"
-    if "url_contains" in expect and expect["url_contains"] not in page.url:
-        return f"url '{page.url}' does not contain '{expect['url_contains']}'"
+        needle = expect["title_contains"]
+        if not _wait_until(page, lambda: needle in page.title()):
+            return f"title '{page.title()}' does not contain '{needle}'"
+    if "url_contains" in expect:
+        needle = expect["url_contains"]
+        if not _wait_until(page, lambda: needle in page.url):
+            return f"url '{page.url}' does not contain '{needle}'"
     if "body_contains" in expect:
         needle = expect["body_contains"]
-        deadline = time.monotonic() + _EXPECT_WAIT_MS / 1000
-        while needle not in page.content():
-            if time.monotonic() >= deadline:
-                return f"page body does not contain '{needle}'"
-            page.wait_for_timeout(200)
+        if not _wait_until(page, lambda: needle in page.content()):
+            return f"page body does not contain '{needle}'"
     if "selector_visible" in expect:
         selector = expect["selector_visible"]
         try:
