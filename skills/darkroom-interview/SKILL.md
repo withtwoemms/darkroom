@@ -13,7 +13,20 @@ The user is the operator — they see everything, including rubrics.
 Sealing happens at the end, and only if they run the autonomous loop.
 
 **The governing rule: a criterion that cannot be proven by capturable
-evidence does not get written.** The capturable kinds are: `screenshot`,
+evidence does not get written.** Two hard corollaries, learned
+expensively in the field:
+
+1. **Name the witness.** Every criterion states *which artifact*
+   proves it — a specific transcript, a screenshot, a passing
+   harness step, the manifest's own `captured_at` clocks for
+   timing claims. If you cannot name the witness, the criterion is
+   not ready. (After authoring, run `darkroom audit`: it statically
+   rejects criteria whose evidence kinds no drive step produces.)
+2. **Exams assert machine surfaces; judges assess presentation.**
+   Drive expectations match `data-*` attributes and stable markers,
+   never display text — typography (non-breaking hyphens, casing,
+   layout) must never be able to break verification. What a page
+   *looks like* is the judge's question, answered from screenshots. The capturable kinds are: `screenshot`,
 `screenshot_element`, `video`, `log`, `command_transcript`,
 `http_transcript`, `file_snapshot`, `diff` (plus any custom kinds the
 project's own producers add).
