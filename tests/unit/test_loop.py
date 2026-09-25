@@ -214,3 +214,66 @@ class TestPreconditionsAndMemory:
         ctx = _ctx(tmp_path, scenario=None)
         result = _loop(judge).run(ctx)
         assert result.converged
+
+
+class BlockerCheckpointer(FakeCheckpointer):
+    """Reports the blocker file changed from a given iteration on."""
+
+    def __init__(self, blocker_from_ref: int):
+        super().__init__()
+        self.blocker_from_ref = blocker_from_ref
+
+    def changed_files(self, ctx, ref):
+        n = int(ref.split("-")[1])
+        if n >= self.blocker_from_ref:
+            return ["HARNESS-BLOCKER.md", "notes.txt"]
+        return ["app.py"]
+
+
+class TestBlockerProtocol:
+    def test_blocker_pauses_model_escalation(self, tmp_path):
+        judge = ScriptedJudge([10, 10, 10, 10, 10, 10])
+        loop = _loop(
+            judge,
+            policy=LoopPolicy(max_iterations=6),
+            checkpointer=BlockerCheckpointer(blocker_from_ref=1),
+        )
+        result = loop.run(_ctx(tmp_path))
+        assert result.reason == "exhausted"
+        assert result.iterations[0].blocker_raised
+        # stagnation climbs past escalate_model_after, yet no iteration escalates
+        assert any(r.stagnation >= 3 for r in result.iterations)
+        assert all(not r.escalation.escalate_model for r in result.iterations)
+        # diagnostic access still trips - diagnosis remains useful
+        assert any(r.escalation.diagnostic for r in result.iterations)
+        # and the judge is told the truth about stagnation
+        assert judge.escalations[-1].stagnation >= 3
+
+    def test_policy_off_escalates_despite_blocker(self, tmp_path):
+        judge = ScriptedJudge([10, 10, 10, 10, 10, 10])
+        loop = _loop(
+            judge,
+            policy=LoopPolicy(
+                max_iterations=6, pause_escalation_on_blocker=False
+            ),
+            checkpointer=BlockerCheckpointer(blocker_from_ref=1),
+        )
+        result = loop.run(_ctx(tmp_path))
+        assert any(r.escalation.escalate_model for r in result.iterations)
+
+    def test_no_blocker_keeps_normal_escalation(self, tmp_path):
+        judge = ScriptedJudge([10, 10, 10, 10, 10, 10])
+        loop = _loop(judge, policy=LoopPolicy(max_iterations=6))
+        result = loop.run(_ctx(tmp_path))
+        assert any(r.escalation.escalate_model for r in result.iterations)
+        assert all(not r.blocker_raised for r in result.iterations)
+
+    def test_blocker_lands_in_builder_log(self, tmp_path):
+        loop = _loop(
+            ScriptedJudge([10, 10]),
+            policy=LoopPolicy(max_iterations=2),
+            checkpointer=BlockerCheckpointer(blocker_from_ref=1),
+        )
+        loop.run(_ctx(tmp_path))
+        log = (tmp_path / "state" / "builder-log.md").read_text()
+        assert "blocker: raised" in log

@@ -33,6 +33,9 @@ class LoopError(Exception):
     pass
 
 
+BLOCKER_FILENAME = "HARNESS-BLOCKER.md"
+
+
 @dataclass(frozen=True)
 class LoopPolicy:
     max_iterations: int = 8
@@ -40,6 +43,9 @@ class LoopPolicy:
     diagnostic_after: int = 2
     escalate_model_after: int = 3
     rollback_on_regression: bool = True
+    # a standing builder blocker disputes the exam itself; spending
+    # frontier tokens on it fixes nothing, so model escalation pauses
+    pause_escalation_on_blocker: bool = True
 
 
 @dataclass(frozen=True)
@@ -100,6 +106,7 @@ class IterationRecord:
     action: str  # "converged" | "built" | "rolled-back-and-built"
     checkpoint: str = ""
     changed_files: list[str] = field(default_factory=list)
+    blocker_raised: bool = False  # the builder disputed the exam this iteration
 
 
 @dataclass
@@ -178,9 +185,25 @@ class ConvergenceLoop:
         best_score: float | None = None
         best_ref = self.checkpointer.current(ctx)
         stagnation = 0
+        blocker_standing = False
+
+        def _escalation(stag: int) -> Escalation:
+            escalation = Escalation.for_stagnation(stag, self.policy)
+            if (
+                blocker_standing
+                and self.policy.pause_escalation_on_blocker
+                and escalation.escalate_model
+            ):
+                escalation = Escalation(
+                    stagnation=escalation.stagnation,
+                    diagnostic=escalation.diagnostic,
+                    escalate_model=False,
+                    feedback_level=escalation.feedback_level,
+                )
+            return escalation
 
         for number in range(1, self.policy.max_iterations + 1):
-            escalation_in = Escalation.for_stagnation(stagnation, self.policy)
+            escalation_in = _escalation(stagnation)
             assessment = self.assessor.assess(ctx)
             report = self.judge.judge(ctx, assessment, escalation_in)
             score = _score_for(report.evaluation, ctx.scenario)
@@ -219,11 +242,15 @@ class ConvergenceLoop:
                     action = "rolled-back-and-built"
                 stagnation += 1
 
-            escalation_out = Escalation.for_stagnation(stagnation, self.policy)
+            escalation_out = _escalation(stagnation)
             self.builder.build(ctx, report.feedback, escalation_out)
             ref = self.checkpointer.checkpoint(
                 ctx, f"auto: iteration {number} ({score:.1f}%)"
             )
+            changed = self.checkpointer.changed_files(ctx, ref)
+            raised = any(Path(f).name == BLOCKER_FILENAME for f in changed)
+            if raised:
+                blocker_standing = True
             record = IterationRecord(
                 number=number,
                 score=score,
@@ -232,7 +259,8 @@ class ConvergenceLoop:
                 escalation=escalation_out,
                 action=action,
                 checkpoint=ref,
-                changed_files=self.checkpointer.changed_files(ctx, ref),
+                changed_files=changed,
+                blocker_raised=raised,
             )
             records.append(record)
             self._remember(ctx, record)
@@ -266,6 +294,8 @@ class ConvergenceLoop:
             if record.escalation.escalate_model:
                 dials.append("model-escalation")
             lines.append(f"escalation: {', '.join(dials)}")
+        if record.blocker_raised:
+            lines.append("blocker: raised")
         if record.changed_files:
             lines.append("changed: " + ", ".join(record.changed_files))
         lines.append("")

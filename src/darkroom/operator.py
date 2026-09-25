@@ -99,6 +99,9 @@ def loads_operator(text: str) -> OperatorConfig:
         rollback_on_regression=loop_raw.get(
             "rollback_on_regression", defaults.rollback_on_regression
         ),
+        pause_escalation_on_blocker=loop_raw.get(
+            "pause_escalation_on_blocker", defaults.pause_escalation_on_blocker
+        ),
     )
 
     backend = vault_raw.get("backend", "filesystem")

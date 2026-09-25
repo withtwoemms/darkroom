@@ -468,6 +468,7 @@ def _cmd_auto(args) -> int:
         on_iteration=lambda r: print(
             f"iteration {r.number}: {r.score:.1f} (best {r.best_score:.1f}) "
             f"stagnation={r.stagnation} {r.action}"
+            + (" BLOCKER RAISED - the builder disputes the exam" if r.blocker_raised else "")
         ),
     )
 

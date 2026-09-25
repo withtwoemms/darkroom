@@ -110,7 +110,7 @@ class TestAssembleDossier:
     def test_bundle_shape(self, project):
         adapter, state = project
         bundle = assemble_dossier(adapter, state)
-        assert bundle["schema_version"] == "1.0"
+        assert bundle["schema_version"] == "1.1"
         assert bundle["project"] == "press"
         assert len(bundle["iterations"]) == 3
         assert bundle["evaluations"][0]["rubric_version"] == "1"
@@ -216,4 +216,4 @@ class TestDossierCli:
         out = tmp_path / "home" / "dossier.json"
         assert main(["dossier", "--format", "json", "--out", str(out)]) == 0
         bundle = json.loads(out.read_text())
-        assert bundle["schema_version"] == "1.0"
+        assert bundle["schema_version"] == "1.1"

@@ -117,6 +117,10 @@ improvement, the problem is likely elsewhere.
 - Work only within the project; never touch evidence directories,
   contract files, or anything outside this repository.
 - Make the smallest change that addresses the observed behavior.
+- If you conclude the exam itself is defective and no tenant-side
+  change can pass it, write HARNESS-BLOCKER.md at the project root
+  stating precisely why, citing what you reproduced. Raising it
+  pauses further model escalation and summons the operator.
 {diagnostic_instructions}
 """
 

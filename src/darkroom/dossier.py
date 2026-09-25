@@ -25,7 +25,7 @@ from darkroom.gallery import load_evaluation_lenient
 from darkroom.gates import load_gates
 from darkroom.usage import read_usage
 
-CURRENT_DOSSIER_SCHEMA_VERSION = "1.0"
+CURRENT_DOSSIER_SCHEMA_VERSION = "1.1"
 
 _ITERATION_HEADING = re.compile(r"^## iteration (\d+) — (.+)$")
 
@@ -47,6 +47,8 @@ def _parse_builder_log(text: str) -> list[dict]:
             continue
         if line.startswith("scenario: "):
             entry["scenario"] = line[len("scenario: "):].strip()
+        elif line.startswith("blocker: "):
+            entry["blocker"] = True
         elif line.startswith("score: "):
             match = re.match(
                 r"score: ([\d.]+) \(best ([\d.]+)\) · "
@@ -260,6 +262,8 @@ def dumps_dossier_markdown(bundle: dict) -> str:
                     f"score {it['score']:.1f} (best {it['best_score']:.1f}), "
                     f"stagnation {it['stagnation']}, {it['action']}"
                 )
+            if it.get("blocker"):
+                parts.append("— BLOCKER raised")
             if "escalation" in it:
                 parts.append(f"— escalated: {', '.join(it['escalation'])}")
             if "changed" in it:

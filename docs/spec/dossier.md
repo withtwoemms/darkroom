@@ -1,7 +1,7 @@
 # The Dossier
 
 **Format:** JSON (with a canonical Markdown rendering) · **Schema
-version:** 1.0 · **Produced by:** `darkroom dossier`, deterministically
+version:** 1.1 · **Produced by:** `darkroom dossier`, deterministically
 assembled from operator-side state.
 
 ## Purpose
@@ -50,6 +50,7 @@ Iteration entry (parsed from iteration memory; all fields beyond
 | `stagnation` | integer | consecutive non-improving iterations |
 | `action` | string | `converged`, `built`, or `rolled-back-and-built` |
 | `escalation` | array of strings | fired dials (`diagnostic`, `model-escalation`) |
+| `blocker` *(1.1)* | boolean | the builder raised a blocker this iteration, disputing the exam |
 | `changed` | array of strings | files changed by the iteration |
 
 Evaluation summary:
