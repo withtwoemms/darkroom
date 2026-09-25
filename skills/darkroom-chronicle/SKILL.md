@@ -61,6 +61,11 @@ across the record:
   convergence in a single iteration on a scenario class that usually
   takes several (worth naming as either strong priors or an exam that
   under-tests).
+- **Blockers**: an iteration with `blocker: true` is the builder
+  formally disputing the exam — historically correct every time it
+  has appeared. Lead with it: name the scenario, note that model
+  escalation paused, and direct the operator to the tenant's
+  `HARNESS-BLOCKER.md` for the builder's brief.
 - **Rubric drift**: `rubric_version` changing mid-record means scores
   before and after are incomparable; never narrate a cross-version
   change as improvement or regression (mirror the gates rule:
