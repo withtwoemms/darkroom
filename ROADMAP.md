@@ -168,6 +168,14 @@ public API freeze under semantic versioning as the written spec.
 
 Unscheduled, in rough dependency order once the freeze lands:
 
+- **The converge skill** (`skills/darkroom-converge/`) — the operator's
+  run-a-scenario loop as a Claude skill, picking up where the interview
+  skill hands off: author the drive against the sealed rubric, audit
+  (static) → dry-run (executes) → auto (spends) in that order, commit
+  both repos, triage blockers, regress the full suite, gate the deploy,
+  verify live. Encodes the dry-run-before-spend gate whose absence
+  routinely costs four wasted iterations, and the tenant/operator-home
+  two-repo discipline. *(This entry ships the skill; the row records it.)*
 - **The grease-pencil skill** — annotate → revise → re-derive: rubric
   revision as a conversation over rendered evidence, completing the
   rubric lifecycle's calibration stage as tooling.
