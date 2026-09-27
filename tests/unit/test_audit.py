@@ -129,3 +129,62 @@ class TestAuditCli:
 
         assert main(["audit"]) == 0
         assert "every criterion is witnessable" in capsys.readouterr().out
+
+
+RUBRIC_CITES = """
+feature_id = "expiry"
+version = "1"
+scenario = "expiry"
+
+[[criterion]]
+id = "expires"
+points = 10
+description = "d"
+evidence = ["log"]
+witnesses = ["transition"]
+"""
+
+DRIVE_GOTO_BARE = """
+scenario = "expiry"
+
+[[step]]
+name = "transition"
+kind = "goto"
+url = "{base_url}/x"
+"""
+
+DRIVE_GOTO_EXPECT = DRIVE_GOTO_BARE + """expect = { body_contains = "x" }
+"""
+
+
+class TestWitnessCitations:
+    def test_cited_assert_is_a_witness(self, tmp_path):
+        findings = audit(
+            _vault(tmp_path, RUBRIC_CITES), _drives(tmp_path, DRIVE_WITH_ASSERT)
+        )
+        assert findings == []
+
+    def test_missing_cited_step_is_an_error(self, tmp_path):
+        findings = audit(
+            _vault(tmp_path, RUBRIC_CITES), _drives(tmp_path, DRIVE_HTTP_ONLY)
+        )
+        assert has_errors(findings)
+        assert "no step named 'transition'" in findings[-1].message
+
+    def test_bare_goto_cannot_be_a_witness(self, tmp_path):
+        findings = audit(
+            _vault(tmp_path, RUBRIC_CITES), _drives(tmp_path, DRIVE_GOTO_BARE)
+        )
+        assert has_errors(findings)
+        assert "produces no resolved value" in findings[-1].message
+
+    def test_goto_with_expect_is_a_witness(self, tmp_path):
+        findings = audit(
+            _vault(tmp_path, RUBRIC_CITES), _drives(tmp_path, DRIVE_GOTO_EXPECT)
+        )
+        assert findings == []
+
+    def test_expect_makes_log_producible(self):
+        assert "log" in producible_kinds(
+            {"step": [{"kind": "http", "expect": {"status": 200}}]}
+        )

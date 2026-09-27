@@ -53,6 +53,7 @@ is captured as `http_transcript` evidence.
 | `method` | string (default `GET`) | HTTP method |
 | `headers` | table (interpolated) | request headers |
 | `json` | any (interpolated) | JSON request body; sets `Content-Type: application/json` unless given |
+| `body` *(1.4)* | string (interpolated) | raw request body, sent verbatim with no content type implied — for exact-bytes scenarios (a webhook's HMAC over the payload); mutually exclusive with `json` |
 | `save` | table var → path | extract values from the JSON response body: paths use `$.field.sub` form |
 | `expect` | table (interpolated) | expectations (below) |
 
@@ -172,6 +173,23 @@ An `expect` table may check:
 | `url_contains` *(1.1)* | browser steps | substring of the current page URL |
 | `selector_visible` *(1.1)* | browser steps | the selector resolves to a visible element |
 
+### Expectation witnesses *(since 1.4)*
+
+Every step carrying an `expect` table also records what it checked
+and what it found, as a `log` item named `<step>.expect`:
+
+```json
+{"expect": {"status": 200, "selector_visible": "#join"},
+ "found": {"status": 200, "selector_visible": true}, "ok": true}
+```
+
+`status` and `exit_code` record the actual value; `title` and `url`
+the actual string; `body_contains` and `selector_visible` a boolean.
+An enforced check the judge cannot see is not evidence — before 1.4,
+a `goto` whose `expect` required a selector gated the run but left
+nothing in the record, so a rubric could not cite it. Since 1.4 such
+a step is a witness in its own right.
+
 ## Execution semantics
 
 - **Fresh environment per scenario**: the engine boots the system
@@ -199,7 +217,7 @@ browser step kinds and three browser expectation keys; `1.2` added
 the `record` flag; `1.3` added the `[browser]` session table
 (viewport, webauthn), literal-brace escapes, and bounded waiting
 (~5s) on all page-settling browser expectations (`title_contains`,
-`url_contains`, `body_contains`, `selector_visible`) — each additive, per the shared
+`url_contains`, `body_contains`, `selector_visible`); `1.4` added the raw `body` field on `http` steps and expectation witnesses (every step with an `expect` logs a `<step>.expect` record of what it checked and found) — each additive, per the shared
 policy, so every earlier script remains valid. New step
 kinds, fields, or expectation keys arrive as minor bumps; consumers
 (engines) MUST refuse unknown step kinds loudly rather than skip

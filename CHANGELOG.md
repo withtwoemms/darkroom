@@ -6,6 +6,36 @@ project follows [semantic versioning](https://semver.org/) (pre-1.0: minor
 releases may break API, patch releases never do). The manifest schema is
 versioned independently of the package — see `ROADMAP.md`.
 
+## [Unreleased]
+
+### Added
+
+- **Expectation witnesses** (drive-scripts 1.4): every step carrying
+  an `expect` table now records what it checked and what it found as
+  a `log` item named `<step>.expect` — `{expect, found, ok}`. An
+  enforced check the judge could not see was not evidence: three
+  field blockers in one tenant (a `data-state` checked but never
+  logged, a landing exit asserted by a bare `goto`, a join flow's
+  beats gated but invisible) were all this class, each costing an
+  operator round-trip. A `goto` whose `expect` requires a selector is
+  now a witness, not merely a gate.
+- **Raw request bodies**: `http` steps accept `body` (a string, sent
+  verbatim, no content type implied) beside `json`, so exact-bytes
+  scenarios — a webhook's HMAC over the raw payload plus a signature
+  header — can be exam-gated instead of verified out-of-band.
+- **Witness citations in `darkroom audit`**: rubric criteria may name
+  their witnesses (`witnesses = ["step_a", "step_b"]`); the audit
+  verifies each cited step exists in the drive and can produce a
+  resolved value (an `assert`, an `http`/`command` step, or any step
+  with an `expect` table). Citing a bare `goto` fails at authoring
+  time instead of at run three.
+
+### Changed
+
+- Rubric criteria gain the optional `witnesses` list (additive); the
+  interview skill's example carries it, and `producible_kinds`
+  counts a step's `expect` as `log` evidence.
+
 ## [0.15.0] - 2026-09-25
 
 ### Added

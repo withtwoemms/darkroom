@@ -39,6 +39,15 @@ STEP_EVIDENCE: dict[str, frozenset[str]] = {
     "wait": frozenset(),
 }
 
+# step kinds whose own record resolves a value the judge can read
+WITNESS_KINDS: frozenset[str] = frozenset({"assert", "http", "command"})
+
+
+def _witness_capable(step: dict) -> bool:
+    """A cited witness must resolve a value: an assert, an http/command
+    transcript, or any step whose `expect` is logged (drive-scripts 1.4)."""
+    return step.get("kind", "http") in WITNESS_KINDS or bool(step.get("expect"))
+
 
 @dataclass(frozen=True)
 class AuditFinding:
@@ -53,6 +62,8 @@ def producible_kinds(script: dict) -> set[str]:
     for step in script.get("step", []):
         kind = step.get("kind", "http")
         kinds |= STEP_EVIDENCE.get(kind, frozenset())
+        if step.get("expect"):
+            kinds.add("log")  # expectation witnesses (drive-scripts 1.4)
     if script.get("record"):
         kinds.add("video")
     return kinds
@@ -89,7 +100,9 @@ def audit(vault: RubricVault, drives_dir: Path) -> list[AuditFinding]:
             )
             continue
         can = producible_kinds(script)
+        steps = {s.get("name"): s for s in script.get("step", []) if s.get("name")}
         for criterion in rubric.get("criterion", []):
+            cid = criterion.get("id", "?")
             declared = set(criterion.get("evidence", []))
             missing = declared - can
             if missing:
@@ -97,11 +110,34 @@ def audit(vault: RubricVault, drives_dir: Path) -> list[AuditFinding]:
                     AuditFinding(
                         "error",
                         scenario,
-                        f"criterion '{criterion.get('id', '?')}' declares "
+                        f"criterion '{cid}' declares "
                         f"{sorted(missing)} but no step in the drive can "
                         f"produce it (drive can produce: {sorted(can) or 'nothing'})",
                     )
                 )
+            for cited in criterion.get("witnesses", []):
+                step = steps.get(cited)
+                if step is None:
+                    findings.append(
+                        AuditFinding(
+                            "error",
+                            scenario,
+                            f"criterion '{cid}' cites witness '{cited}' but the "
+                            f"drive has no step named '{cited}'",
+                        )
+                    )
+                elif not _witness_capable(step):
+                    findings.append(
+                        AuditFinding(
+                            "error",
+                            scenario,
+                            f"criterion '{cid}' cites '{cited}' "
+                            f"({step.get('kind', 'http')}) as a witness, but that "
+                            "step produces no resolved value — cite an assert, an "
+                            "http/command step, or give it an expect table "
+                            "(expectation outcomes are logged since drive-scripts 1.4)",
+                        )
+                    )
     return findings
 
 

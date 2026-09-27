@@ -75,9 +75,15 @@ id = "approval_persists"
 points = 20
 description = "Approving transitions the proof to 'approved' in storage; status survives reload"
 evidence = ["http_transcript", "screenshot"]
+witnesses = ["status_after_reload"]   # drive steps whose resolved values prove it
 ```
 
-Rules: every criterion names its evidence kinds (reject unprovable
+Rules: a criterion that rests on a specific check cites it
+structurally — `witnesses = [...]` lists the drive steps whose
+*resolved values* prove it (an `assert`, an `http`/`command` step, or
+any step with an `expect` table; `darkroom audit` refuses a cited bare
+`goto`, which gates a run but leaves nothing a judge can read); every
+criterion names its evidence kinds (reject unprovable
 criteria at this stage and say why); points encode the charter's
 priorities; nondeterministic scenarios get a top-level `trials = N`;
 low-confidence criteria carry `confidence = "low"` and few points.
