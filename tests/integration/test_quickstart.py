@@ -76,7 +76,7 @@ name = "note_saved"
 
 JUDGE_SH = """\
 #!/bin/sh
-if grep -rq "first light" --include "*read_back*" "$(dirname "$1")"; then earned=100; passed=true
+if grep -rq "first light" --include "*-read_back.json" "$(dirname "$1")"; then earned=100; passed=true
 else earned=0; passed=false; fi
 cat > "$2" <<EOF
 {"run_id": "quickstart", "rubric_version": "1",

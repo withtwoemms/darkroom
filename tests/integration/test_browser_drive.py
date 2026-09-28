@@ -144,7 +144,8 @@ class TestBrowserDrive:
         manifest = load_manifest(manifest_path)
         items = manifest.scenarios[0].items
         kinds = [i.kind for i in items]
-        assert kinds == ["log", "log", "log", "screenshot"]
+        # goto (+ its expectation witness), fill, click (+ witness), screenshot
+        assert kinds == ["log", "log", "log", "log", "log", "screenshot"]
         shot = items[-1]
         assert (manifest_path.parent / shot.path).stat().st_size > 0
 
@@ -349,5 +350,6 @@ class TestBrowserDrive:
             adapter.resolve(adapter.evidence_dir).glob("runs/*/manifest.json")
         )
         manifest = load_manifest(manifest_path)
-        # the goto's log evidence survived the failure — still judgeable
-        assert [i.kind for i in manifest.scenarios[0].items] == ["log"]
+        # the goto's log evidence survived the failure — and so did its
+        # expectation witness, recording what it found — still judgeable
+        assert [i.kind for i in manifest.scenarios[0].items] == ["log", "log"]

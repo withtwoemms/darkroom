@@ -190,6 +190,11 @@ a `goto` whose `expect` required a selector gated the run but left
 nothing in the record, so a rubric could not cite it. Since 1.4 such
 a step is a witness in its own right.
 
+A witness records the expected value as well as the found one. A
+judge that searches evidence for expected text must therefore scope
+to transcripts (or read `found`/`ok`) — matching the needle inside a
+witness is a vacuous pass, not proof.
+
 ## Execution semantics
 
 - **Fresh environment per scenario**: the engine boots the system

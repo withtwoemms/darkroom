@@ -18,7 +18,10 @@ versioned independently of the package — see `ROADMAP.md`.
   logged, a landing exit asserted by a bare `goto`, a join flow's
   beats gated but invisible) were all this class, each costing an
   operator round-trip. A `goto` whose `expect` requires a selector is
-  now a witness, not merely a gate.
+  now a witness, not merely a gate. (A witness carries the expected
+  value; a judge that greps evidence for expected text must scope to
+  transcripts or read `found`/`ok` — the quickstart's judge now does,
+  and the spec says why.)
 - **Raw request bodies**: `http` steps accept `body` (a string, sent
   verbatim, no content type implied) beside `json`, so exact-bytes
   scenarios — a webhook's HMAC over the raw payload plus a signature

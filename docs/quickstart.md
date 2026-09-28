@@ -157,7 +157,7 @@ builder feedback:
 ```sh
 #!/bin/sh
 # args: manifest evaluation_out feedback_out
-if grep -rq "first light" --include "*read_back*" "$(dirname "$1")"; then earned=100; passed=true
+if grep -rq "first light" --include "*-read_back.json" "$(dirname "$1")"; then earned=100; passed=true
 else earned=0; passed=false; fi
 cat > "$2" <<EOF
 {"run_id": "quickstart", "rubric_version": "1",
@@ -167,6 +167,15 @@ cat > "$2" <<EOF
 EOF
 [ "$passed" = true ] || echo "the saved note does not read back verbatim" > "$3"
 ```
+
+> Note the `--include` pattern: it names the `read_back` *transcript*
+> file exactly. Since drive-scripts 1.4 every step with an `expect` also
+> leaves a witness file (`…-read_back.expect.json`) recording what the
+> expectation checked and found — including the expected text itself. A
+> judge that greps `*read_back*` would match that witness and pass
+> vacuously, exactly the hazard this stage is about. Search transcripts,
+> or read the witness's `found`/`ok` fields; never grep for the needle
+> across everything.
 
 `builder.sh` — "fixes" the app when the feedback says so:
 
