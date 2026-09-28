@@ -45,6 +45,12 @@ witness. Now write the drive that *produces* those witnesses:
   rubric can cite by name (`see_the_verdict ok, requiring the
   presence surface`). Never let the witness be a green step *name*;
   make it a green step that *resolved a value*.
+- **Cite witnesses structurally.** A criterion that names a step as
+  its proof puts it in `witnesses = [...]`, and every cited step must
+  be one that resolves a value — an `assert`, an `http`/`command`
+  step, or a step with an `expect` table (logged since drive-scripts
+  1.4). Never cite a bare `goto`/`click`; `darkroom audit` refuses
+  it, and three field blockers were exactly this.
 - **Machine surfaces, not display text.** Expectations match `data-*`
   and stable markers; presentation is the judge's job, from
   screenshots. Typography must never be able to break a gate.

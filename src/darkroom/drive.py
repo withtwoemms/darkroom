@@ -153,20 +153,58 @@ def _dot_path(payload, path: str):
 
 # --- step execution -------------------------------------------------------
 
-def _check_expect(expect: dict, transcript: dict) -> str | None:
-    """Return a failure detail, or None if all expectations hold."""
+def _evaluate_expect(expect: dict, transcript: dict) -> tuple[str | None, dict]:
+    """Evaluate expectations over a transcript: (failure detail or None,
+    what was found for each checked key). The found table is the witness —
+    an enforced check the judge cannot see is not evidence."""
     response = transcript.get("response", transcript)
     status = response.get("status", transcript.get("exit_code"))
+    found: dict = {}
+    if "status" in expect or "status_in" in expect:
+        found["status"] = status
     if "status" in expect and status != expect["status"]:
-        return f"expected status {expect['status']}, got {status}"
+        return f"expected status {expect['status']}, got {status}", found
     if "status_in" in expect and status not in expect["status_in"]:
-        return f"expected status in {expect['status_in']}, got {status}"
-    if "exit_code" in expect and transcript.get("exit_code") != expect["exit_code"]:
-        return f"expected exit_code {expect['exit_code']}, got {transcript.get('exit_code')}"
+        return f"expected status in {expect['status_in']}, got {status}", found
+    if "exit_code" in expect:
+        found["exit_code"] = transcript.get("exit_code")
+        if transcript.get("exit_code") != expect["exit_code"]:
+            return (
+                f"expected exit_code {expect['exit_code']}, got {transcript.get('exit_code')}",
+                found,
+            )
     if "body_contains" in expect:
         body = response.get("body", transcript.get("stdout", ""))
-        if expect["body_contains"] not in body:
-            return f"body does not contain '{expect['body_contains']}'"
+        found["body_contains"] = expect["body_contains"] in body
+        if not found["body_contains"]:
+            return f"body does not contain '{expect['body_contains']}'", found
+    return None, found
+
+
+def _check_expect(expect: dict, transcript: dict) -> str | None:
+    """Return a failure detail, or None if all expectations hold."""
+    return _evaluate_expect(expect, transcript)[0]
+
+
+def _log_expect_witness(
+    capture: EvidenceCapture, name: str, expect: dict, found: dict, detail: str | None
+) -> None:
+    """Record what an expectation checked and found (drive-scripts 1.4)."""
+    if not expect:
+        return
+    capture.log(f"{name}.expect", {"expect": expect, "found": found, "ok": detail is None})
+
+
+def _http_request_body(step: dict, ctx: Context, headers: dict) -> str | None:
+    """`json` is serialized (and typed); `body` is sent verbatim, untyped —
+    the raw-bytes seam that exact-payload scenarios (webhook HMACs) need."""
+    if "json" in step and "body" in step:
+        raise DriveError(f"step '{step.get('name')}': give json or body, not both")
+    if "json" in step:
+        headers.setdefault("Content-Type", "application/json")
+        return json.dumps(ctx.interpolate_json(step["json"]))
+    if "body" in step:
+        return ctx.interpolate(str(step["body"]))
     return None
 
 
@@ -176,10 +214,7 @@ def _run_http_step(
     url = ctx.interpolate(step["url"])
     method = step.get("method", "GET")
     headers = ctx.interpolate_json(step.get("headers", {}))
-    body = None
-    if "json" in step:
-        body = json.dumps(ctx.interpolate_json(step["json"]))
-        headers.setdefault("Content-Type", "application/json")
+    body = _http_request_body(step, ctx, headers)
     path = capture.http(step["name"], url, method=method, headers=headers, body=body)
     transcript = json.loads(Path(path).read_text())
 
@@ -192,7 +227,9 @@ def _run_http_step(
             ) from None
         ctx.values[var] = str(_dot_path(payload, save_path))
     expect = ctx.interpolate_json(step.get("expect", {}))
-    return transcript, _check_expect(expect, transcript)
+    detail, found = _evaluate_expect(expect, transcript)
+    _log_expect_witness(capture, step["name"], expect, found, detail)
+    return transcript, detail
 
 
 def _run_command_step(
@@ -208,7 +245,9 @@ def _run_command_step(
     path = capture.command(step["name"], argv)
     transcript = json.loads(Path(path).read_text())
     expect = ctx.interpolate_json(step.get("expect", {}))
-    return transcript, _check_expect(expect, transcript)
+    detail, found = _evaluate_expect(expect, transcript)
+    _log_expect_witness(capture, step["name"], expect, found, detail)
+    return transcript, detail
 
 
 def _run_keygen_step(step: dict, ctx: Context) -> None:
@@ -348,32 +387,50 @@ def _wait_until(page, probe) -> bool:
     return True
 
 
-def _check_browser_expect(expect: dict, page, status: int | None) -> str | None:
+def _evaluate_browser_expect(
+    expect: dict, page, status: int | None
+) -> tuple[str | None, dict]:
     """Browser expectations wait (bounded) — pages settle asynchronously,
-    and navigations triggered by page script land after the click returns."""
-    if "status" in expect and status != expect["status"]:
-        return f"expected status {expect['status']}, got {status}"
+    and navigations triggered by page script land after the click returns.
+    Returns (failure detail or None, what was found): the found table is
+    the witness, so a settled check is evidence and not merely a gate."""
+    found: dict = {}
+    if "status" in expect:
+        found["status"] = status
+        if status != expect["status"]:
+            return f"expected status {expect['status']}, got {status}", found
     if "title_contains" in expect:
         needle = expect["title_contains"]
-        if not _wait_until(page, lambda: needle in page.title()):
-            return f"title '{page.title()}' does not contain '{needle}'"
+        ok = _wait_until(page, lambda: needle in page.title())
+        found["title"] = page.title()
+        if not ok:
+            return f"title '{page.title()}' does not contain '{needle}'", found
     if "url_contains" in expect:
         needle = expect["url_contains"]
-        if not _wait_until(page, lambda: needle in page.url):
-            return f"url '{page.url}' does not contain '{needle}'"
+        ok = _wait_until(page, lambda: needle in page.url)
+        found["url"] = page.url
+        if not ok:
+            return f"url '{page.url}' does not contain '{needle}'", found
     if "body_contains" in expect:
         needle = expect["body_contains"]
-        if not _wait_until(page, lambda: needle in page.content()):
-            return f"page body does not contain '{needle}'"
+        found["body_contains"] = _wait_until(page, lambda: needle in page.content())
+        if not found["body_contains"]:
+            return f"page body does not contain '{needle}'", found
     if "selector_visible" in expect:
         selector = expect["selector_visible"]
         try:
             page.locator(selector).first.wait_for(
                 state="visible", timeout=_EXPECT_WAIT_MS
             )
+            found["selector_visible"] = True
         except Exception:
-            return f"selector '{selector}' is not visible"
-    return None
+            found["selector_visible"] = False
+            return f"selector '{selector}' is not visible", found
+    return None, found
+
+
+def _check_browser_expect(expect: dict, page, status: int | None) -> str | None:
+    return _evaluate_browser_expect(expect, page, status)[0]
 
 
 def _run_browser_step(
@@ -421,7 +478,9 @@ def _run_browser_step(
                 full_page=bool(step.get("full_page", False)),
             )
         expect = ctx.interpolate_json(step.get("expect", {}))
-        return _check_browser_expect(expect, page, status)
+        detail, found = _evaluate_browser_expect(expect, page, status)
+        _log_expect_witness(capture, step.get("name", kind), expect, found, detail)
+        return detail
     except DriveError:
         raise
     except Exception as exc:  # a browser failure is a step failure, judgeable
