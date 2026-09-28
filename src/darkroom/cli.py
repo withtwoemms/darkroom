@@ -343,6 +343,28 @@ def _cmd_audit(args) -> int:
     return 1 if has_errors(findings) else 0
 
 
+def _cmd_status(args) -> int:
+    from darkroom.adapter import load_adapter
+    from darkroom.homedir import default_state
+    from darkroom.status import assemble_status, dumps_status_markdown
+
+    adapter_path = _find_adapter_or_error(args.project)
+    if adapter_path is None:
+        return 2
+    adapter = load_adapter(adapter_path)
+    state = Path(args.state) if args.state is not None else default_state(adapter.name)
+    bundle = assemble_status(
+        adapter, state, scenario=args.scenario, stale_after=args.stale_after
+    )
+    if args.format == "json":
+        import json as json_module
+
+        print(json_module.dumps(bundle, indent=2))
+    else:
+        print(dumps_status_markdown(bundle), end="")
+    return 0
+
+
 def _cmd_dossier(args) -> int:
     from darkroom.adapter import load_adapter
     from darkroom.dossier import assemble_dossier, dumps_dossier_markdown
@@ -906,6 +928,22 @@ def main(argv=None) -> int:
     dossier_parser.add_argument("--project", type=Path, default=None)
     dossier_parser.add_argument("--state", type=Path, default=None)
     dossier_parser.set_defaults(func=_cmd_dossier)
+
+    status_parser = sub.add_parser(
+        "status",
+        help="where every scenario's campaign stands now: state, trajectory, "
+             "blocker, queue, spend",
+    )
+    status_parser.add_argument("--scenario", default=None)
+    status_parser.add_argument("--format", choices=("md", "json"), default="md")
+    status_parser.add_argument(
+        "--stale-after", type=float, default=900.0, metavar="SECONDS",
+        help="a campaign with no iteration this recent is 'stopped', not "
+             "'running' (default 900)",
+    )
+    status_parser.add_argument("--project", type=Path, default=None)
+    status_parser.add_argument("--state", type=Path, default=None)
+    status_parser.set_defaults(func=_cmd_status)
 
     ticket_parser = sub.add_parser("ticket", help="filesystem ticket queues")
     ticket_sub = ticket_parser.add_subparsers(dest="ticket_command", required=True)

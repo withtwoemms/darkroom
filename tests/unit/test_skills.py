@@ -4,11 +4,12 @@ from darkroom import skills
 
 
 class TestPackaged:
-    def test_three_skills_ship_with_the_engine(self):
+    def test_four_skills_ship_with_the_engine(self):
         assert set(skills.packaged_skills()) == {
             "darkroom-interview",
             "darkroom-converge",
             "darkroom-chronicle",
+            "darkroom-status",
         }
         for d in skills.packaged_skills().values():
             assert (d / "SKILL.md").read_text().startswith("---")
@@ -18,11 +19,11 @@ class TestCheck:
     def test_missing_when_nothing_installed(self, tmp_path):
         findings = skills.check(home=tmp_path)
         assert {f.status for f in findings} == {"missing"}
-        assert len(findings) == 3
+        assert len(findings) == 4
 
     def test_install_links_and_checks_current(self, tmp_path):
         written = skills.install(home=tmp_path)
-        assert len(written) == 3 and all(p.is_symlink() for p in written)
+        assert len(written) == 4 and all(p.is_symlink() for p in written)
         findings = skills.check(home=tmp_path)
         assert all(f.ok for f in findings)
         assert all("symlink" in f.detail for f in findings)

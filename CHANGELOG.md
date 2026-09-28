@@ -6,6 +6,32 @@ project follows [semantic versioning](https://semver.org/) (pre-1.0: minor
 releases may break API, patch releases never do). The manifest schema is
 versioned independently of the package — see `ROADMAP.md`.
 
+## [Unreleased]
+
+### Added
+
+- **`darkroom status`**: the present-tense read of loop state — the
+  latest campaign per scenario (iteration numbering restarts at 1)
+  with a conservative state (`converged`, `running`, `blocked`,
+  `exhausted`, `stopped`), trajectory, best, escalation dials,
+  failing criteria from the latest evaluation, the ratcheted gate,
+  and campaign spend; plus the blocker brief attributed to the
+  campaign it interrupted, the ticket queue in priority order, and
+  project spend. `--format json` for consumers; `--stale-after` sets
+  how long a quiet run still counts as running. The dossier is the
+  record; this is the report.
+- **`darkroom-status` skill**: the fourth packaged skill — a fixed
+  report shape (headline, convergence, shipped state, queue, spend)
+  whose numbers come only from `darkroom status`, with the two
+  judgments the engine cannot make (blocker triage; shipped state as
+  separate merged/released/deployed/live-verified claims) spelled out.
+  Written after an operator report quoted a stale commit count from
+  memory; the skill forbids exactly that.
+
+### Fixed
+
+- The plugin manifest said MIT; the project is Apache-2.0.
+
 ## [0.17.0] - 2026-09-28
 
 ### Added
