@@ -167,7 +167,7 @@ darkroom manifest; any judge infrastructure can consume one.
 
 ## Claude skills
 
-Three skills ship inside the package, version-locked to the engine:
+Four skills ship inside the package, version-locked to the engine:
 
 - `darkroom-interview`: the intent interview, covering charter,
   scenario enumeration, thresholds, rubric drafting under the
@@ -176,6 +176,10 @@ Three skills ship inside the package, version-locked to the engine:
 - `darkroom-converge`: the operator's run-a-scenario loop — author the
   drive, audit, dry-run before spending, commit both repos, launch
   auto, triage blockers, regress, deploy.
+- `darkroom-status`: the standing report — where every scenario's
+  campaign stands now, blockers with their triage, what is shipped
+  versus merely gated, the queue, spend — in one fixed shape, every
+  number from `darkroom status`.
 - `darkroom-chronicle`: narrates a project's delivery from its dossier,
   covering progression, what the judge witnessed, sticking points,
   novelties, spend.
@@ -185,7 +189,7 @@ Install them either way:
 ```bash
 # as a Claude Code plugin, pinned to the release you are running
 claude plugin marketplace add withtwoemms/darkroom
-claude plugin install darkroom@darkroom          # -> darkroom:interview, darkroom:converge, darkroom:chronicle
+claude plugin install darkroom@darkroom          # -> darkroom:interview, :converge, :status, :chronicle
 
 # or from the installed package
 darkroom skills install                          # symlinks into ~/.claude/skills (--copy to copy)
