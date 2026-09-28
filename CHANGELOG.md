@@ -29,11 +29,25 @@ versioned independently of the package — see `ROADMAP.md`.
   plugin version or marketplace pin disagree with it, or whose
   SKILL.md names disagree with their folders, and refuses a wheel
   that does not carry the skills.
+- **Redirects as evidence** (drive-scripts 1.5): `http` steps accept
+  `follow_redirects = false`, so a 3xx is the response the transcript
+  records — status and `Location` — and the new `location_contains`
+  expectation witnesses where it pointed. Before, `urlopen` followed
+  every redirect silently, so "a refused action routes to sign-in"
+  could only be gated through the browser.
+- **http steps as the browser's member** (drive-scripts 1.5): `session
+  = "browser"` sends the scenario's browser-session cookies with the
+  request, so an http step acts as whoever the browser signed in. A
+  tenant in the field carried a test-only auth bridge in production
+  code so exams could mint invites as a member; that bridge can now be
+  retired.
 
 ### Changed
 
 - The skills' canonical location is `src/darkroom/skills/` (was
   `skills/` at the repo root).
+- The drive-scripts spec index said 1.3 while the spec was at 1.4; it
+  now tracks the spec (1.5).
 
 ## [0.16.0] - 2026-09-27
 

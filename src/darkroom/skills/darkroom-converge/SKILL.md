@@ -86,12 +86,16 @@ against the app as it exists right now?"** If yes, fix the drive, not
 the builder's time. Launch auto only when the first (and only)
 failures are at genuinely-unbuilt steps.
 
-Some checks are not witnessable by today's engine at all (for
-example, an HMAC over an exact raw request body — the http step
-serializes only `json`). When a witness is structurally
-unproducible, say so, verify that behavior with a local network-free
-script instead, ship it as un-gated production code, and record the
-engine gap — do not fake a witness.
+Some checks are not witnessable by today's engine at all. When a
+witness is structurally unproducible, say so, verify that behavior
+with a local network-free script instead, ship it as un-gated
+production code, and record the engine gap — do not fake a witness,
+and never add auth machinery to the tenant for the exam's benefit.
+Three such gaps have since become engine seams, so check the spec
+before declaring one: an HMAC over an exact raw request body (`body`,
+1.4); a redirect's status and target (`follow_redirects = false` with
+`location_contains`, 1.5); an http step acting as the member the
+browser signed in (`session = "browser"`, 1.5).
 
 ## Stage 4 — Seal and commit both repos, in order
 
