@@ -1,0 +1,21 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "darkroom",
+  "description": "darkroom's Claude Code skills, pinned to each engine release",
+  "owner": { "name": "Emmanuel I. Obi" },
+  "plugins": [
+    {
+      "name": "darkroom",
+      "description": "The darkroom skills (interview, converge, chronicle), version-locked to darkroom-ai on PyPI. Pinned to the release tag; `claude plugin marketplace update` follows releases.",
+      "author": { "name": "Emmanuel I. Obi" },
+      "category": "development",
+      "source": {
+        "source": "git-subdir",
+        "url": "https://github.com/withtwoemms/darkroom.git",
+        "path": "src/darkroom",
+        "ref": "0.17.0"
+      },
+      "homepage": "https://github.com/withtwoemms/darkroom"
+    }
+  ]
+}

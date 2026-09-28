@@ -6,6 +6,35 @@ project follows [semantic versioning](https://semver.org/) (pre-1.0: minor
 releases may break API, patch releases never do). The manifest schema is
 versioned independently of the package — see `ROADMAP.md`.
 
+## [Unreleased]
+
+### Added
+
+- **Skills ship with the engine.** The three skills move into the
+  package (`darkroom/skills/`, package data), so every wheel carries
+  the skills that match its engine. `darkroom skills path` prints
+  them; `darkroom skills install` links (or `--copy`) them into
+  `~/.claude/skills`; **`darkroom skills check`** compares every
+  installed copy — hand-installed or plugin-installed — against the
+  packaged one by content hash and exits nonzero on drift. A stale
+  copy of a skill was found steering an operator in the field; this
+  makes that impossible to miss.
+- **A Claude Code plugin and marketplace.** `src/darkroom` is a plugin
+  (`.claude-plugin/plugin.json`) and the repo is a one-entry
+  marketplace pinned to the release tag: `claude plugin marketplace
+  add withtwoemms/darkroom`, then install `darkroom@darkroom` for
+  `darkroom:interview`, `darkroom:converge`, `darkroom:chronicle`.
+  Skills are version-locked to the engine by construction.
+- **Release guards.** The release workflow refuses a tag whose
+  plugin version or marketplace pin disagree with it, or whose
+  SKILL.md names disagree with their folders, and refuses a wheel
+  that does not carry the skills.
+
+### Changed
+
+- The skills' canonical location is `src/darkroom/skills/` (was
+  `skills/` at the repo root).
+
 ## [0.16.0] - 2026-09-27
 
 ### Added
