@@ -52,6 +52,9 @@ build-backend = "setuptools.build_meta"
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[tool.setuptools.package-data]
+darkroom = ["skills/*/SKILL.md", ".claude-plugin/plugin.json"]
+
 [tool.setuptools_scm]
 local_scheme = "no-local-version"
 

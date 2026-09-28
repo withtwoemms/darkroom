@@ -685,6 +685,32 @@ def _cmd_home(args) -> int:
     return 0
 
 
+def _cmd_skills(args) -> int:
+    from darkroom import skills as _skills
+
+    if args.skills_command == "path":
+        print(_skills.packaged_root())
+        return 0
+    if args.skills_command == "install":
+        written = _skills.install(link=not args.copy, force=args.force)
+        for path in written:
+            print(f"installed {path.name} -> {path}")
+        if not written:
+            print("nothing installed (already present; use --force to replace)")
+        return 0
+    findings = _skills.check()
+    for f in findings:
+        where = f" at {f.path}" if f.path else ""
+        print(f"{f.status:8s} {f.skill}{where} — {f.detail}")
+    drift = [f for f in findings if not f.ok]
+    print(
+        "skills: every installed copy matches this engine"
+        if not drift
+        else f"skills: {len(drift)} drift finding(s) — installed skills do not match this engine"
+    )
+    return 1 if drift else 0
+
+
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(
         prog="darkroom",
@@ -908,6 +934,21 @@ def main(argv=None) -> int:
     ticket_resolve.add_argument("--note", default="")
     ticket_resolve.add_argument("--state", type=Path, default=None)
     ticket_resolve.set_defaults(func=_cmd_ticket)
+    skills_parser = sub.add_parser(
+        "skills", help="the packaged skills: where they are, install them, check for drift"
+    )
+    skills_sub = skills_parser.add_subparsers(dest="skills_command")
+    skills_sub.add_parser("path", help="print the packaged skills directory")
+    skills_install = skills_sub.add_parser(
+        "install", help="link (or copy) the skills into ~/.claude/skills"
+    )
+    skills_install.add_argument("--copy", action="store_true", help="copy instead of symlink")
+    skills_install.add_argument("--force", action="store_true", help="replace existing")
+    skills_sub.add_parser(
+        "check", help="compare installed skills against this engine's by hash; exit 1 on drift"
+    )
+    skills_parser.set_defaults(func=_cmd_skills, skills_command="check")
+
 
     args = parser.parse_args(argv)
     return args.func(args)

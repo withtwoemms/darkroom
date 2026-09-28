@@ -219,7 +219,7 @@ darkroom home init          # ~/.darkroom/projects/<name>/ — operator space, m
 ```
 
 1. **Author scenarios and rubrics** with the interview skill
-   (`skills/darkroom-interview/` — run it in Claude Code from your
+   (the `darkroom-interview` skill (`darkroom skills install`, or the plugin) — run it in Claude Code from your
    project). It interrogates your product description into scenarios,
    criteria with thresholds, and preflight-validated artifacts.
 2. **Seal the rubrics** out of the tenant and derive the contract

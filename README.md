@@ -167,17 +167,34 @@ darkroom manifest; any judge infrastructure can consume one.
 
 ## Claude skills
 
-- `skills/darkroom-interview/`: the intent interview, covering charter,
+Three skills ship inside the package, version-locked to the engine:
+
+- `darkroom-interview`: the intent interview, covering charter,
   scenario enumeration, thresholds, rubric drafting under the
-  capturable-evidence rule, gaming self-audit, preflight-validated
-  artifacts.
-- `skills/darkroom-chronicle/`: narrates a project's delivery from
-  its dossier, covering progression, what the judge witnessed, sticking
-  points, novelties, spend.
+  capturable-evidence rule (with structured witness citations),
+  gaming self-audit, preflight-validated artifacts.
+- `darkroom-converge`: the operator's run-a-scenario loop — author the
+  drive, audit, dry-run before spending, commit both repos, launch
+  auto, triage blockers, regress, deploy.
+- `darkroom-chronicle`: narrates a project's delivery from its dossier,
+  covering progression, what the judge witnessed, sticking points,
+  novelties, spend.
+
+Install them either way:
 
 ```bash
-cp -r skills/darkroom-interview ~/.claude/skills/   # or per-project .claude/skills/
+# as a Claude Code plugin, pinned to the release you are running
+claude plugin marketplace add withtwoemms/darkroom
+claude plugin install darkroom@darkroom          # -> darkroom:interview, darkroom:converge, darkroom:chronicle
+
+# or from the installed package
+darkroom skills install                          # symlinks into ~/.claude/skills (--copy to copy)
+darkroom skills check                            # exit 1 if any installed copy drifts from this engine
 ```
+
+`darkroom skills check` compares every installed copy against the
+packaged one by content hash, so a stale or hand-edited skill is
+reported rather than quietly steering an operator wrong.
 
 ## Documentation
 

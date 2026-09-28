@@ -15,8 +15,37 @@ jobs:
       - uses: astral-sh/setup-uv@v5
       - name: Run unit tests
         run: make test-unit
+      - name: Guard — skills and manifests agree with the tag
+        # the plugin's version and the marketplace's pinned ref must equal the
+        # release tag, and every SKILL.md must carry a name matching its folder
+        run: |
+          python3 - "${GITHUB_REF_NAME}" <<'PY'
+          import json, re, sys
+          from pathlib import Path
+          tag = sys.argv[1]
+          plugin = json.load(open("src/darkroom/.claude-plugin/plugin.json"))
+          market = json.load(open(".claude-plugin/marketplace.json"))
+          ref = market["plugins"][0]["source"]["ref"]
+          errors = []
+          if plugin["version"] != tag:
+              errors.append(f"plugin.json version {plugin['version']!r} != tag {tag!r}")
+          if ref != tag:
+              errors.append(f"marketplace.json ref {ref!r} != tag {tag!r}")
+          for d in sorted(Path("src/darkroom/skills").iterdir()):
+              head = (d / "SKILL.md").read_text().split("---")[1]
+              m = re.search(r"^name:\s*(\S+)", head, re.M)
+              if not m or m.group(1) != d.name:
+                  errors.append(f"{d.name}/SKILL.md name {m.group(1) if m else None!r} != folder")
+          if errors:
+              print("release guard FAILED:\n  " + "\n  ".join(errors)); sys.exit(1)
+          print(f"release guard OK: plugin, marketplace, and {len(list(Path('src/darkroom/skills').iterdir()))} skills agree with {tag}")
+          PY
       - name: Build distributions
         run: uv build
+      - name: Guard — the wheel carries the skills
+        run: |
+          n=$(unzip -l dist/*.whl | grep -c 'darkroom/skills/.*/SKILL.md')
+          test "$n" -eq 3 && echo "wheel carries $n skills" || { echo "wheel is missing skills ($n found)"; exit 1; }
       - uses: actions/upload-artifact@v4
         with:
           name: dist
