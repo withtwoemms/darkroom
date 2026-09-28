@@ -1,6 +1,6 @@
 # Drive Scripts
 
-**Format:** TOML · **Schema version:** 1.3 · **File:** one script per
+**Format:** TOML · **Schema version:** 1.5 · **File:** one script per
 scenario, named `<anything>.drive.toml`, conventionally in the
 operator home's `drives/` directory.
 
@@ -54,8 +54,18 @@ is captured as `http_transcript` evidence.
 | `headers` | table (interpolated) | request headers |
 | `json` | any (interpolated) | JSON request body; sets `Content-Type: application/json` unless given |
 | `body` *(1.4)* | string (interpolated) | raw request body, sent verbatim with no content type implied — for exact-bytes scenarios (a webhook's HMAC over the payload); mutually exclusive with `json` |
+| `follow_redirects` *(1.5)* | bool (default `true`) | when `false`, a 3xx is the response the step records — its status and `Location` header — rather than what following it led to; the transcript's `request.follow_redirects` records the choice |
+| `session` *(1.5)* | `"browser"` | send the scenario's browser-session cookies for this URL (an explicit `Cookie` header wins), so the request acts as whoever the browser signed in; the scenario then gets a browser session even without browser steps |
 | `save` | table var → path | extract values from the JSON response body: paths use `$.field.sub` form |
 | `expect` | table (interpolated) | expectations (below) |
+
+`session = "browser"` is one-way: the browser's cookies reach the
+request, but the response's `Set-Cookie` does not reach the browser.
+Before 1.5 an exam that needed to act as a signed-in member from an
+http step needed a tenant-side bridge (a header the app honored only
+under a test flag) — auth machinery in production code for the exam's
+benefit. Now the exam signs in through the browser like a person
+does, and the http step borrows that identity.
 
 ### `command`
 
@@ -172,6 +182,7 @@ An `expect` table may check:
 | `title_contains` *(1.1)* | browser steps | substring of the page title |
 | `url_contains` *(1.1)* | browser steps | substring of the current page URL |
 | `selector_visible` *(1.1)* | browser steps | the selector resolves to a visible element |
+| `location_contains` *(1.5)* | http | substring of the response's `Location` header — the witness for a redirect's target (pair with `follow_redirects = false`; a followed redirect has no `Location` left to check) |
 
 ### Expectation witnesses *(since 1.4)*
 
@@ -183,8 +194,9 @@ and what it found, as a `log` item named `<step>.expect`:
  "found": {"status": 200, "selector_visible": true}, "ok": true}
 ```
 
-`status` and `exit_code` record the actual value; `title` and `url`
-the actual string; `body_contains` and `selector_visible` a boolean.
+`status` and `exit_code` record the actual value; `title`, `url`, and
+`location` the actual string; `body_contains` and `selector_visible`
+a boolean.
 An enforced check the judge cannot see is not evidence — before 1.4,
 a `goto` whose `expect` required a selector gated the run but left
 nothing in the record, so a rubric could not cite it. Since 1.4 such
@@ -222,7 +234,7 @@ browser step kinds and three browser expectation keys; `1.2` added
 the `record` flag; `1.3` added the `[browser]` session table
 (viewport, webauthn), literal-brace escapes, and bounded waiting
 (~5s) on all page-settling browser expectations (`title_contains`,
-`url_contains`, `body_contains`, `selector_visible`); `1.4` added the raw `body` field on `http` steps and expectation witnesses (every step with an `expect` logs a `<step>.expect` record of what it checked and found) — each additive, per the shared
+`url_contains`, `body_contains`, `selector_visible`); `1.4` added the raw `body` field on `http` steps and expectation witnesses (every step with an `expect` logs a `<step>.expect` record of what it checked and found); `1.5` added `follow_redirects` and `session` on `http` steps and the `location_contains` expectation — each additive, per the shared
 policy, so every earlier script remains valid. New step
 kinds, fields, or expectation keys arrive as minor bumps; consumers
 (engines) MUST refuse unknown step kinds loudly rather than skip

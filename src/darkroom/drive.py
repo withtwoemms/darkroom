@@ -28,6 +28,9 @@ Step kinds:
 
 A scenario containing browser steps gets one browser session (fresh
 per scenario, like the server): pages navigate against ``{base_url}``.
+An http step with ``session = "browser"`` sends that session's cookies,
+acting as whoever the browser signed in; ``follow_redirects = false``
+records a 3xx itself (status, Location) instead of what it led to.
 
 Interpolation: ``{name}`` from saved values, ``{base_url}``,
 ``{keys.<n>.public}``, and the call form ``{sign(keys.<n>, <var>)}``.
@@ -178,7 +181,23 @@ def _evaluate_expect(expect: dict, transcript: dict) -> tuple[str | None, dict]:
         found["body_contains"] = expect["body_contains"] in body
         if not found["body_contains"]:
             return f"body does not contain '{expect['body_contains']}'", found
+    if "location_contains" in expect:
+        location = _header(response.get("headers", {}), "location")
+        found["location"] = location
+        if location is None or expect["location_contains"] not in location:
+            return (
+                f"expected Location containing '{expect['location_contains']}', "
+                f"got {location!r}",
+                found,
+            )
     return None, found
+
+
+def _header(headers: dict, name: str) -> str | None:
+    for key, value in headers.items():
+        if key.lower() == name:
+            return value
+    return None
 
 
 def _check_expect(expect: dict, transcript: dict) -> str | None:
@@ -208,14 +227,44 @@ def _http_request_body(step: dict, ctx: Context, headers: dict) -> str | None:
     return None
 
 
+def _browser_cookie_header(session, url: str) -> str | None:
+    """The browser's cookies for ``url``, as one Cookie header — how an http
+    step acts as whoever the browser signed in (drive-scripts 1.5)."""
+    cookies = session.context.cookies([url])
+    if not cookies:
+        return None
+    return "; ".join(f"{c['name']}={c['value']}" for c in cookies)
+
+
 def _run_http_step(
-    step: dict, ctx: Context, capture: EvidenceCapture
+    step: dict, ctx: Context, capture: EvidenceCapture, browser=None
 ) -> tuple[dict, str | None]:
     url = ctx.interpolate(step["url"])
     method = step.get("method", "GET")
     headers = ctx.interpolate_json(step.get("headers", {}))
     body = _http_request_body(step, ctx, headers)
-    path = capture.http(step["name"], url, method=method, headers=headers, body=body)
+    if step.get("session") == "browser":
+        if browser is None:
+            raise DriveError(
+                f"http step '{step['name']}' asks for the browser session, "
+                "but the scenario has no browser"
+            )
+        if not any(name.lower() == "cookie" for name in headers):
+            cookie = _browser_cookie_header(browser, url)
+            if cookie is not None:
+                headers["Cookie"] = cookie
+    elif "session" in step:
+        raise DriveError(
+            f"http step '{step['name']}': session must be \"browser\" if given"
+        )
+    path = capture.http(
+        step["name"],
+        url,
+        method=method,
+        headers=headers,
+        body=body,
+        follow_redirects=bool(step.get("follow_redirects", True)),
+    )
     transcript = json.loads(Path(path).read_text())
 
     for var, save_path in step.get("save", {}).items():
@@ -672,7 +721,10 @@ def drive_scenario(
     scenario = script["scenario"]
     result = ScenarioResult(scenario=scenario)
     steps = script.get("step", [])
-    needs_browser = any(s.get("kind") in BROWSER_STEP_KINDS for s in steps)
+    needs_browser = any(
+        s.get("kind") in BROWSER_STEP_KINDS or s.get("session") == "browser"
+        for s in steps
+    )
     needs_server = (
         any(s.get("kind") == "http" for s in steps)
         or needs_browser
@@ -720,7 +772,7 @@ def drive_scenario(
             name = step.get("name", kind)
             try:
                 if kind == "http":
-                    _, failure = _run_http_step(step, ctx, capture)
+                    _, failure = _run_http_step(step, ctx, capture, browser)
                 elif kind == "command":
                     _, failure = _run_command_step(step, ctx, capture)
                 elif kind == "keygen":

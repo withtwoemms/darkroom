@@ -29,6 +29,13 @@ def _redact(headers: dict, redacted: frozenset) -> dict:
     }
 
 
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    """Refuses to follow, so the 3xx itself is the response urlopen raises."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
 class HTTPTranscriptProducer:
     """Makes an HTTP request and captures the full exchange as JSON evidence."""
 
@@ -46,12 +53,19 @@ class HTTPTranscriptProducer:
         timeout: float = 30,
         max_body_bytes: int = 1_000_000,
         redact_headers: frozenset = REDACTED_HEADERS,
+        follow_redirects: bool = True,
         **kwargs,
     ) -> EvidenceItem:
         request_headers = dict(headers or {})
         data = body.encode() if isinstance(body, str) else body
         request = urllib.request.Request(
             url, data=data, headers=request_headers, method=method
+        )
+        # urlopen follows 3xx silently, which hides a redirect from the
+        # record; a scenario that needs the raw 3xx (and its Location)
+        # opts out and the 3xx surfaces as an HTTPError, captured below
+        opener = urllib.request.build_opener(
+            *([] if follow_redirects else [_NoRedirect()])
         )
 
         started = datetime.now()
@@ -60,7 +74,7 @@ class HTTPTranscriptProducer:
         raw = b""
         error: str | None = None
         try:
-            with urllib.request.urlopen(request, timeout=timeout) as response:
+            with opener.open(request, timeout=timeout) as response:
                 status = response.status
                 response_headers = dict(response.headers)
                 raw = response.read(max_body_bytes + 1)
@@ -84,6 +98,7 @@ class HTTPTranscriptProducer:
                 "url": url,
                 "headers": _redact(request_headers, redact_headers),
                 "body": request_body,
+                "follow_redirects": follow_redirects,
             },
             "response": {
                 "status": status,
