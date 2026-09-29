@@ -86,6 +86,12 @@ against the app as it exists right now?"** If yes, fix the drive, not
 the builder's time. Launch auto only when the first (and only)
 failures are at genuinely-unbuilt steps.
 
+A tenant whose app needs a database beside it declares the service
+in `darkroom.toml` (`[[environment.services]]`); the engine boots a
+fresh one per scenario in process mode and container mode alike
+(0.19), so never script one from the Makefile — that is the bridge
+pattern, test infrastructure in production code, and it leaks.
+
 Some checks are not witnessable by today's engine at all. When a
 witness is structurally unproducible, say so, verify that behavior
 with a local network-free script instead, ship it as un-gated
@@ -114,7 +120,8 @@ browser signed in (`session = "browser"`, 1.5).
 `darkroom auto --scenario <name> --operator <operator.toml>`, in the
 background. While it runs, watch three things:
 
-- **The score trajectory.** Climbing is healthy. Flat across
+- **The score trajectory** — read it with `darkroom status`, never by
+  hand from loop files. Climbing is healthy. Flat across
   iterations is stagnation — the escalation dials (diagnostic access,
   model escalation, feedback specificity) fire on their schedule; let
   them.
@@ -155,6 +162,14 @@ On convergence (score 100):
 2. **Gate the deploy on a green suite.** Never deploy on red. If the
    suite is green, deploy; if red on a genuine regression, fix before
    shipping.
+   **If the slice touched the schema, the green suite is not enough.**
+   Exams run on fresh databases, so a migration that a long-lived
+   production database needs is invisible to every scenario (a
+   payments deploy once 500'd the hearth on `no such column`). Before
+   deploying: fetch a copy of production's database, boot the built
+   app against that copy, and probe the routes the change touches —
+   then confirm the columns arrived by ALTER TABLE, never by
+   recreating tables. Only then deploy.
 3. **Resolve the ticket** — move it from the queue to history — and
    update any thread/memory the project keeps.
 4. **Verify live.** Curl the new surface on the deployed host; confirm

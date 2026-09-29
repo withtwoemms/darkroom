@@ -50,6 +50,7 @@ import sys
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
+from types import SimpleNamespace
 
 if sys.version_info >= (3, 11):
     import tomllib
@@ -560,13 +561,81 @@ def _wait_healthy(base_url: str, timeout: float = 15.0) -> None:
     raise DriveError(f"server never became healthy at {base_url}")
 
 
+def _wait_tcp(host: str, port: int, timeout: float = 30.0) -> None:
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        try:
+            with socket.create_connection((host, port), timeout=1):
+                return
+        except OSError:
+            time.sleep(0.25)
+    raise DriveError(f"service on {host}:{port} never accepted a connection")
+
+
+class _Services:
+    """The adapter's declared services beside a process-mode app: a fresh
+    Postgres per scenario while ``make serve`` still boots the app itself.
+    Each service's mapped host address reaches the serve command as
+    ``{name.host}`` / ``{name.port}``, and its image digest is logged with
+    the evidence — the same record container mode keeps.
+    """
+
+    def __init__(self, adapter: ProjectAdapter, container_cls=None, wait=_wait_tcp):
+        if container_cls is None:
+            try:
+                from testcontainers.core.container import DockerContainer as container_cls
+            except ImportError:
+                raise DriveError(
+                    "declared [[environment.services]] need the containers "
+                    "extra: pip install 'darkroom-ai[containers]'"
+                ) from None
+        self.adapter = adapter
+        self.containers: dict[str, object] = {}
+        self.namespaces: dict[str, SimpleNamespace] = {}
+        try:
+            for svc in adapter.services:
+                container = container_cls(svc.image)
+                for key, value in svc.env:
+                    container.with_env(key, value)
+                if svc.port is not None:
+                    container.with_exposed_ports(svc.port)
+                container.start()
+                self.containers[svc.name] = container
+                host = container.get_container_host_ip()
+                port = None
+                if svc.port is not None:
+                    port = int(container.get_exposed_port(svc.port))
+                    wait(host, port)
+                self.namespaces[svc.name] = SimpleNamespace(host=host, port=port)
+        except Exception:
+            self.stop()
+            raise
+
+    def digests(self) -> dict[str, str]:
+        return {svc.name: _image_digest(svc.image) for svc in self.adapter.services}
+
+    def stop(self) -> None:
+        for container in self.containers.values():
+            try:
+                container.stop()
+            except Exception:
+                pass
+        self.containers = {}
+
+
 class _Server:
-    def __init__(self, adapter: ProjectAdapter, extra_vars: dict):
+    def __init__(
+        self, adapter: ProjectAdapter, extra_vars: dict, services: _Services | None = None
+    ):
         self.port = _free_port()
         self.base_url = f"http://127.0.0.1:{self.port}"
-        command = adapter.command("serve", port=self.port, **extra_vars)
+        self.services = services
+        substitutions = dict(extra_vars)
+        if services is not None:
+            substitutions.update(services.namespaces)
+        self.command = adapter.command("serve", port=self.port, **substitutions)
         self.process = subprocess.Popen(
-            ["/bin/sh", "-c", command],
+            ["/bin/sh", "-c", self.command],
             cwd=adapter.root,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
@@ -578,6 +647,8 @@ class _Server:
             self.process.wait(timeout=5)
         except subprocess.TimeoutExpired:
             self.process.kill()
+        if self.services is not None:
+            self.services.stop()
 
 
 def resolve_container_mode(mode: str, adapter: ProjectAdapter) -> bool:
@@ -742,7 +813,8 @@ def drive_scenario(
                 ctx.values["base_url"] = environment.base_url
                 _wait_healthy(environment.base_url)
             else:
-                server = _Server(adapter, script.get("serve", {}))
+                services = _Services(adapter) if adapter.services else None
+                server = _Server(adapter, script.get("serve", {}), services=services)
                 ctx.values["base_url"] = server.base_url
                 if script.get("browser", {}).get("webauthn"):
                     # WebAuthn RP IDs must be valid domains — an IP
@@ -767,6 +839,8 @@ def drive_scenario(
         capture = EvidenceCapture(scenario)
         if environment is not None:
             capture.log("environment", {"images": environment.digests()})
+        elif server is not None and server.services is not None:
+            capture.log("environment", {"images": server.services.digests()})
         for step in script.get("step", []):
             kind = step.get("kind", "http")
             name = step.get("name", kind)

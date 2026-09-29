@@ -64,6 +64,21 @@ serve = "make serve PORT={port}"
 test = "darkroom drive"
 ```
 
+A tenant that needs a database beside the app declares it once, as a
+fact, and every scenario gets a fresh one:
+
+```toml
+[[environment.services]]
+name = "postgres"
+image = "postgres:16"
+port = 5432
+env = { POSTGRES_PASSWORD = "exam" }
+```
+
+```toml
+serve = "make serve PORT={port} DATABASE_URL=postgres://postgres:exam@{postgres.host}:{postgres.port}/postgres"
+```
+
 The **exam** is data, held operator-side as one drive script per
 scenario. The engine boots the app fresh, executes the steps against
 it as a black box, and captures every exchange as evidence:

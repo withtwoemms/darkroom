@@ -221,7 +221,14 @@ witness is a vacuous pass, not proof.
 - A scenario that cannot even boot is recorded as a failed scenario
   (a single failed `serve` step), never as a failed drive.
 - In container mode, an `environment` log item recording image
-  digests precedes the step evidence.
+  digests precedes the step evidence. In process mode, an adapter
+  that declares `[[environment.services]]` gets each service as a
+  fresh container per scenario beside the process-booted app (since
+  engine 0.19): the service's mapped address reaches the serve
+  command as `{name.host}` / `{name.port}`, a TCP probe waits for a
+  declared port before the app boots, the containers stop with the
+  server, and the same `environment` log item records their digests.
+  A scenario's database is therefore as hermetic as its process.
 - The engine writes the harness log (step names, ok/FAIL, failure
   details) beside the manifest — the builder-visible diagnostics
   channel specified in [role-hooks.md](role-hooks.md).
