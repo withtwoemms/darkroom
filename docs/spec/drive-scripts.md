@@ -225,9 +225,12 @@ witness is a vacuous pass, not proof.
   that declares `[[environment.services]]` gets each service as a
   fresh container per scenario beside the process-booted app (since
   engine 0.19): the service's mapped address reaches the serve
-  command as `{name.host}` / `{name.port}`, a TCP probe waits for a
-  declared port before the app boots, the containers stop with the
-  server, and the same `environment` log item records their digests.
+  command as `{name.host}` / `{name.port}` — and to the drive's own
+  steps as the same placeholders (0.19.1), so a scenario that re-boots
+  the app in place can address the services the engine started — a
+  TCP probe waits for a declared port before the app boots, the
+  containers stop with the server, and the same `environment` log
+  item records their digests.
   A scenario's database is therefore as hermetic as its process.
 - The engine writes the harness log (step names, ok/FAIL, failure
   details) beside the manifest — the builder-visible diagnostics
