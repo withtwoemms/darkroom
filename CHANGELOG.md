@@ -6,6 +6,34 @@ project follows [semantic versioning](https://semver.org/) (pre-1.0: minor
 releases may break API, patch releases never do). The manifest schema is
 versioned independently of the package — see `ROADMAP.md`.
 
+## [Unreleased]
+
+### Added
+
+- **Services in process mode**: an adapter's `[[environment.services]]`
+  now apply when the app is process-booted, not only in container
+  mode. Each scenario gets a fresh container per service (a Postgres
+  per exam), its mapped address substituted into the serve command as
+  `{name.host}` / `{name.port}`, a TCP probe on the declared port
+  before the app boots, teardown with the server, and the image
+  digests logged as the `environment` item. Needed by a tenant moving
+  to Postgres whose exam must run on the same engine as production;
+  the alternative — the Makefile launching its own container — has
+  no teardown and is the bridge pattern again.
+
+### Changed
+
+- The converge skill's deploy stage gains the migration-safety rule
+  (test a schema change against a copy of production's database
+  before deploying; columns arrive by ALTER TABLE), reads the
+  trajectory through `darkroom status`, and says where a service
+  belongs (the adapter, never the Makefile).
+- The roadmap records two deferred decisions under Beyond 1.0: a
+  darkroom container image (built when hosted judging or an
+  evaluator-provenance audit asks for it) and the native second
+  implementation as `darkrm` (after the freeze, as the spec's
+  conformance proof).
+
 ## [0.18.0] - 2026-09-28
 
 ### Added
