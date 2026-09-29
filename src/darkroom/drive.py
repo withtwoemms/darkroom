@@ -816,6 +816,13 @@ def drive_scenario(
                 services = _Services(adapter) if adapter.services else None
                 server = _Server(adapter, script.get("serve", {}), services=services)
                 ctx.values["base_url"] = server.base_url
+                if services is not None:
+                    # a drive that re-boots the app in place (a restart
+                    # scenario) must address the same services the engine
+                    # started, so their mapped addresses are drive values too
+                    for svc_name, ns in services.namespaces.items():
+                        ctx.values[f"{svc_name}.host"] = ns.host
+                        ctx.values[f"{svc_name}.port"] = "" if ns.port is None else str(ns.port)
                 if script.get("browser", {}).get("webauthn"):
                     # WebAuthn RP IDs must be valid domains — an IP
                     # origin is rejected, so passkey scenarios address

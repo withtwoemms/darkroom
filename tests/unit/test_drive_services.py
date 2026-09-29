@@ -140,3 +140,44 @@ class TestServerWithServices:
             assert server.services is None and "5" in server.command
         finally:
             server.stop()
+
+
+class TestDriveValues:
+    def test_service_addresses_are_drive_values(self, adapter, monkeypatch):
+        """The process-mode branch publishes {name.host}/{name.port} into the
+        drive context; exercised through the same wiring the scenario runner
+        uses, with the server and browser stubbed out."""
+        import darkroom.drive as drive
+
+        seen = {}
+
+        class _StubServer:
+            def __init__(self, adapter_, extra, services=None):
+                self.base_url = "http://127.0.0.1:1"
+                self.port = 1
+                self.services = services
+                seen["services"] = services
+
+            def stop(self):
+                pass
+
+        monkeypatch.setattr(drive, "_Server", _StubServer)
+        monkeypatch.setattr(drive, "_wait_healthy", lambda url: None)
+        monkeypatch.setattr(
+            drive, "_Services", lambda a: _Services(a, container_cls=_FakeContainer)
+        )
+        monkeypatch.setattr(drive, "_image_digest", lambda image: "sha256:test")
+        script = {
+            "scenario": "addr",
+            "step": [
+                {"name": "say", "kind": "command", "cmd": "echo {postgres.host}:{postgres.port}",
+                 "expect": {"exit_code": 0}},
+                # an http step is what makes the runner boot a server (and
+                # so its services); it fails against the stub, after "say"
+                {"name": "probe", "kind": "http", "url": "{base_url}/"},
+            ],
+        }
+        result = drive.drive_scenario(adapter, script)
+        assert result.steps[0].ok, result.steps[0].detail
+        pg = _FakeContainer.instances[0]
+        assert seen["services"].namespaces["postgres"].port == pg.sock.getsockname()[1]

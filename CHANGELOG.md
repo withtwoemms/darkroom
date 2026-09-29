@@ -6,6 +6,16 @@ project follows [semantic versioning](https://semver.org/) (pre-1.0: minor
 releases may break API, patch releases never do). The manifest schema is
 versioned independently of the package — see `ROADMAP.md`.
 
+## [Unreleased]
+
+### Fixed
+
+- Declared services' mapped addresses now reach the drive's steps as
+  `{name.host}` / `{name.port}`, not only the serve command. A
+  restart scenario re-boots the app in place from a command step and
+  must hand it the same database the engine started; without the
+  values it could not.
+
 ## [0.19.0] - 2026-09-29
 
 ### Added
