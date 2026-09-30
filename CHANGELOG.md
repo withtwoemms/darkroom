@@ -6,6 +6,31 @@ project follows [semantic versioning](https://semver.org/) (pre-1.0: minor
 releases may break API, patch releases never do). The manifest schema is
 versioned independently of the package — see `ROADMAP.md`.
 
+## [Unreleased]
+
+### Fixed
+
+- **The exam could be left where the builder reads it.** The quickstart
+  keeps `drives/` in the tenant through stage 3 and never said to move
+  it; an adopter following it verbatim committed the exam beside the
+  code. Stage 4 now has the move as its own step, `darkroom preflight`
+  warns (`drives-in-tenant`) about drive scripts inside a tenant whose
+  exam has moved operator-side — an `operator.toml` or sealed rubrics
+  in the project's home — and `darkroom auto` refuses to start against
+  one. Stages 1–3 are untouched: the free loop makes a home for its
+  state, but seals nothing.
+- **Vault tokens reached the agents.** Judge and builder subprocesses
+  inherited the operator's whole environment, `BAO_TOKEN` /
+  `VAULT_TOKEN` included — contrary to what the OpenBao backend
+  promised. Agent invocations now run with those scrubbed
+  (`agents.SCRUBBED_ENV`), so a role can only hold a vault token it
+  was handed on purpose — and OpenBao's policies are the boundary: the
+  quickstart now shows an operator policy that reads the rubric path
+  and a builder policy that denies it, with the builder's own token
+  passed in its invoke template. The agent CLI's own credential is
+  passed through by design: the roles are the operator's agents and
+  authenticate as such; the boundary is the exam, not the model.
+
 ## [0.19.2] - 2026-09-30
 
 ### Added

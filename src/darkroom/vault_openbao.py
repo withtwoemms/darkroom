@@ -4,12 +4,16 @@ Implements the :class:`darkroom.vault.RubricVault` protocol over KV v2
 via ``hvac`` (API-compatible with both OpenBao and HashiCorp Vault),
 behind the ``vault`` extra: ``pip install 'darkroom-ai[vault]'``.
 
-What this backend buys over the filesystem vault: token-gated reads,
+What this backend buys over the filesystem vault: policy-gated reads,
 native version history, and server-side audit devices a compromised
-builder cannot edit. The token lives in the *operator process*
-environment (``BAO_TOKEN`` or ``VAULT_TOKEN``) — agent subprocesses
-never hold it, since darkroom itself reads the vault and inlines rubric
-text into judge prompts.
+builder cannot edit. The boundary is OpenBao's own RBAC: the operator's
+token (``BAO_TOKEN`` or ``VAULT_TOKEN`` in the *operator process*
+environment) carries a policy that reads the rubric path, and darkroom
+itself uses it to inline rubric text into judge prompts. Agent
+subprocesses never inherit it — ``agents.SCRUBBED_ENV`` strips those
+names — and a builder that legitimately needs the vault is handed its
+own token in its invoke template, bound to a policy that denies the
+rubric path.
 
 Version semantics: ``read(version=...)`` refers to the rubric's own
 ``version`` field (the identity evaluations pin), not KV revision

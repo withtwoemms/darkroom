@@ -58,6 +58,19 @@ def default_vault(project_name: str) -> Path:
     return project_home(project_name) / "vault"
 
 
+def exam_is_operator_side(project_name: str) -> bool:
+    """Has this project's exam moved out of the tenant — an operator config
+    or sealed rubrics in the home? The home directory itself is no signal:
+    ``auto`` creates it for loop state even in the quickstart's free stage."""
+    if not project_name:
+        return False
+    home = project_home(project_name)
+    if (home / "operator.toml").is_file():
+        return True
+    vault = home / "vault"
+    return vault.is_dir() and any(vault.glob("*.rubric.toml"))
+
+
 def default_drives(project_name: str) -> Path:
     return project_home(project_name) / "drives"
 

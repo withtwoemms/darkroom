@@ -80,20 +80,24 @@ serve = "make serve PORT={port} DATABASE_URL=postgres://postgres:exam@{postgres.
 ```
 
 An image whose entrypoint wants arguments declares them as `command`
-(an object store beside the database, say):
+(a Postgres tuned for throwaway exams, say):
 
 ```toml
 [[environment.services]]
-name = "objects"
-image = "minio/minio"
-port = 9000
-env = { MINIO_ROOT_USER = "exam", MINIO_ROOT_PASSWORD = "exam-exam" }
-command = ["server", "/data"]
+name = "postgres"
+image = "postgres:16"
+port = 5432
+env = { POSTGRES_PASSWORD = "exam" }
+command = ["postgres", "-c", "fsync=off", "-c", "synchronous_commit=off"]
 ```
 
 The **exam** is data, held operator-side as one drive script per
-scenario. The engine boots the app fresh, executes the steps against
-it as a black box, and captures every exchange as evidence:
+scenario — in the project's darkroom home
+(`~/.darkroom/projects/<name>/drives/`), never in the repo the builder
+works in; the quickstart's stage 4 moves it there, and `darkroom auto`
+refuses to run while a drive script is still inside the tenant. The
+engine boots the app fresh, executes the steps against it as a black
+box, and captures every exchange as evidence:
 
 ```toml
 scenario = "note_saved"
