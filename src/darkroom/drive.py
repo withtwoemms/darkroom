@@ -144,14 +144,29 @@ class Context:
         return value
 
 
+_PATH_SEGMENT = re.compile(r"^([^\[\]]*)((?:\[-?\d+\])*)$")
+
+
 def _dot_path(payload, path: str):
+    """Walk ``$.field.sub`` into a JSON body; a segment may carry array
+    indexes, ``$.items[0].id`` or ``$.receipts[-1].who`` (drive-scripts 1.7)."""
     if not path.startswith("$."):
         raise DriveError(f"save paths use '$.field.sub' form, got '{path}'")
     current = payload
-    for part in path[2:].split("."):
-        if not isinstance(current, dict) or part not in current:
-            raise DriveError(f"path '{path}' not found in response body")
-        current = current[part]
+    for segment in path[2:].split("."):
+        match = _PATH_SEGMENT.match(segment)
+        if match is None:
+            raise DriveError(f"path '{path}' has a malformed segment '{segment}'")
+        key, indexes = match.group(1), match.group(2)
+        if key:
+            if not isinstance(current, dict) or key not in current:
+                raise DriveError(f"path '{path}' not found in response body")
+            current = current[key]
+        for index in re.findall(r"\[(-?\d+)\]", indexes):
+            position = int(index)
+            if not isinstance(current, list) or not -len(current) <= position < len(current):
+                raise DriveError(f"path '{path}' not found in response body")
+            current = current[position]
     return current
 
 
@@ -549,7 +564,10 @@ def _free_port() -> int:
         return s.getsockname()[1]
 
 
-def _wait_healthy(base_url: str, timeout: float = 15.0) -> None:
+def _wait_healthy(base_url: str, timeout: float = 30.0) -> None:
+    # an app that runs migrations at import against a service the engine
+    # only TCP-probed can take longer than the old 15s to answer its first
+    # request on a loaded machine; the bound stays, the budget doubles
     import urllib.error
     import urllib.request
 
