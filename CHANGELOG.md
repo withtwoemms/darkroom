@@ -6,6 +6,18 @@ project follows [semantic versioning](https://semver.org/) (pre-1.0: minor
 releases may break API, patch releases never do). The manifest schema is
 versioned independently of the package — see `ROADMAP.md`.
 
+## [Unreleased]
+
+### Added
+
+- `[[environment.services]]` entries take a `ready_path`: after the
+  declared port accepts a connection the engine also waits for an HTTP
+  response at that path before booting the app. A JVM object store
+  accepts TCP seconds before it serves; handed to the app on TCP alone,
+  every bucket call in the app's boot window died with "connection
+  closed", and seven converged scenarios went red in the same
+  full-suite run — a race the single-scenario loops had been winning.
+
 ## [0.19.4] - 2026-09-30
 
 ### Fixed
