@@ -6,6 +6,19 @@ project follows [semantic versioning](https://semver.org/) (pre-1.0: minor
 releases may break API, patch releases never do). The manifest schema is
 versioned independently of the package — see `ROADMAP.md`.
 
+## [Unreleased]
+
+### Added
+
+- The browser session's virtual authenticator now carries the WebAuthn
+  **PRF extension** (CTAP 2.1 hmac-secret), so a passkey ceremony in a
+  drive can yield per-salt secrets the way a real platform passkey
+  does — the mechanism a tenant needs to derive encryption keys from
+  the thumb rather than store them. On by default; `[browser] prf =
+  false` models an authenticator without it, so the fallback road is
+  examinable too (drive-scripts 1.6). Every existing passkey drive is
+  unaffected: the extension only answers when a ceremony asks for it.
+
 ## [0.19.1] - 2026-09-29
 
 ### Fixed

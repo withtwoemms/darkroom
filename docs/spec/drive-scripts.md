@@ -1,6 +1,6 @@
 # Drive Scripts
 
-**Format:** TOML · **Schema version:** 1.5 · **File:** one script per
+**Format:** TOML · **Schema version:** 1.6 · **File:** one script per
 scenario, named `<anything>.drive.toml`, conventionally in the
 operator home's `drives/` directory.
 
@@ -30,7 +30,7 @@ reveal criteria or scoring is misauthored.
 | `scenario` | string | yes | the scenario this script exercises |
 | `[serve]` | table | no | variables substituted into the adapter's serve command / container env |
 | `record` *(1.2)* | boolean (default false) | no | browser scenarios only: record a screencast of the whole scenario, registered as one `video` evidence item (step `screencast`) at teardown |
-| `[browser]` *(1.3)* | table | no | browser-session options: `viewport = { width, height }` sizes the page (phone-width criteria); `webauthn = true` attaches a virtual authenticator (platform, user-verifying, presence auto-simulated) so passkey flows run headlessly — the scenario's `{base_url}` then addresses the server as `localhost`, since WebAuthn rejects IP origins |
+| `[browser]` *(1.3)* | table | no | browser-session options: `viewport = { width, height }` sizes the page (phone-width criteria); `webauthn = true` attaches a virtual authenticator (platform, user-verifying, presence auto-simulated) so passkey flows run headlessly — the scenario's `{base_url}` then addresses the server as `localhost`, since WebAuthn rejects IP origins; `prf` *(1.6, default true)* gives that authenticator the WebAuthn PRF extension so a ceremony can return per-salt secrets, and `prf = false` models an authenticator without it |
 | `[[step]]` | array of tables | yes | the steps, executed in order |
 
 Every step carries:
@@ -244,7 +244,7 @@ browser step kinds and three browser expectation keys; `1.2` added
 the `record` flag; `1.3` added the `[browser]` session table
 (viewport, webauthn), literal-brace escapes, and bounded waiting
 (~5s) on all page-settling browser expectations (`title_contains`,
-`url_contains`, `body_contains`, `selector_visible`); `1.4` added the raw `body` field on `http` steps and expectation witnesses (every step with an `expect` logs a `<step>.expect` record of what it checked and found); `1.5` added `follow_redirects` and `session` on `http` steps and the `location_contains` expectation — each additive, per the shared
+`url_contains`, `body_contains`, `selector_visible`); `1.4` added the raw `body` field on `http` steps and expectation witnesses (every step with an `expect` logs a `<step>.expect` record of what it checked and found); `1.5` added `follow_redirects` and `session` on `http` steps and the `location_contains` expectation; `1.6` added `prf` on the `[browser]` table — each additive, per the shared
 policy, so every earlier script remains valid. New step
 kinds, fields, or expectation keys arrive as minor bumps; consumers
 (engines) MUST refuse unknown step kinds loudly rather than skip
