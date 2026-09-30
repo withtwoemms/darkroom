@@ -40,6 +40,7 @@ class ServiceSpec:
     image: str
     port: int | None = None
     env: tuple[tuple[str, str], ...] = ()
+    command: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -106,12 +107,17 @@ def loads_adapter(text: str, root: Path) -> ProjectAdapter:
             image=svc.get("image", ""),
             port=svc.get("port"),
             env=tuple(sorted((svc.get("env") or {}).items())),
+            command=tuple(svc.get("command") or ()),
         )
         for svc in environment.get("services", [])
     )
     for svc in services:
         if not svc.name or not svc.image:
             raise ValueError("[[environment.services]] entries need name and image")
+        if not all(isinstance(part, str) for part in svc.command):
+            raise ValueError(
+                f"[[environment.services]] {svc.name}: command must be an array of strings"
+            )
 
     return ProjectAdapter(
         root=Path(root),

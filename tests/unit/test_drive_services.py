@@ -24,6 +24,7 @@ env = { POSTGRES_PASSWORD = "exam" }
 [[environment.services]]
 name = "cache"
 image = "redis:7"
+command = ["redis-server", "--save", ""]
 """
 
 
@@ -43,6 +44,10 @@ class _FakeContainer:
 
     def with_env(self, key, value):
         self.env[key] = value
+        return self
+
+    def with_command(self, command):
+        self.command = command
         return self
 
     def with_exposed_ports(self, port):
@@ -95,8 +100,16 @@ class TestServices:
         assert services.namespaces["postgres"].port == pg.sock.getsockname()[1]
         # a service with no declared port is started but never probed
         assert cache.exposed == [] and services.namespaces["cache"].port is None
+        # a declared command replaces the image's; none declared leaves it alone
+        assert cache.command == ["redis-server", "--save", ""]
+        assert getattr(pg, "command", None) is None
         services.stop()
         assert pg.stopped and cache.stopped
+
+    def test_a_command_must_be_an_array_of_strings(self, tmp_path):
+        bad = ADAPTER.replace('command = ["redis-server", "--save", ""]', "command = [1, 2]")
+        with pytest.raises(ValueError, match="command must be an array of strings"):
+            loads_adapter(bad, root=tmp_path)
 
     def test_a_failed_start_tears_down_what_started(self, adapter):
         calls = []

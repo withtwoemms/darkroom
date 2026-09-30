@@ -601,6 +601,8 @@ class _Services:
                 container = container_cls(svc.image)
                 for key, value in svc.env:
                     container.with_env(key, value)
+                if svc.command:
+                    container.with_command(list(svc.command))
                 if svc.port is not None:
                     container.with_exposed_ports(svc.port)
                 container.start()
@@ -712,6 +714,8 @@ class _ContainerEnvironment:
             container.with_network_aliases(svc.name)
             for key, value in svc.env:
                 container.with_env(key, value)
+            if svc.command:
+                container.with_command(list(svc.command))
             container.start()
             self.containers[svc.name] = container
             substitutions[f"{svc.name}.host"] = svc.name
