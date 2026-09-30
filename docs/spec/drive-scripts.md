@@ -1,6 +1,6 @@
 # Drive Scripts
 
-**Format:** TOML · **Schema version:** 1.6 · **File:** one script per
+**Format:** TOML · **Schema version:** 1.7 · **File:** one script per
 scenario, named `<anything>.drive.toml`, conventionally in the
 operator home's `drives/` directory.
 
@@ -56,7 +56,7 @@ is captured as `http_transcript` evidence.
 | `body` *(1.4)* | string (interpolated) | raw request body, sent verbatim with no content type implied — for exact-bytes scenarios (a webhook's HMAC over the payload); mutually exclusive with `json` |
 | `follow_redirects` *(1.5)* | bool (default `true`) | when `false`, a 3xx is the response the step records — its status and `Location` header — rather than what following it led to; the transcript's `request.follow_redirects` records the choice |
 | `session` *(1.5)* | `"browser"` | send the scenario's browser-session cookies for this URL (an explicit `Cookie` header wins), so the request acts as whoever the browser signed in; the scenario then gets a browser session even without browser steps |
-| `save` | table var → path | extract values from the JSON response body: paths use `$.field.sub` form |
+| `save` | table var → path | extract values from the JSON response body: paths use `$.field.sub` form; a segment may index an array, `$.items[0].id` or `$.receipts[-1].who` *(1.7)* |
 | `expect` | table (interpolated) | expectations (below) |
 
 `session = "browser"` is one-way: the browser's cookies reach the
@@ -244,7 +244,7 @@ browser step kinds and three browser expectation keys; `1.2` added
 the `record` flag; `1.3` added the `[browser]` session table
 (viewport, webauthn), literal-brace escapes, and bounded waiting
 (~5s) on all page-settling browser expectations (`title_contains`,
-`url_contains`, `body_contains`, `selector_visible`); `1.4` added the raw `body` field on `http` steps and expectation witnesses (every step with an `expect` logs a `<step>.expect` record of what it checked and found); `1.5` added `follow_redirects` and `session` on `http` steps and the `location_contains` expectation; `1.6` added `prf` on the `[browser]` table — each additive, per the shared
+`url_contains`, `body_contains`, `selector_visible`); `1.4` added the raw `body` field on `http` steps and expectation witnesses (every step with an `expect` logs a `<step>.expect` record of what it checked and found); `1.5` added `follow_redirects` and `session` on `http` steps and the `location_contains` expectation; `1.6` added `prf` on the `[browser]` table; `1.7` added array indexes in `save`/expectation paths — each additive, per the shared
 policy, so every earlier script remains valid. New step
 kinds, fields, or expectation keys arrive as minor bumps; consumers
 (engines) MUST refuse unknown step kinds loudly rather than skip

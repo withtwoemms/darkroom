@@ -8,6 +8,19 @@ versioned independently of the package — see `ROADMAP.md`.
 
 ## [Unreleased]
 
+### Added
+
+- Save and expectation paths can index arrays: `$.items[0].id`,
+  `$.receipts[-1].who` (drive-scripts 1.7). A list endpoint's newest
+  entry was unreachable from a drive before — a builder proved it with
+  the engine's own evaluator after a scenario stalled on it.
+
+### Changed
+
+- The server health window after boot is 30s, not 15s: an app that
+  runs migrations at import against a service the engine only
+  TCP-probed can take longer than that to answer on a loaded machine.
+
 ### Fixed
 
 - **The exam could be left where the builder reads it.** The quickstart
