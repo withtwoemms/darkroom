@@ -447,13 +447,29 @@ _EXPECT_WAIT_MS = 5_000
 
 
 def _wait_until(page, probe) -> bool:
-    """Poll a zero-arg probe until true or the shared deadline passes."""
+    """Poll a zero-arg probe until true or the shared deadline passes. A
+    probe that raises — ``page.content()`` or ``page.title()`` while a
+    navigation is between start and commit — counts as not yet, never as
+    failure: the redirect a click triggers is what the expectation is
+    waiting for."""
     deadline = time.monotonic() + _EXPECT_WAIT_MS / 1000
-    while not probe():
+    while True:
+        try:
+            if probe():
+                return True
+        except Exception:
+            pass
         if time.monotonic() >= deadline:
             return False
         page.wait_for_timeout(200)
-    return True
+
+
+def _settled(read, fallback=""):
+    """Read a page property for the witness; mid-navigation, the fallback."""
+    try:
+        return read()
+    except Exception:
+        return fallback
 
 
 def _evaluate_browser_expect(
@@ -471,9 +487,9 @@ def _evaluate_browser_expect(
     if "title_contains" in expect:
         needle = expect["title_contains"]
         ok = _wait_until(page, lambda: needle in page.title())
-        found["title"] = page.title()
+        found["title"] = _settled(page.title)
         if not ok:
-            return f"title '{page.title()}' does not contain '{needle}'", found
+            return f"title '{found['title']}' does not contain '{needle}'", found
     if "url_contains" in expect:
         needle = expect["url_contains"]
         ok = _wait_until(page, lambda: needle in page.url)

@@ -102,6 +102,42 @@ class TestBrowserExpectWitness:
         assert detail == "expected status 200, got 500"
         assert found == {"status": 500}
 
+    def test_a_probe_mid_navigation_is_not_yet_not_failure(self):
+        # a click that triggers a redirect: page.content() and page.title()
+        # raise while the navigation is between start and commit, then the
+        # destination settles and the expectation is met
+        class _Navigating(_Page):
+            def __init__(self):
+                super().__init__(title="hearth", content="seal it again")
+                self.polls = 0
+
+            def _mid_navigation(self):
+                self.polls += 1
+                if self.polls <= 2:
+                    raise RuntimeError(
+                        "Page.content: Unable to retrieve content because the "
+                        "page is navigating and changing the content."
+                    )
+
+            def content(self):
+                self._mid_navigation()
+                return self._content
+
+            def title(self):
+                self._mid_navigation()
+                return self._title
+
+        page = _Navigating()
+        detail, found = _evaluate_browser_expect(
+            {"body_contains": "seal it again", "selector_visible": "#x"}, page, None
+        )
+        assert detail is None
+        assert found == {"body_contains": True, "selector_visible": True}
+
+        page = _Navigating()
+        detail, found = _evaluate_browser_expect({"title_contains": "hearth"}, page, None)
+        assert detail is None and found == {"title": "hearth"}
+
 
 class _Ctx:
     def interpolate(self, s):
