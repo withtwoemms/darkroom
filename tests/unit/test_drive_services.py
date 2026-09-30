@@ -194,3 +194,33 @@ class TestDriveValues:
         assert result.steps[0].ok, result.steps[0].detail
         pg = _FakeContainer.instances[0]
         assert seen["services"].namespaces["postgres"].port == pg.sock.getsockname()[1]
+
+
+READY_ADAPTER = ADAPTER.replace(
+    'env = { POSTGRES_PASSWORD = "exam" }',
+    'env = { POSTGRES_PASSWORD = "exam" }\nready_path = "/"',
+)
+
+
+class TestReadiness:
+    def test_ready_path_is_polled_after_the_port_opens(self, tmp_path):
+        # a JVM store accepts TCP seconds before it serves HTTP; the drive
+        # must not hand the app a service that only looks up
+        adapter = loads_adapter(READY_ADAPTER, root=tmp_path)
+        probed = []
+        services = _Services(
+            adapter,
+            container_cls=_FakeContainer,
+            ready=lambda url, timeout=30.0: probed.append(url),
+        )
+        pg = _FakeContainer.instances[0]
+        assert probed == [f"http://127.0.0.1:{pg.sock.getsockname()[1]}/"]
+        services.stop()
+
+    def test_ready_path_needs_a_port_and_an_http_path(self, tmp_path):
+        portless = ADAPTER.replace('image = "redis:7"', 'image = "redis:7"\nready_path = "/"')
+        with pytest.raises(ValueError, match="ready_path"):
+            loads_adapter(portless, root=tmp_path)
+        relative = READY_ADAPTER.replace('ready_path = "/"', 'ready_path = "health"')
+        with pytest.raises(ValueError, match="ready_path"):
+            loads_adapter(relative, root=tmp_path)

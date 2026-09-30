@@ -610,6 +610,24 @@ def _wait_tcp(host: str, port: int, timeout: float = 30.0) -> None:
     raise DriveError(f"service on {host}:{port} never accepted a connection")
 
 
+def _wait_http(url: str, timeout: float = 30.0) -> None:
+    """Poll until the URL answers any HTTP response — a service that has
+    opened its port but is still starting closes the connection instead."""
+    import urllib.error
+    import urllib.request
+
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        try:
+            urllib.request.urlopen(url, timeout=2)
+            return
+        except urllib.error.HTTPError:
+            return
+        except (urllib.error.URLError, OSError):
+            time.sleep(0.25)
+    raise DriveError(f"service at {url} never answered an HTTP request")
+
+
 class _Services:
     """The adapter's declared services beside a process-mode app: a fresh
     Postgres per scenario while ``make serve`` still boots the app itself.
@@ -618,7 +636,9 @@ class _Services:
     the evidence — the same record container mode keeps.
     """
 
-    def __init__(self, adapter: ProjectAdapter, container_cls=None, wait=_wait_tcp):
+    def __init__(
+        self, adapter: ProjectAdapter, container_cls=None, wait=_wait_tcp, ready=_wait_http
+    ):
         if container_cls is None:
             try:
                 from testcontainers.core.container import DockerContainer as container_cls
@@ -646,6 +666,8 @@ class _Services:
                 if svc.port is not None:
                     port = int(container.get_exposed_port(svc.port))
                     wait(host, port)
+                    if svc.ready_path:
+                        ready(f"http://{host}:{port}{svc.ready_path}")
                 self.namespaces[svc.name] = SimpleNamespace(host=host, port=port)
         except Exception:
             self.stop()

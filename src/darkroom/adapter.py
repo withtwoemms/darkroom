@@ -41,6 +41,9 @@ class ServiceSpec:
     port: int | None = None
     env: tuple[tuple[str, str], ...] = ()
     command: tuple[str, ...] = ()
+    # an HTTP path to poll until the service answers; TCP-open alone is
+    # not ready for a JVM store that accepts connections before it serves
+    ready_path: str | None = None
 
 
 @dataclass(frozen=True)
@@ -108,6 +111,7 @@ def loads_adapter(text: str, root: Path) -> ProjectAdapter:
             port=svc.get("port"),
             env=tuple(sorted((svc.get("env") or {}).items())),
             command=tuple(svc.get("command") or ()),
+            ready_path=svc.get("ready_path"),
         )
         for svc in environment.get("services", [])
     )
@@ -117,6 +121,15 @@ def loads_adapter(text: str, root: Path) -> ProjectAdapter:
         if not all(isinstance(part, str) for part in svc.command):
             raise ValueError(
                 f"[[environment.services]] {svc.name}: command must be an array of strings"
+            )
+        if svc.ready_path is not None and (
+            not isinstance(svc.ready_path, str)
+            or not svc.ready_path.startswith("/")
+            or svc.port is None
+        ):
+            raise ValueError(
+                f"[[environment.services]] {svc.name}: ready_path must be an HTTP path "
+                "starting with '/' on a service that declares a port"
             )
 
     return ProjectAdapter(

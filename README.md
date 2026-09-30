@@ -91,6 +91,18 @@ env = { POSTGRES_PASSWORD = "exam" }
 command = ["postgres", "-c", "fsync=off", "-c", "synchronous_commit=off"]
 ```
 
+A service is handed to the app once its port accepts a connection —
+which, for a JVM store, is seconds before it can answer. Declare
+`ready_path` and the engine also waits for an HTTP response there:
+
+```toml
+[[environment.services]]
+name = "objects"
+image = "adobe/s3mock:latest"
+port = 9090
+ready_path = "/"
+```
+
 The **exam** is data, held operator-side as one drive script per
 scenario — in the project's darkroom home
 (`~/.darkroom/projects/<name>/drives/`), never in the repo the builder
