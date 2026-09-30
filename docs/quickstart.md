@@ -224,7 +224,21 @@ darkroom home init          # ~/.darkroom/projects/<name>/ — operator space, m
    criteria with thresholds, and preflight-validated artifacts.
 2. **Seal the rubrics** out of the tenant and derive the contract
    from them: `darkroom vault seal && darkroom vault derive-contract`.
-3. **Write the operator config** — `~/.darkroom/projects/<name>/operator.toml`:
+3. **Move the exam out of the tenant.** Stages 1–3 kept `drives/` in
+   the repo because nothing was reading it but you; from here on the
+   builder is an agent working in that repo, and a drive script it
+   can open is an exam it can read. The home has a place for them,
+   and it is where `darkroom drive` looks when `--drives` is absent:
+
+   ```bash
+   git rm -rq --cached drives && mv drives ~/.darkroom/projects/quicknotes/drives
+   ```
+
+   then drop `--drives drives` from the `test` command in
+   `darkroom.toml` (`test = "darkroom drive"`) and commit. `darkroom
+   preflight` warns about drive scripts left in a tenant that has a
+   home, and `darkroom auto` refuses to spend against one.
+4. **Write the operator config** — `~/.darkroom/projects/<name>/operator.toml`:
 
 ```toml
 [judge]
@@ -238,15 +252,40 @@ escalated_model = "claude-opus-5"
 max_iterations = 6
 ```
 
-4. **Run it**: `darkroom auto --scenario <name> --operator ~/.darkroom/projects/<name>/operator.toml`
+5. **Run it**: `darkroom auto --scenario <name> --operator ~/.darkroom/projects/<name>/operator.toml`
    (with `operator.toml` in the home, `--operator` is discovered
    automatically). Iteration budgets are spend caps; the builder
    starts cheap and escalates only on stagnation.
-5. **Read the record**: `darkroom dossier` — iterations, score
+6. **Read the record**: `darkroom dossier` — iterations, score
    trajectories, gates, and the metered cost of every agent call.
 
 A note on spend: each iteration is one judge call and one builder
 call. Start with one scenario and a small `max_iterations`.
+
+**Credentials, and which side of the boundary each lives on.** The
+sealed-exam design has one boundary: the builder must never read the
+exam (rubrics, drives, loop state). Credentials sort by that rule:
+
+- *The agent CLI's own login* (`claude` authenticates through its own
+  keychain login or `ANTHROPIC_API_KEY`) belongs to the operator's
+  shell, and the judge and builder inherit it — they are the
+  operator's agents and authenticate as such. It is not part of the
+  exam, so its visibility to the builder is expected. Keep it out of
+  the tenant: never in `darkroom.toml`, `.env`, or anything committed.
+- *The rubric vault's token* (`BAO_TOKEN` / `VAULT_TOKEN`, for the
+  OpenBao backend) is operator-only: darkroom reads the vault itself
+  and inlines rubric text into the judge's prompt, and the engine
+  strips these names from every agent subprocess's environment. Set
+  them in the shell that runs `darkroom auto`, nowhere else.
+- *Everything in the darkroom home* (`operator.toml`, the vault, the
+  drives, loop state) is mode 700 and outside every tenant path; the
+  builder is invoked with the tenant as its working directory and
+  `--add-dir` only for what a role needs.
+
+The usual ceiling applies: this protects the exam from a builder that
+follows its instructions and from other users on the machine, not from
+a same-UID process that escapes its sandbox — for that, the OpenBao
+backend's server-side audit is the graduation path.
 
 ## Where to go next
 

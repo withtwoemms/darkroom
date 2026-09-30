@@ -130,6 +130,24 @@ class TestPreflight:
         result = preflight(adapter)
         assert any(f.code == "no-specs" for f in result.errors)
 
+    def test_drives_in_tenant_warn_once_a_home_exists(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("DARKROOM_HOME", str(tmp_path / "home"))
+        adapter = _project(
+            tmp_path,
+            adapter_text='[project]\nname = "p"\n[commands]\ntest = "darkroom drive"',
+            contract=False,
+        )
+        (tmp_path / "drives").mkdir()
+        (tmp_path / "drives" / "flow.drive.toml").write_text('scenario = "flow"\n')
+        # no home yet: stages 1-3 keep drives in the tenant on purpose
+        assert "drives-in-tenant" not in {f.code for f in preflight(adapter).warnings}
+        (tmp_path / "home" / "projects" / "p").mkdir(parents=True)
+        finding = next(
+            f for f in preflight(adapter).warnings if f.code == "drives-in-tenant"
+        )
+        assert "drives/flow.drive.toml" in finding.message
+        assert str(tmp_path / "home" / "projects" / "p" / "drives") in finding.message
+
     def test_unpaired_spec_is_warning(self, tmp_path):
         adapter = _project(tmp_path, specs=["lonely.feature"], rubrics=[])
         result = preflight(adapter)

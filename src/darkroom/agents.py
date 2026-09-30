@@ -17,6 +17,7 @@ literal braces in prompt bodies need no escaping.
 
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
 import time
@@ -174,12 +175,26 @@ def _invoke(
     completed = subprocess.run(
         ["/bin/sh", "-c", command],
         cwd=cwd,
+        env=agent_environment(),
         capture_output=True,
         timeout=timeout,
         check=False,
     )
     stdout = completed.stdout.decode("utf-8", errors="replace")
     return stdout, time.monotonic() - started
+
+
+# Operator-only credentials that must never reach an agent subprocess.
+# darkroom itself reads the vault and inlines rubric text into the
+# judge's prompt; neither role needs the token, and a builder holding it
+# could read the exam. The agent CLI's own credential is deliberately
+# NOT on this list: the roles are the operator's agents and authenticate
+# as such — the trust boundary is the exam, not the model.
+SCRUBBED_ENV = ("BAO_TOKEN", "VAULT_TOKEN")
+
+
+def agent_environment() -> dict[str, str]:
+    return {k: v for k, v in os.environ.items() if k not in SCRUBBED_ENV}
 
 
 def _template_for(config: RoleConfig, default: str) -> str:

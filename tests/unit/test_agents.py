@@ -208,3 +208,21 @@ class TestAgentBuilder:
             ctx, "feedback", Escalation()
         )
         assert "changed: app.py" in record.read_text()
+
+    def test_vault_tokens_never_reach_the_agent(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("BAO_TOKEN", "s.operator-only")
+        monkeypatch.setenv("VAULT_TOKEN", "hvs.operator-only")
+        monkeypatch.setenv("DARKROOM_TEST_PASSTHROUGH", "visible")
+        record = tmp_path / "env.txt"
+        config = RoleConfig(
+            model="m",
+            tools=("Read",),
+            escalated_model="m",
+            diagnostic_tools=("Read",),
+            invoke=(
+                "printf 'bao=%s vault=%s through=%s' "
+                f'"$BAO_TOKEN" "$VAULT_TOKEN" "$DARKROOM_TEST_PASSTHROUGH" > {record}'
+            ),
+        )
+        AgentBuilder(config).build(_ctx(tmp_path), "feedback", Escalation())
+        assert record.read_text() == "bao= vault= through=visible"

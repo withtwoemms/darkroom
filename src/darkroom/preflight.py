@@ -130,6 +130,56 @@ def _check_contract(adapter: ProjectAdapter, findings: list[Finding]) -> None:
         )
 
 
+_SKIPPED_DIRS = {".git", "node_modules", "__pycache__"}
+
+
+def tenant_drive_scripts(adapter: ProjectAdapter) -> list[Path]:
+    """Drive scripts living inside the tenant — where the builder can read
+    the exam. Hidden directories, the evidence dir, and dependency trees
+    are not searched."""
+    root = adapter.root
+    evidence = adapter.resolve(adapter.evidence_dir)
+    found: list[Path] = []
+    for path in sorted(root.rglob("*.drive.toml")):
+        rel = path.relative_to(root)
+        if any(part.startswith(".") or part in _SKIPPED_DIRS for part in rel.parts[:-1]):
+            continue
+        if evidence in path.parents:
+            continue
+        found.append(rel)
+    return found
+
+
+def drives_in_tenant_message(adapter: ProjectAdapter, scripts: list[Path]) -> str:
+    from darkroom.homedir import default_drives
+
+    sample = ", ".join(str(p) for p in scripts[:3]) + (" …" if len(scripts) > 3 else "")
+    return (
+        f"{len(scripts)} drive script(s) live inside the tenant ({sample}); "
+        f"the builder can read the exam there. Move them to the operator home "
+        f"({default_drives(adapter.name)}) and drop --drives from the test command"
+    )
+
+
+def _check_drives_location(adapter: ProjectAdapter, findings: list[Finding]) -> None:
+    """Stages 1-3 of the quickstart keep drives in the tenant on purpose; the
+    finding only appears once a project home exists — the moment the
+    exam is supposed to be operator-side."""
+    from darkroom.homedir import project_home
+
+    if not adapter.name or not project_home(adapter.name).is_dir():
+        return
+    scripts = tenant_drive_scripts(adapter)
+    if scripts:
+        findings.append(
+            Finding(
+                severity="warning",
+                code="drives-in-tenant",
+                message=drives_in_tenant_message(adapter, scripts),
+            )
+        )
+
+
 def preflight(adapter_path: Path) -> PreflightResult:
     """Validate a project's darkroom wiring from its adapter file."""
     adapter_path = Path(adapter_path)
@@ -149,4 +199,5 @@ def preflight(adapter_path: Path) -> PreflightResult:
     _check_commands(adapter, findings)
     _check_scenarios(adapter, findings)
     _check_contract(adapter, findings)
+    _check_drives_location(adapter, findings)
     return PreflightResult(adapter_path=adapter_path, findings=findings)

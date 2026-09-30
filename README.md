@@ -92,8 +92,12 @@ command = ["server", "/data"]
 ```
 
 The **exam** is data, held operator-side as one drive script per
-scenario. The engine boots the app fresh, executes the steps against
-it as a black box, and captures every exchange as evidence:
+scenario — in the project's darkroom home
+(`~/.darkroom/projects/<name>/drives/`), never in the repo the builder
+works in; the quickstart's stage 4 moves it there, and `darkroom auto`
+refuses to run while a drive script is still inside the tenant. The
+engine boots the app fresh, executes the steps against it as a black
+box, and captures every exchange as evidence:
 
 ```toml
 scenario = "note_saved"

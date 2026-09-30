@@ -199,6 +199,22 @@ class TestPreconditionsAndMemory:
                 _ctx(tmp_path)
             )
 
+    def test_drives_in_tenant_refused_once_a_home_exists(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("DARKROOM_HOME", str(tmp_path / "home"))
+        (tmp_path / "home" / "projects" / "p").mkdir(parents=True)
+        (tmp_path / "drives").mkdir()
+        (tmp_path / "drives" / "flow.drive.toml").write_text('scenario = "flow"\n')
+        with pytest.raises(LoopError, match="live inside the tenant"):
+            _loop(ScriptedJudge([100])).run(_ctx(tmp_path))
+
+    def test_drives_in_tenant_allowed_before_a_home_exists(self, tmp_path, monkeypatch):
+        # stages 1-3 of the quickstart: no operator home yet, nothing to protect
+        monkeypatch.setenv("DARKROOM_HOME", str(tmp_path / "home"))
+        (tmp_path / "drives").mkdir()
+        (tmp_path / "drives" / "flow.drive.toml").write_text('scenario = "flow"\n')
+        result = _loop(ScriptedJudge([100])).run(_ctx(tmp_path))
+        assert result.converged
+
     def test_builder_log_written(self, tmp_path):
         judge = ScriptedJudge([50, 100])
         ctx = _ctx(tmp_path)
