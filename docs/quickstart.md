@@ -273,11 +273,31 @@ exam (rubrics, drives, loop state). Credentials sort by that rule:
   operator's agents and authenticate as such. It is not part of the
   exam, so its visibility to the builder is expected. Keep it out of
   the tenant: never in `darkroom.toml`, `.env`, or anything committed.
-- *The rubric vault's token* (`BAO_TOKEN` / `VAULT_TOKEN`, for the
-  OpenBao backend) is operator-only: darkroom reads the vault itself
-  and inlines rubric text into the judge's prompt, and the engine
-  strips these names from every agent subprocess's environment. Set
-  them in the shell that runs `darkroom auto`, nowhere else.
+- *The rubric vault* (the OpenBao backend) is where the boundary is
+  enforced by policy, not by hiding. Give each role its own token and
+  keep the rubric path out of the builder's policy — with `[vault]
+  path = "darkroom/quicknotes"` on the `secret` KV v2 mount:
+
+  ```hcl
+  # operator.hcl — darkroom reads rubrics with this and inlines them
+  # into the judge's prompt; the judge itself never touches the vault
+  path "secret/data/darkroom/quicknotes/*"     { capabilities = ["read", "list"] }
+  path "secret/metadata/darkroom/quicknotes/*" { capabilities = ["read", "list"] }
+
+  # builder.hcl — whatever the tenant's work needs, and never the exam
+  path "secret/data/darkroom/*"     { capabilities = ["deny"] }
+  path "secret/metadata/darkroom/*" { capabilities = ["deny"] }
+  path "secret/data/quicknotes/*"   { capabilities = ["read"] }
+  ```
+
+  The operator's token is `BAO_TOKEN` in the shell that runs
+  `darkroom auto`, nowhere else; the engine strips `BAO_TOKEN` /
+  `VAULT_TOKEN` from every agent subprocess so it can never reach a
+  role by inheritance. A builder that needs the vault gets its own
+  token, handed over explicitly in its invoke template — `invoke =
+  "BAO_TOKEN=$BUILDER_BAO_TOKEN claude …"` — which is precisely a
+  credential the builder is allowed to hold, because its policy says
+  what it can reach.
 - *Everything in the darkroom home* (`operator.toml`, the vault, the
   drives, loop state) is mode 700 and outside every tenant path; the
   builder is invoked with the tenant as its working directory and

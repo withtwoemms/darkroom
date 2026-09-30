@@ -23,11 +23,13 @@ versioned independently of the package — see `ROADMAP.md`.
   inherited the operator's whole environment, `BAO_TOKEN` /
   `VAULT_TOKEN` included — contrary to what the OpenBao backend
   promised. Agent invocations now run with those scrubbed
-  (`agents.SCRUBBED_ENV`). The agent CLI's own credential is passed
-  through on purpose: the roles are the operator's agents and
-  authenticate as such; the boundary is the exam, not the model. The
-  quickstart now says where each credential lives and which side of
-  that boundary it is on.
+  (`agents.SCRUBBED_ENV`), so a role can only hold a vault token it
+  was handed on purpose — and OpenBao's policies are the boundary: the
+  quickstart now shows an operator policy that reads the rubric path
+  and a builder policy that denies it, with the builder's own token
+  passed in its invoke template. The agent CLI's own credential is
+  passed through by design: the roles are the operator's agents and
+  authenticate as such; the boundary is the exam, not the model.
 
 ## [0.19.2] - 2026-09-30
 
