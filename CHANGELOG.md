@@ -6,6 +6,19 @@ project follows [semantic versioning](https://semver.org/) (pre-1.0: minor
 releases may break API, patch releases never do). The manifest schema is
 versioned independently of the package — see `ROADMAP.md`.
 
+## [Unreleased]
+
+### Fixed
+
+- A browser expectation polled `page.content()` / `page.title()`
+  unguarded; landing a poll between a navigation's start and commit —
+  exactly what a click that redirects does — raised out of the probe
+  and failed the step as "click failed: Page.content: Unable to
+  retrieve content…". A raising probe now counts as not-yet within the
+  bounded wait, and the witness reads the settled page. Found by a
+  builder whose scenario failed the same step six runs running while
+  the identical click, asserted with `selector_visible` alone, passed.
+
 ## [0.19.3] - 2026-09-30
 
 ### Added
