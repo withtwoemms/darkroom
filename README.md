@@ -79,6 +79,18 @@ env = { POSTGRES_PASSWORD = "exam" }
 serve = "make serve PORT={port} DATABASE_URL=postgres://postgres:exam@{postgres.host}:{postgres.port}/postgres"
 ```
 
+An image whose entrypoint wants arguments declares them as `command`
+(an object store beside the database, say):
+
+```toml
+[[environment.services]]
+name = "objects"
+image = "minio/minio"
+port = 9000
+env = { MINIO_ROOT_USER = "exam", MINIO_ROOT_PASSWORD = "exam-exam" }
+command = ["server", "/data"]
+```
+
 The **exam** is data, held operator-side as one drive script per
 scenario. The engine boots the app fresh, executes the steps against
 it as a black box, and captures every exchange as evidence:

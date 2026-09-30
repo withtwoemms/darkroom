@@ -18,6 +18,11 @@ versioned independently of the package — see `ROADMAP.md`.
   false` models an authenticator without it, so the fallback road is
   examinable too (drive-scripts 1.6). Every existing passkey drive is
   unaffected: the extension only answers when a ceremony asks for it.
+- `[[environment.services]]` entries take a `command` (array of
+  strings) for images whose entrypoint wants arguments — an object
+  store's `["server", "/data"]` beside the database. Applied in both
+  process mode and container mode; absent, the image's own command
+  runs as before.
 
 ## [0.19.1] - 2026-09-29
 
