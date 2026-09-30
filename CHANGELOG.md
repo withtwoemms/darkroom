@@ -15,8 +15,10 @@ versioned independently of the package — see `ROADMAP.md`.
   it; an adopter following it verbatim committed the exam beside the
   code. Stage 4 now has the move as its own step, `darkroom preflight`
   warns (`drives-in-tenant`) about drive scripts inside a tenant whose
-  project has an operator home, and `darkroom auto` refuses to start
-  against one. Stages 1–3 — no home yet — are untouched.
+  exam has moved operator-side — an `operator.toml` or sealed rubrics
+  in the project's home — and `darkroom auto` refuses to start against
+  one. Stages 1–3 are untouched: the free loop makes a home for its
+  state, but seals nothing.
 - **Vault tokens reached the agents.** Judge and builder subprocesses
   inherited the operator's whole environment, `BAO_TOKEN` /
   `VAULT_TOKEN` included — contrary to what the OpenBao backend

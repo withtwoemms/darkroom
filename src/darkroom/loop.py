@@ -177,13 +177,14 @@ class ConvergenceLoop:
     @staticmethod
     def _refuse_readable_exam(ctx: LoopContext) -> None:
         """Spend nothing against an exam the builder could read: once the
-        project has an operator home, drive scripts inside the tenant are
-        a misconfiguration, not a convenience."""
-        from darkroom.homedir import project_home
+        exam has moved operator-side (an operator config or sealed rubrics
+        in the home), drive scripts inside the tenant are a
+        misconfiguration, not a convenience."""
+        from darkroom.homedir import exam_is_operator_side
         from darkroom.preflight import drives_in_tenant_message, tenant_drive_scripts
 
         adapter = ctx.adapter
-        if not adapter.name or not project_home(adapter.name).is_dir():
+        if not exam_is_operator_side(adapter.name):
             return
         scripts = tenant_drive_scripts(adapter)
         if scripts:

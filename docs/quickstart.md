@@ -235,9 +235,10 @@ darkroom home init          # ~/.darkroom/projects/<name>/ — operator space, m
    ```
 
    then drop `--drives drives` from the `test` command in
-   `darkroom.toml` (`test = "darkroom drive"`) and commit. `darkroom
-   preflight` warns about drive scripts left in a tenant that has a
-   home, and `darkroom auto` refuses to spend against one.
+   `darkroom.toml` (`test = "darkroom drive"`) and commit. Once the
+   rubrics are sealed (or an `operator.toml` exists), `darkroom
+   preflight` warns about drive scripts still inside the tenant and
+   `darkroom auto` refuses to spend against them.
 4. **Write the operator config** — `~/.darkroom/projects/<name>/operator.toml`:
 
 ```toml

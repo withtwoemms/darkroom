@@ -139,9 +139,12 @@ class TestPreflight:
         )
         (tmp_path / "drives").mkdir()
         (tmp_path / "drives" / "flow.drive.toml").write_text('scenario = "flow"\n')
-        # no home yet: stages 1-3 keep drives in the tenant on purpose
+        # a bare home (auto makes one for loop state) is no signal: stages 1-3
+        # keep drives in the tenant on purpose
+        (tmp_path / "home" / "projects" / "p" / "vault").mkdir(parents=True)
         assert "drives-in-tenant" not in {f.code for f in preflight(adapter).warnings}
-        (tmp_path / "home" / "projects" / "p").mkdir(parents=True)
+        # sealed rubrics mean the exam is operator-side; the drives must be too
+        (tmp_path / "home" / "projects" / "p" / "vault" / "flow.rubric.toml").write_text("")
         finding = next(
             f for f in preflight(adapter).warnings if f.code == "drives-in-tenant"
         )

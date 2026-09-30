@@ -163,11 +163,11 @@ def drives_in_tenant_message(adapter: ProjectAdapter, scripts: list[Path]) -> st
 
 def _check_drives_location(adapter: ProjectAdapter, findings: list[Finding]) -> None:
     """Stages 1-3 of the quickstart keep drives in the tenant on purpose; the
-    finding only appears once a project home exists — the moment the
-    exam is supposed to be operator-side."""
-    from darkroom.homedir import project_home
+    finding only appears once the exam has moved operator-side (an
+    operator config or sealed rubrics in the home)."""
+    from darkroom.homedir import exam_is_operator_side
 
-    if not adapter.name or not project_home(adapter.name).is_dir():
+    if not exam_is_operator_side(adapter.name):
         return
     scripts = tenant_drive_scripts(adapter)
     if scripts:
