@@ -80,15 +80,15 @@ serve = "make serve PORT={port} DATABASE_URL=postgres://postgres:exam@{postgres.
 ```
 
 An image whose entrypoint wants arguments declares them as `command`
-(an object store beside the database, say):
+(a Postgres tuned for throwaway exams, say):
 
 ```toml
 [[environment.services]]
-name = "objects"
-image = "minio/minio"
-port = 9000
-env = { MINIO_ROOT_USER = "exam", MINIO_ROOT_PASSWORD = "exam-exam" }
-command = ["server", "/data"]
+name = "postgres"
+image = "postgres:16"
+port = 5432
+env = { POSTGRES_PASSWORD = "exam" }
+command = ["postgres", "-c", "fsync=off", "-c", "synchronous_commit=off"]
 ```
 
 The **exam** is data, held operator-side as one drive script per
