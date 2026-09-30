@@ -349,7 +349,10 @@ class _BrowserSession:
     then returns the finalized video path for evidence registration.
     ``viewport`` sizes the page (phone-width criteria); ``webauthn``
     attaches a CDP virtual authenticator (platform, user-verifying,
-    presence auto-simulated) so passkey flows run headlessly.
+    presence auto-simulated) so passkey flows run headlessly; ``prf``
+    (default on) gives it the PRF extension, so a passkey can also
+    yield per-salt secrets — off, it models an authenticator without
+    it, for exams of the fallback road.
     """
 
     def __init__(
@@ -357,6 +360,7 @@ class _BrowserSession:
         record_dir: Path | None = None,
         viewport: dict | None = None,
         webauthn: bool = False,
+        prf: bool = True,
         timeout_ms: float = 10_000,
     ):
         try:
@@ -388,19 +392,19 @@ class _BrowserSession:
         if webauthn:
             cdp = self.context.new_cdp_session(self.page)
             cdp.send("WebAuthn.enable")
-            cdp.send(
-                "WebAuthn.addVirtualAuthenticator",
-                {
-                    "options": {
-                        "protocol": "ctap2",
-                        "transport": "internal",
-                        "hasResidentKey": True,
-                        "hasUserVerification": True,
-                        "isUserVerified": True,
-                        "automaticPresenceSimulation": True,
-                    }
-                },
-            )
+            options = {
+                "protocol": "ctap2",
+                "transport": "internal",
+                "hasResidentKey": True,
+                "hasUserVerification": True,
+                "isUserVerified": True,
+                "automaticPresenceSimulation": True,
+            }
+            if prf:
+                # the PRF extension rides CTAP 2.1's hmac-secret
+                options["ctap2Version"] = "ctap2_1"
+                options["hasPrf"] = True
+            cdp.send("WebAuthn.addVirtualAuthenticator", {"options": options})
 
     def stop(self) -> Path | None:
         """Tear down; returns the screencast path when recording."""
@@ -841,6 +845,7 @@ def drive_scenario(
                 record_dir=record_dir,
                 viewport=browser_options.get("viewport"),
                 webauthn=bool(browser_options.get("webauthn")),
+                prf=bool(browser_options.get("prf", True)),
             )
 
         capture = EvidenceCapture(scenario)

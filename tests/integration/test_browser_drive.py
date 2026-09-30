@@ -322,6 +322,136 @@ class TestBrowserDrive:
         ]
         assert report.ok, failures
 
+    def test_prf_extension_on_by_default_and_switchable(self, tmp_path, monkeypatch):
+        monkeypatch.delenv("EVIDENCE_MODE", raising=False)
+        monkeypatch.delenv("EVIDENCE_DIR", raising=False)
+        root = tmp_path / "tenant"
+        root.mkdir()
+        (root / "app.py").write_text(textwrap.dedent("""
+            import sys
+            from http.server import BaseHTTPRequestHandler, HTTPServer
+
+            PAGE = '''<!doctype html>
+            <title>PRF Bench</title>
+            <button id="enroll">enroll</button>
+            <button id="derive">derive</button>
+            <div id="out"></div>
+            <script>
+            let credId = null, first = null;
+            const b64 = b => btoa(String.fromCharCode(...new Uint8Array(b)));
+            const salt = new TextEncoder().encode("bench-salt");
+            document.getElementById("enroll").onclick = async () => {
+              const cred = await navigator.credentials.create({publicKey: {
+                challenge: new Uint8Array(32), rp: {name: "bench"},
+                user: {id: new Uint8Array(16), name: "u", displayName: "u"},
+                pubKeyCredParams: [{type: "public-key", alg: -7}],
+                authenticatorSelection: {authenticatorAttachment: "platform",
+                                         residentKey: "required",
+                                         userVerification: "required"},
+                extensions: {prf: {}}}});
+              credId = cred.rawId;
+              const ext = cred.getClientExtensionResults();
+              document.getElementById("out").textContent =
+                "prf=" + (ext.prf ? ext.prf.enabled : "absent");
+            };
+            document.getElementById("derive").onclick = async () => {
+              const a = await navigator.credentials.get({publicKey: {
+                challenge: new Uint8Array(32),
+                allowCredentials: [{type: "public-key", id: credId}],
+                userVerification: "required",
+                extensions: {prf: {eval: {first: salt}}}}});
+              const ext = a.getClientExtensionResults();
+              const got = ext.prf && ext.prf.results ? b64(ext.prf.results.first) : "none";
+              if (first === null) { first = got; document.getElementById("out").textContent = "derived"; }
+              else { document.getElementById("out").textContent = "same=" + (got === first && got !== "none"); }
+            };
+            </script>'''
+
+            class Handler(BaseHTTPRequestHandler):
+                def log_message(self, *a): pass
+                def do_GET(self):
+                    body = PAGE.encode()
+                    self.send_response(200)
+                    self.send_header("Content-Type", "text/html")
+                    self.send_header("Content-Length", str(len(body)))
+                    self.end_headers()
+                    self.wfile.write(body)
+
+            HTTPServer(("127.0.0.1", int(sys.argv[1])), Handler).serve_forever()
+        """))
+        import sys as _sys
+
+        adapter = loads_adapter(
+            textwrap.dedent(f"""
+            [project]
+            name = "prf-bench"
+            [commands]
+            serve = "{_sys.executable} app.py {{port}}"
+            [evidence]
+            dir = "evidence"
+            """),
+            root=root,
+        )
+        drives = tmp_path / "drives"
+        drives.mkdir()
+        (drives / "prf_on.drive.toml").write_text(textwrap.dedent("""
+            scenario = "prf_on"
+
+            [browser]
+            webauthn = true
+
+            [[step]]
+            name = "open"
+            kind = "goto"
+            url = "{base_url}/"
+            expect = { status = 200 }
+
+            [[step]]
+            name = "enroll"
+            kind = "click"
+            selector = "#enroll"
+            expect = { selector_visible = "text=prf=true" }
+
+            [[step]]
+            name = "derive_once"
+            kind = "click"
+            selector = "#derive"
+            expect = { selector_visible = "text=derived" }
+
+            [[step]]
+            name = "derive_again"
+            kind = "click"
+            selector = "#derive"
+            expect = { selector_visible = "text=same=true" }
+        """))
+        (drives / "prf_off.drive.toml").write_text(textwrap.dedent("""
+            scenario = "prf_off"
+
+            [browser]
+            webauthn = true
+            prf = false
+
+            [[step]]
+            name = "open"
+            kind = "goto"
+            url = "{base_url}/"
+            expect = { status = 200 }
+
+            [[step]]
+            name = "enroll"
+            kind = "click"
+            selector = "#enroll"
+            expect = { selector_visible = "text=prf=false" }
+        """))
+        report = drive(adapter, drives, containers_mode="off")
+        failures = [
+            (r.scenario, s.name, s.detail)
+            for r in report.results
+            for s in r.steps
+            if not s.ok
+        ]
+        assert report.ok, failures
+
     def test_failing_expectation_stops_scenario_keeps_evidence(
         self, tenant, monkeypatch
     ):
