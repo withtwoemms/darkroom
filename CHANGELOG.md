@@ -6,6 +6,21 @@ project follows [semantic versioning](https://semver.org/) (pre-1.0: minor
 releases may break API, patch releases never do). The manifest schema is
 versioned independently of the package — see `ROADMAP.md`.
 
+## [Unreleased]
+
+### Fixed
+
+- **Every process-mode scenario leaked its app server.** `_Server`
+  ran the serve command through `/bin/sh -c` and stopped it with
+  `terminate()` — which reached the shell and nothing below it, so a
+  `make serve` → `uv run` → server tree lived on as orphans. One
+  operator's machine accumulated 252 exam servers in a day (4.8 GB
+  resident, swap exhausted), which then showed up as boot failures,
+  slow service readiness, and timing races in the suite. The server now
+  starts in its own session and `stop()` signals the whole process
+  group, SIGTERM then SIGKILL; a unit test spawns a three-generation
+  tree and asserts the grandchild dies.
+
 ## [0.19.5] - 2026-09-30
 
 ### Added

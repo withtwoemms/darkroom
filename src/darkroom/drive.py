@@ -44,6 +44,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import signal
 import socket
 import subprocess
 import sys
@@ -696,19 +697,30 @@ class _Server:
         if services is not None:
             substitutions.update(services.namespaces)
         self.command = adapter.command("serve", port=self.port, **substitutions)
+        # its own session, so stop() can signal the whole tree: a serve
+        # command is usually `make serve` -> `uv run` -> the server, and
+        # terminating the shell alone orphaned the server every scenario
         self.process = subprocess.Popen(
             ["/bin/sh", "-c", self.command],
             cwd=adapter.root,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
+            start_new_session=True,
         )
 
+    def _signal_tree(self, sig: int) -> None:
+        try:
+            os.killpg(self.process.pid, sig)
+        except ProcessLookupError:
+            pass
+
     def stop(self) -> None:
-        self.process.terminate()
+        self._signal_tree(signal.SIGTERM)
         try:
             self.process.wait(timeout=5)
         except subprocess.TimeoutExpired:
-            self.process.kill()
+            self._signal_tree(signal.SIGKILL)
+            self.process.wait(timeout=5)
         if self.services is not None:
             self.services.stop()
 
