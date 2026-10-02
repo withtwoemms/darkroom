@@ -6,6 +6,27 @@ project follows [semantic versioning](https://semver.org/) (pre-1.0: minor
 releases may break API, patch releases never do). The manifest schema is
 versioned independently of the package — see `ROADMAP.md`.
 
+## [Unreleased]
+
+### Fixed
+
+- **Every process-mode scenario leaked its app server.** `_Server`
+  ran the serve command through `/bin/sh -c` and stopped it with
+  `terminate()` — which reached the shell and nothing below it, so a
+  `make serve` → `uv run` → server tree lived on as orphans. One
+  operator's machine accumulated 252 exam servers in a day (4.8 GB
+  resident, swap exhausted), which then showed up as boot failures,
+  slow service readiness, and timing races in the suite. The server now
+  starts in its own session and `stop()` signals the whole process
+  group, SIGTERM then SIGKILL; a unit test spawns a three-generation
+  tree and asserts the grandchild dies.
+
+### Changed
+
+- A declared service's `ready_path` wait allows 90s rather than 30s.
+  The bound only ever costs time on failure, and a JVM object store on
+  a loaded machine has taken a minute to serve its first request.
+
 ## [0.19.5] - 2026-09-30
 
 ### Added

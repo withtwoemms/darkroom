@@ -44,6 +44,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import signal
 import socket
 import subprocess
 import sys
@@ -610,9 +611,12 @@ def _wait_tcp(host: str, port: int, timeout: float = 30.0) -> None:
     raise DriveError(f"service on {host}:{port} never accepted a connection")
 
 
-def _wait_http(url: str, timeout: float = 30.0) -> None:
+def _wait_http(url: str, timeout: float = 90.0) -> None:
     """Poll until the URL answers any HTTP response — a service that has
-    opened its port but is still starting closes the connection instead."""
+    opened its port but is still starting closes the connection instead.
+    The bound is generous because it only ever costs time on failure: a
+    JVM store on a loaded machine has taken a minute to serve its first
+    request."""
     import urllib.error
     import urllib.request
 
@@ -696,19 +700,30 @@ class _Server:
         if services is not None:
             substitutions.update(services.namespaces)
         self.command = adapter.command("serve", port=self.port, **substitutions)
+        # its own session, so stop() can signal the whole tree: a serve
+        # command is usually `make serve` -> `uv run` -> the server, and
+        # terminating the shell alone orphaned the server every scenario
         self.process = subprocess.Popen(
             ["/bin/sh", "-c", self.command],
             cwd=adapter.root,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
+            start_new_session=True,
         )
 
+    def _signal_tree(self, sig: int) -> None:
+        try:
+            os.killpg(self.process.pid, sig)
+        except ProcessLookupError:
+            pass
+
     def stop(self) -> None:
-        self.process.terminate()
+        self._signal_tree(signal.SIGTERM)
         try:
             self.process.wait(timeout=5)
         except subprocess.TimeoutExpired:
-            self.process.kill()
+            self._signal_tree(signal.SIGKILL)
+            self.process.wait(timeout=5)
         if self.services is not None:
             self.services.stop()
 
