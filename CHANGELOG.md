@@ -6,6 +6,17 @@ project follows [semantic versioning](https://semver.org/) (pre-1.0: minor
 releases may break API, patch releases never do). The manifest schema is
 versioned independently of the package — see `ROADMAP.md`.
 
+## [Unreleased]
+
+### Fixed
+
+- 0.19.6's process-group stop raised `PermissionError` and took the
+  whole drive down when the leader shell had already exited — a
+  restart scenario kills its own server tree from a command step, and
+  on macOS the vacated pgid can be recycled by a process the engine
+  may not signal. The group is now signalled only while the leader
+  lives, and both "no such group" and "not permitted" are tolerated.
+
 ## [0.19.6] - 2026-10-01
 
 ### Fixed

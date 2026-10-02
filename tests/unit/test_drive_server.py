@@ -46,3 +46,19 @@ def test_stop_takes_down_the_grandchild(tmp_path):
             break
         time.sleep(0.05)
     assert not _alive(grandchild), "the served app outlived the scenario"
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="process groups")
+def test_stop_tolerates_a_shell_that_already_exited(tmp_path):
+    # a restart scenario kills its own server tree from a command step, so
+    # by stop() the leader shell is gone and its pgid may be recycled
+    adapter = loads_adapter(
+        '[project]\nname = "gone"\n[commands]\nserve = "true"\n', root=tmp_path
+    )
+    server = _Server(adapter, {})
+    for _ in range(100):
+        if server.process.poll() is not None:
+            break
+        time.sleep(0.05)
+    assert server.process.poll() is not None
+    server.stop()  # must not raise, whatever now owns that pgid
