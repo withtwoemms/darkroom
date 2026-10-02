@@ -611,9 +611,12 @@ def _wait_tcp(host: str, port: int, timeout: float = 30.0) -> None:
     raise DriveError(f"service on {host}:{port} never accepted a connection")
 
 
-def _wait_http(url: str, timeout: float = 30.0) -> None:
+def _wait_http(url: str, timeout: float = 90.0) -> None:
     """Poll until the URL answers any HTTP response — a service that has
-    opened its port but is still starting closes the connection instead."""
+    opened its port but is still starting closes the connection instead.
+    The bound is generous because it only ever costs time on failure: a
+    JVM store on a loaded machine has taken a minute to serve its first
+    request."""
     import urllib.error
     import urllib.request
 

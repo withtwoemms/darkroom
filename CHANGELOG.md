@@ -21,6 +21,12 @@ versioned independently of the package — see `ROADMAP.md`.
   group, SIGTERM then SIGKILL; a unit test spawns a three-generation
   tree and asserts the grandchild dies.
 
+### Changed
+
+- A declared service's `ready_path` wait allows 90s rather than 30s.
+  The bound only ever costs time on failure, and a JVM object store on
+  a loaded machine has taken a minute to serve its first request.
+
 ## [0.19.5] - 2026-09-30
 
 ### Added
