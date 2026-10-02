@@ -712,9 +712,14 @@ class _Server:
         )
 
     def _signal_tree(self, sig: int) -> None:
+        # only while the leader shell lives: once it has exited (a restart
+        # scenario kills its own server tree) the pgid may be gone or, on
+        # macOS, recycled by a process we may not signal — neither is ours
+        if self.process.poll() is not None:
+            return
         try:
             os.killpg(self.process.pid, sig)
-        except ProcessLookupError:
+        except (ProcessLookupError, PermissionError):
             pass
 
     def stop(self) -> None:
@@ -723,7 +728,10 @@ class _Server:
             self.process.wait(timeout=5)
         except subprocess.TimeoutExpired:
             self._signal_tree(signal.SIGKILL)
-            self.process.wait(timeout=5)
+            try:
+                self.process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                pass
         if self.services is not None:
             self.services.stop()
 
