@@ -206,7 +206,9 @@ def assemble_dossier(
         ]
 
     gates = None
-    gates_path = adapter.resolve(adapter.gates_path)
+    from darkroom.homedir import gates_file
+
+    gates_path = gates_file(adapter)
     if gates_path.exists():
         try:
             loaded = load_gates(gates_path)

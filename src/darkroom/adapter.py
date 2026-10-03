@@ -70,6 +70,9 @@ class ProjectAdapter:
     serve_defaults: dict = field(default_factory=dict)
     serve_env: tuple[tuple[str, str], ...] = ()
     browser_defaults: dict = field(default_factory=dict)
+    # whether the tenant declared [evidence] gates itself; undeclared, the
+    # ratchet lives in the operator home's state, not beside the code
+    gates_declared: bool = True
 
     def serve_vars(self, overrides: dict | None = None) -> dict:
         merged = dict(self.serve_defaults)
@@ -174,6 +177,7 @@ def loads_adapter(text: str, root: Path) -> ProjectAdapter:
         evidence_dir=Path(evidence.get("dir", "evidence")),
         contract_path=Path(contract) if contract else None,
         gates_path=Path(evidence.get("gates", "evidence-gates.json")),
+        gates_declared="gates" in evidence,
         spec_glob=scenarios.get("spec_glob", ""),
         rubric_glob=scenarios.get("rubric_glob", ""),
         defaults=dict(data.get("defaults", {})),

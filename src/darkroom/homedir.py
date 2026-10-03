@@ -83,5 +83,23 @@ def default_preludes(project_name: str) -> Path:
     return project_home(project_name) / "preludes.toml"
 
 
+def exams_dir(project_name: str) -> Path:
+    """Where the project's exams live: ``proofs/`` once it holds proofs,
+    else ``drives/`` — the two layouts never mix."""
+    proofs = default_proofs(project_name)
+    if proofs.is_dir() and any(proofs.glob("*.proof.toml")):
+        return proofs
+    return default_drives(project_name)
+
+
 def default_state(project_name: str) -> Path:
     return project_home(project_name) / "state"
+
+
+def gates_file(adapter) -> Path:
+    """Where the score ratchet lives: the tenant's declared [evidence] gates
+    path, else the operator home's state — loop output beside the loop's
+    other state, not beside the code the builder edits."""
+    if adapter.gates_declared:
+        return adapter.resolve(adapter.gates_path)
+    return default_state(adapter.name) / "gates.json"

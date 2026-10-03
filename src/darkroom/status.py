@@ -184,7 +184,9 @@ def assemble_status(
             blocked_scenario = max(candidates)[1]
 
     gates: dict[str, dict] = {}
-    gates_path = adapter.resolve(adapter.gates_path)
+    from darkroom.homedir import gates_file
+
+    gates_path = gates_file(adapter)
     if gates_path.exists():
         try:
             for peak in load_gates(gates_path).peaks:

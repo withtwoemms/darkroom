@@ -1041,21 +1041,32 @@ def drive(
     """
     from darkroom.homedir import default_preludes
     from darkroom.preludes import PreludeError, load_preludes
+    from darkroom.proof import PROOF_SUFFIX, ProofError, exposure, load_proof
     from darkroom.run import end_run, start_run
 
     try:
         preludes = load_preludes(default_preludes(adapter.name) if adapter.name else None)
     except PreludeError as exc:
         raise DriveError(str(exc)) from None
-    scripts = sorted(Path(drives_dir).glob(f"*{DRIVE_SUFFIX}"))
+
+    # proofs are the exam when the directory holds them; drive scripts otherwise
+    proofs = sorted(Path(drives_dir).glob(f"*{PROOF_SUFFIX}"))
+    suffix = PROOF_SUFFIX if proofs else DRIVE_SUFFIX
+
+    def _load(path: Path) -> dict:
+        if suffix == PROOF_SUFFIX:
+            try:
+                return exposure(load_proof(path), preludes)
+            except ProofError as exc:
+                raise DriveError(str(exc)) from None
+        return load_exam(path, preludes)
+
+    scripts = proofs or sorted(Path(drives_dir).glob(f"*{DRIVE_SUFFIX}"))
     if scenario is not None:
-        scripts = [
-            p for p in scripts if load_drive(p)["scenario"] == scenario
-        ]
+        scripts = [p for p in scripts if load_drive(p)["scenario"] == scenario]
     if not scripts:
         raise DriveError(
-            f"no drive scripts{f' for scenario {scenario!r}' if scenario else ''} "
-            f"in {drives_dir}"
+            f"no exams{f' for scenario {scenario!r}' if scenario else ''} in {drives_dir}"
         )
 
     containers = resolve_container_mode(containers_mode, adapter)
@@ -1081,9 +1092,9 @@ def drive(
     report = DriveReport()
     try:
         for path in scripts:
-            name = path.name[: -len(DRIVE_SUFFIX)]
+            name = path.name[: -len(suffix)]
             try:
-                script = load_exam(path, preludes)
+                script = _load(path)
                 report.results.append(
                     drive_scenario(adapter, script, containers=containers)
                 )

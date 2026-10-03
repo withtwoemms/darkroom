@@ -307,7 +307,7 @@ def _cmd_ticket(args) -> int:
 def _cmd_audit(args) -> int:
     from darkroom.adapter import load_adapter
     from darkroom.audit import audit, has_errors
-    from darkroom.homedir import default_drives, find_operator_config
+    from darkroom.homedir import find_operator_config
     from darkroom.operator import build_vault, load_operator
     from darkroom.vault import VaultError
 
@@ -330,10 +330,10 @@ def _cmd_audit(args) -> int:
         print(f"error: {exc}")
         return 2
 
-    from darkroom.homedir import default_preludes
+    from darkroom.homedir import default_preludes, exams_dir
     from darkroom.preludes import PreludeError, load_preludes
 
-    drives = Path(args.drives) if args.drives else default_drives(adapter.name)
+    drives = Path(args.drives) if args.drives else exams_dir(adapter.name)
     try:
         preludes = load_preludes(default_preludes(adapter.name))
     except PreludeError as exc:
@@ -510,8 +510,10 @@ def _cmd_auto(args) -> int:
 
     if result.converged and judge.last_evaluation is not None:
         from darkroom.gates import dump_gates, update_gates
+        from darkroom.homedir import gates_file
 
-        gates_path = adapter.resolve(adapter.gates_path)
+        gates_path = gates_file(adapter)
+        gates_path.parent.mkdir(parents=True, exist_ok=True)
         gates = _load_gates_or_empty(gates_path)
         new_gates, _ = update_gates(
             gates, judge.last_evaluation,
@@ -574,6 +576,11 @@ def _cmd_vault(args) -> int:
         if args.vault_command == "seal":
             if isinstance(vault, FilesystemVault):
                 sealed = seal(adapter, vault)
+                if vault.uses_proofs():
+                    print(f"sealed {len(sealed)} proof(s) in {vault.proofs}:")
+                    for name in sealed:
+                        print(f"  {name}")
+                    return 0
                 print(f"sealed {len(sealed)} rubric(s) into {vault.root}:")
             else:
                 rubric_files = adapter.rubric_files()
@@ -639,7 +646,7 @@ def _cmd_vault(args) -> int:
 def _cmd_drive(args) -> int:
     from darkroom.adapter import load_adapter
     from darkroom.drive import DriveError, drive
-    from darkroom.homedir import default_drives, ensure_project_home
+    from darkroom.homedir import ensure_project_home
     from darkroom.roles import AdapterAssessor
 
     adapter_path = _find_adapter_or_error(args.project)
@@ -649,8 +656,10 @@ def _cmd_drive(args) -> int:
     if args.drives is not None:
         drives_dir = args.drives
     else:
+        from darkroom.homedir import exams_dir
+
         ensure_project_home(adapter.name)
-        drives_dir = default_drives(adapter.name)
+        drives_dir = exams_dir(adapter.name)
 
     import os
 
@@ -675,15 +684,14 @@ def _cmd_drive(args) -> int:
     verify_ok = True
     manifest_path = AdapterAssessor._newest_manifest(adapter)
     if manifest_path is not None:
-        contract = None
-        if adapter.contract_path is not None:
-            contract_file = adapter.resolve(adapter.contract_path)
-            if contract_file.exists():
-                from darkroom.contract import load_contract, scoped_contract
+        from darkroom.contract import scoped_contract
+        from darkroom.vault import VaultError, runtime_contract
 
-                contract = scoped_contract(
-                    load_contract(contract_file), args.scenario
-                )
+        try:
+            contract = scoped_contract(runtime_contract(adapter), args.scenario)
+        except VaultError as exc:
+            print(f"error: {exc}")
+            return 2
         result = verify([manifest_path], contract)
         verify_ok = result.ok
         checked = "structure only" if contract is None else "contract"

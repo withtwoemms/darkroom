@@ -1,0 +1,18 @@
+{
+  "captured_at": "2026-10-03T09:43:13.634982",
+  "request": {
+    "method": "GET",
+    "url": "http://127.0.0.1:1/",
+    "headers": {},
+    "body": null,
+    "follow_redirects": true
+  },
+  "response": {
+    "status": null,
+    "headers": {},
+    "body": "",
+    "body_truncated": false
+  },
+  "duration_ms": 0,
+  "error": "[Errno 61] Connection refused"
+}

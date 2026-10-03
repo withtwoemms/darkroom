@@ -74,7 +74,17 @@ def _drive_scripts(
 ) -> dict[str, dict]:
     """Every exam in the directory, includes expanded so the audit sees
     the steps the engine will run."""
+    from darkroom.proof import PROOF_SUFFIX, ProofError, exposure, load_proof
+
     scripts: dict[str, dict] = {}
+    for path in sorted(Path(drives_dir).glob(f"*{PROOF_SUFFIX}")):
+        try:
+            script = exposure(load_proof(path), preludes)
+        except (ProofError, OSError, ValueError):
+            continue
+        scripts[script["scenario"]] = script
+    if scripts:
+        return scripts
     for path in sorted(Path(drives_dir).glob(f"*{DRIVE_SUFFIX}")):
         try:
             script = load_exam(path, preludes)

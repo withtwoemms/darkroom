@@ -36,6 +36,19 @@ from darkroom.vault import VaultError
 VERSION_WALK_CAP = 20
 
 
+def _rubric_half(text: str) -> str:
+    """A stored proof carries steps; the judge is handed its criteria only."""
+    data = tomllib.loads(text)
+    if "step" not in data:
+        return text
+    from darkroom.proof import ProofError, loads_proof, rubric_text
+
+    try:
+        return rubric_text(loads_proof(text))
+    except ProofError as exc:
+        raise VaultError(str(exc)) from None
+
+
 class OpenBaoVault:
     """Rubrics as KV v2 secrets, one per feature id, key ``rubric``."""
 
@@ -91,7 +104,7 @@ class OpenBaoVault:
                 raise VaultError(
                     f"no rubric '{feature_id}' in the vault"
                 ) from None
-            return response["data"]["data"]["rubric"]
+            return _rubric_half(response["data"]["data"]["rubric"])
 
         metadata = self.client.secrets.kv.v2.read_secret_metadata(
             path=self._secret_path(feature_id), mount_point=self.mount
@@ -109,7 +122,7 @@ class OpenBaoVault:
                 )
             except hvac.exceptions.InvalidPath:
                 continue
-            text = response["data"]["data"]["rubric"]
+            text = _rubric_half(response["data"]["data"]["rubric"])
             stored = str(tomllib.loads(text).get("version", ""))
             if stored == version:
                 return text
@@ -119,7 +132,9 @@ class OpenBaoVault:
         )
 
     def write(self, feature_id: str, text: str) -> None:
-        """Store a rubric (a new KV version if it already exists)."""
+        """Store a rubric or a whole proof (a new KV version if it already
+        exists). A proof is stored intact — exposure and rubric are one
+        secret — and ``read`` hands back only its rubric half."""
         self.client.secrets.kv.v2.create_or_update_secret(
             path=self._secret_path(feature_id),
             secret={"rubric": text},

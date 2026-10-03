@@ -1,0 +1,11 @@
+{
+  "captured_at": "2026-09-30T03:38:23.370655",
+  "scenario": "addr",
+  "step": "environment",
+  "data": {
+    "images": {
+      "postgres": "sha256:test",
+      "cache": "sha256:test"
+    }
+  }
+}
