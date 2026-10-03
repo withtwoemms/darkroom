@@ -75,5 +75,13 @@ def default_drives(project_name: str) -> Path:
     return project_home(project_name) / "drives"
 
 
+def default_proofs(project_name: str) -> Path:
+    return project_home(project_name) / "proofs"
+
+
+def default_preludes(project_name: str) -> Path:
+    return project_home(project_name) / "preludes.toml"
+
+
 def default_state(project_name: str) -> Path:
     return project_home(project_name) / "state"

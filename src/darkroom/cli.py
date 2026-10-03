@@ -330,8 +330,16 @@ def _cmd_audit(args) -> int:
         print(f"error: {exc}")
         return 2
 
+    from darkroom.homedir import default_preludes
+    from darkroom.preludes import PreludeError, load_preludes
+
     drives = Path(args.drives) if args.drives else default_drives(adapter.name)
-    findings = audit(vault, drives)
+    try:
+        preludes = load_preludes(default_preludes(adapter.name))
+    except PreludeError as exc:
+        print(f"error: {exc}")
+        return 2
+    findings = audit(vault, drives, preludes)
     for f in findings:
         print(f"{f.severity} [{f.scenario}]: {f.message}")
     errors = sum(1 for f in findings if f.severity == "error")

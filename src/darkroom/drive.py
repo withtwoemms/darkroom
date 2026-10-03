@@ -903,6 +903,17 @@ def load_drive(path: Path) -> dict:
     return script
 
 
+def load_exam(path: Path, preludes: dict[str, list[dict]] | None = None) -> dict:
+    """A drive script or a proof, with its includes expanded into steps."""
+    from darkroom.preludes import PreludeError, expand
+
+    script = load_drive(path)
+    try:
+        return expand(script, preludes or {})
+    except PreludeError as exc:
+        raise DriveError(str(exc)) from None
+
+
 def drive_scenario(
     adapter: ProjectAdapter, script: dict, containers: bool = False
 ) -> ScenarioResult:
@@ -1028,8 +1039,14 @@ def drive(
     mode, starts a run, executes each script (fresh server per
     scenario), and ends the run so the manifest is written.
     """
+    from darkroom.homedir import default_preludes
+    from darkroom.preludes import PreludeError, load_preludes
     from darkroom.run import end_run, start_run
 
+    try:
+        preludes = load_preludes(default_preludes(adapter.name) if adapter.name else None)
+    except PreludeError as exc:
+        raise DriveError(str(exc)) from None
     scripts = sorted(Path(drives_dir).glob(f"*{DRIVE_SUFFIX}"))
     if scenario is not None:
         scripts = [
@@ -1066,7 +1083,7 @@ def drive(
         for path in scripts:
             name = path.name[: -len(DRIVE_SUFFIX)]
             try:
-                script = load_drive(path)
+                script = load_exam(path, preludes)
                 report.results.append(
                     drive_scenario(adapter, script, containers=containers)
                 )

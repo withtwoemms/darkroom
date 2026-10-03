@@ -22,7 +22,7 @@ if sys.version_info >= (3, 11):
 else:  # pragma: no cover - exercised only on 3.10
     import tomli as tomllib
 
-from darkroom.drive import DRIVE_SUFFIX, DriveError, load_drive
+from darkroom.drive import DRIVE_SUFFIX, DriveError, load_exam
 from darkroom.vault import RubricVault
 
 # what each drive step kind can register in the manifest
@@ -69,21 +69,29 @@ def producible_kinds(script: dict) -> set[str]:
     return kinds
 
 
-def _drive_scripts(drives_dir: Path) -> dict[str, dict]:
+def _drive_scripts(
+    drives_dir: Path, preludes: dict[str, list[dict]] | None = None
+) -> dict[str, dict]:
+    """Every exam in the directory, includes expanded so the audit sees
+    the steps the engine will run."""
     scripts: dict[str, dict] = {}
     for path in sorted(Path(drives_dir).glob(f"*{DRIVE_SUFFIX}")):
         try:
-            script = load_drive(path)
+            script = load_exam(path, preludes)
         except (DriveError, OSError, ValueError):
             continue
         scripts[script["scenario"]] = script
     return scripts
 
 
-def audit(vault: RubricVault, drives_dir: Path) -> list[AuditFinding]:
+def audit(
+    vault: RubricVault,
+    drives_dir: Path,
+    preludes: dict[str, list[dict]] | None = None,
+) -> list[AuditFinding]:
     """Cross-check every rubric criterion against its drive's capabilities."""
     findings: list[AuditFinding] = []
-    scripts = _drive_scripts(drives_dir)
+    scripts = _drive_scripts(drives_dir, preludes)
 
     for feature_id in vault.list():
         rubric = tomllib.loads(vault.read(feature_id))
