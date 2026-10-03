@@ -51,9 +51,13 @@ def _witness_capable(step: dict) -> bool:
 
 @dataclass(frozen=True)
 class AuditFinding:
-    severity: str  # "error" | "warning"
+    severity: str  # "error" | "warning" | "info"
     scenario: str
     message: str
+    code: str = ""  # a stable name for the class of finding, where one exists
+
+
+SURFACE_SEVERITY = {"surface-undeclared": "warning", "surface-untouched": "info"}
 
 
 def producible_kinds(script: dict) -> set[str]:
@@ -94,14 +98,37 @@ def _drive_scripts(
     return scripts
 
 
+def _surface_findings(scenario: str, script: dict, spec: Path | None) -> list[AuditFinding]:
+    """The spec's Surfaces block against the exam's steps; nothing when the
+    scenario has no spec or the spec declares no surfaces."""
+    from darkroom.surfaces import cross_check, load_surfaces
+
+    if spec is None:
+        return []
+    try:
+        declared = load_surfaces(spec)
+    except OSError:
+        return []
+    if declared is None:
+        return []
+    return [
+        AuditFinding(SURFACE_SEVERITY[code], scenario, message, code)
+        for code, message in cross_check(declared, script)
+    ]
+
+
 def audit(
     vault: RubricVault,
     drives_dir: Path,
     preludes: dict[str, list[dict]] | None = None,
+    specs: list[Path] | None = None,
 ) -> list[AuditFinding]:
-    """Cross-check every rubric criterion against its drive's capabilities."""
+    """Cross-check every rubric criterion against its drive's capabilities,
+    and the drive's steps against the spec's declared surfaces (specs are
+    matched to scenarios by file stem)."""
     findings: list[AuditFinding] = []
     scripts = _drive_scripts(drives_dir, preludes)
+    spec_by_scenario = {Path(p).name.split(".", 1)[0]: Path(p) for p in specs or []}
 
     for feature_id in vault.list():
         rubric = tomllib.loads(vault.read(feature_id))
@@ -156,6 +183,7 @@ def audit(
                             "(expectation outcomes are logged since drive-scripts 1.4)",
                         )
                     )
+        findings.extend(_surface_findings(scenario, script, spec_by_scenario.get(scenario)))
     return findings
 
 

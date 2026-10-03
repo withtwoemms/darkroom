@@ -1,15 +1,15 @@
 {
-  "captured_at": "2026-10-03T09:43:13.621492",
+  "captured_at": "2026-10-03T09:46:36.657751",
   "argv": [
     "/bin/sh",
     "-c",
-    "echo 127.0.0.1:57125"
+    "echo 127.0.0.1:57374"
   ],
   "cwd": null,
   "exit_code": 0,
   "timed_out": false,
   "duration_ms": 7,
-  "stdout": "127.0.0.1:57125\n",
+  "stdout": "127.0.0.1:57374\n",
   "stderr": "",
   "stdout_truncated": false,
   "stderr_truncated": false

@@ -339,13 +339,14 @@ def _cmd_audit(args) -> int:
     except PreludeError as exc:
         print(f"error: {exc}")
         return 2
-    findings = audit(vault, drives, preludes)
+    findings = audit(vault, drives, preludes, adapter.spec_files())
     for f in findings:
         print(f"{f.severity} [{f.scenario}]: {f.message}")
     errors = sum(1 for f in findings if f.severity == "error")
-    warnings = len(findings) - errors
+    warnings = sum(1 for f in findings if f.severity == "warning")
+    infos = len(findings) - errors - warnings
     print(
-        f"audit: {errors} error(s), {warnings} warning(s) across the vault"
+        f"audit: {errors} error(s), {warnings} warning(s), {infos} note(s) across the vault"
         if findings else "audit: every criterion is witnessable by its drive"
     )
     return 1 if has_errors(findings) else 0
