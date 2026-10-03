@@ -207,7 +207,7 @@ class TestDriveEngine:
         _script(drives, "one", 'scenario = "one"\n[[step]]\nname = "x"\nkind = "wait"\nseconds = 0\n')
         report = drive(adapter, drives, scenario="one")
         assert report.ok and report.results[0].scenario == "one"
-        with pytest.raises(DriveError, match="no drive scripts"):
+        with pytest.raises(DriveError, match="no exams"):
             drive(adapter, drives, scenario="ghost")
 
     def test_unknown_placeholder_named(self, project, monkeypatch):

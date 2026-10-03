@@ -1,6 +1,6 @@
 ---
 name: darkroom-converge
-description: Run a scenario through the darkroom convergence loop as the operator - author the drive and rubric, pre-flight, commit both repos, launch auto, triage blockers, regress, and deploy. Use when a user wants to build or ship a feature via darkroom auto, converge a scenario, or after the intent interview has produced a rubric that now needs a drive and a run.
+description: Run a scenario through the darkroom convergence loop as the operator - author the proof (exposure steps + criteria), pre-flight, commit both repos, launch auto, triage blockers, regress, and deploy. Use when a user wants to build or ship a feature via darkroom auto, converge a scenario, or after the intent interview has produced criteria that now need their exposure and a run.
 ---
 
 # Converging a scenario with darkroom
@@ -22,22 +22,28 @@ The two repos you touch, and never confuse:
 
 - The **tenant** (the project repo): `scenarios/*.feature`, the app,
   `darkroom.toml`, the Makefile. The builder reads and writes here.
-- The **operator home** (`~/.darkroom/projects/<name>/`): `drives/`,
-  the sealed `vault/`, `state/`. The builder cannot read this — it is
-  structurally outside every tenant path. Drives and rubrics live
-  here; sealing happens here.
+- The **operator home** (`~/.darkroom/projects/<name>/`): `proofs/`
+  (one `<scenario>.proof.toml` per scenario: the exposure's steps and
+  the rubric's criteria in one sealed file), `preludes.toml` (shared
+  step sequences a proof `include`s), `vault/` (the audit log; on the
+  older layout, the sealed rubrics beside `drives/`), `state/`. The
+  builder cannot read this — it is structurally outside every tenant
+  path. Sealing happens here.
 
-## Stage 1 — Author the drive and confirm the rubric
+## Stage 1 — Author the proof's exposure and confirm its criteria
 
-The rubric (from the interview) already names each criterion's
-witness. Now write the drive that *produces* those witnesses:
-`~/.darkroom/projects/<name>/drives/<scenario>.drive.toml`.
+The criteria (from the interview) already name each witness. Now
+write, in the same file, the steps that *produce* those witnesses:
+`~/.darkroom/projects/<name>/proofs/<scenario>.proof.toml`. Each
+step's evidence kind follows from its kind, so a criterion declares
+`evidence` only when it cites no step.
 
-- **Reuse a proven drive as the template**, never invent API shape.
-  Find the closest existing drive that founds the same objects and
+- **Reuse a proven exposure as the template**, never invent API shape.
+  Find the closest existing proof that founds the same objects and
   copy its setup verbatim (the founding ceremony, the registration
-  path, the signing syntax). Most authoring defects are a wrong
-  assumption about how the app is actually reached.
+  path, the signing syntax) — or, when several proofs share it, name
+  it once in `preludes.toml` and `include` it. Most authoring defects
+  are a wrong assumption about how the app is actually reached.
 - **Value-witness every load-bearing claim.** A `click` or `goto`
   logs only its action, not the value its `expect` checked — so a
   criterion that depends on a value (a `data-*` surface, a status, a

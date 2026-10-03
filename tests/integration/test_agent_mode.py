@@ -184,7 +184,10 @@ def test_agent_mode_convergence(tmp_path, capsys, monkeypatch):
 
     # the fix is real and the gates ratcheted with rubric provenance
     assert (project / "app.py").read_text() == 'print("42")\n'
-    gates = json.loads((project / "evidence-gates.json").read_text())
+    # undeclared gates ratchet in the home's state, never beside the code
+    assert not (project / "evidence-gates.json").exists()
+    gates_path = tmp_path / "darkroom-home" / "projects" / "mini" / "state" / "gates.json"
+    gates = json.loads(gates_path.read_text())
     assert gates["peaks"][0]["score"] == 100.0
     assert gates["peaks"][0]["rubric_version"] == "1"
 

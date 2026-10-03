@@ -1,7 +1,10 @@
 # Regression Gates
 
-**Format:** JSON · **Schema version:** 1.0 · **File:** conventionally
-`evidence-gates.json`, committed to the tenant repository.
+**Format:** JSON · **Schema version:** 1.0 · **File:**
+`~/.darkroom/projects/<name>/state/gates.json` in the operator home by
+default (since darkroom 0.20); a tenant that declares `[evidence]
+gates = "evidence-gates.json"` keeps it committed beside its code
+instead.
 
 ## Purpose
 

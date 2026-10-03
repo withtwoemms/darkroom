@@ -204,8 +204,10 @@ darkroom auto --scenario note_saved \
 
 Watch it: iteration 1 scores 0.0, the builder gets the feedback and
 fixes the bug, iteration 2 scores 100.0, **CONVERGED**, and
-`evidence-gates.json` appears — the scenario's peak score, ratcheted:
-future runs below it are regressions. `git log` shows the loop's
+`~/.darkroom/projects/quicknotes/state/gates.json` appears — the
+scenario's peak score, ratcheted: future runs below it are
+regressions (a tenant that wants the file beside its code declares
+`[evidence] gates = "evidence-gates.json"`). `git log` shows the loop's
 checkpoints. Everything the agents will do in stage 4 slots into
 exactly this machine.
 
@@ -218,27 +220,39 @@ something the builder never sees.
 darkroom home init          # ~/.darkroom/projects/<name>/ — operator space, mode 700
 ```
 
-1. **Author scenarios and rubrics** with the interview skill
+1. **Author scenarios and proofs** with the interview skill
    (the `darkroom-interview` skill (`darkroom skills install`, or the plugin) — run it in Claude Code from your
-   project). It interrogates your product description into scenarios,
-   criteria with thresholds, and preflight-validated artifacts.
-2. **Seal the rubrics** out of the tenant and derive the contract
-   from them: `darkroom vault seal && darkroom vault derive-contract`.
-3. **Move the exam out of the tenant.** Stages 1–3 kept `drives/` in
-   the repo because nothing was reading it but you; from here on the
-   builder is an agent working in that repo, and a drive script it
-   can open is an exam it can read. The home has a place for them,
-   and it is where `darkroom drive` looks when `--drives` is absent:
+   project). It interrogates your product description into scenarios
+   (specs, with a `Surfaces:` block naming what the builder must
+   produce) and criteria with thresholds, each citing the steps that
+   witness it.
+2. **Write the exam as proofs, in the home.** Stages 1–3 kept
+   `drives/` in the repo because nothing was reading it but you; from
+   here on the builder is an agent working in that repo, and exam
+   material it can open is an exam it can read. A proof is the drive
+   script's steps plus the criteria that score them, in one file
+   the home has a place for — and it is where `darkroom expose` (née
+   `drive`) looks when `--drives` is absent:
 
    ```bash
-   git rm -rq --cached drives && mv drives ~/.darkroom/projects/quicknotes/drives
+   # ~/.darkroom/projects/quicknotes/proofs/note_saved.proof.toml
+   # = the stage-1 drive script + [[criterion]] tables citing its steps
+   git rm -rq --cached drives && rm -r drives
    ```
 
-   then drop `--drives drives` from the `test` command in
-   `darkroom.toml` (`test = "darkroom drive"`) and commit. Once the
-   rubrics are sealed (or an `operator.toml` exists), `darkroom
-   preflight` warns about drive scripts still inside the tenant and
-   `darkroom auto` refuses to spend against them.
+   (A project that already has drive scripts and sealed rubrics runs
+   `darkroom migrate` instead — one proof per pair, nothing retyped.)
+   Then drop `--drives drives` from the `test` command in
+   `darkroom.toml` (`test = "darkroom expose"`), delete
+   `evidence-contract.toml` and its `[evidence] contract` line — the
+   contract is now derived from the proofs at run time, and the gates
+   ratchet in the home's `state/` — and commit.
+3. **Seal and audit**: `darkroom vault seal` validates every proof
+   (each criterion cites a real step); `darkroom audit` checks each
+   criterion is witnessable and each step touches a declared surface.
+   Once proofs exist (or an `operator.toml` does), `darkroom preflight`
+   warns about exam material still inside the tenant and `darkroom
+   auto` refuses to spend against it.
 4. **Write the operator config** — `~/.darkroom/projects/<name>/operator.toml`:
 
 ```toml

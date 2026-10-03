@@ -35,7 +35,7 @@ never fill the gap with something plausible.
    ago it last moved; do not call it exhausted unless the engine did.
    When a `HARNESS-BLOCKER.md` is present, quote its brief verbatim
    and give the one judgment this section needs: is the builder right
-   that the defect is operator-side (drive, rubric, witness) or is the
+   that the defect is operator-side (an exposure step, a criterion, a witness) or is the
    behavior genuinely missing? That is the converge skill's Stage 6
    triage; apply it here and name the fix.
 

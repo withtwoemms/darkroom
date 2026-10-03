@@ -4,6 +4,15 @@
 scenario, named `<anything>.drive.toml`, conventionally in the
 operator home's `drives/` directory.
 
+> **Deprecated as a standalone file since darkroom 0.20.** The drive
+> script's step vocabulary lives on unchanged as the exposure half of a
+> [proof](proofs.md), which holds the steps and the criteria that score
+> them in one sealed file. Existing drive scripts and vault rubrics keep
+> working; `darkroom migrate` merges each pair into a proof, and a home
+> holding proofs is read as proofs. Everything below — step kinds,
+> fields, interpolation, expectations — continues to version here and
+> applies to proofs verbatim.
+
 ## Purpose
 
 A drive script is the exam as data: a declarative step sequence that
