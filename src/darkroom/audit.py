@@ -99,7 +99,7 @@ def _drive_scripts(
 
 
 def _surface_findings(scenario: str, script: dict, spec: Path | None) -> list[AuditFinding]:
-    """The spec's Surfaces block against the exam's steps; nothing when the
+    """The spec's surfaces doc string against the exam's steps; nothing when the
     scenario has no spec or the spec declares no surfaces."""
     from darkroom.surfaces import cross_check, load_surfaces
 

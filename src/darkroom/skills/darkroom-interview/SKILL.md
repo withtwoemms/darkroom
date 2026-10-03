@@ -1,6 +1,6 @@
 ---
 name: darkroom-interview
-description: Conduct the darkroom intent interview - distill a product description into scenario specs (with their Surfaces) and the criteria of each scenario's proof, for evidence-based delivery. Use when a user wants to set up a project for darkroom, author scenarios or criteria, define "done" for a feature, or prepare a project for the convergence loop.
+description: Conduct the darkroom intent interview - distill a product description into scenario specs (each with its surfaces doc string) and the criteria of each scenario's proof, for evidence-based delivery. Use when a user wants to set up a project for darkroom, author scenarios or criteria, define "done" for a feature, or prepare a project for the convergence loop.
 ---
 
 # The darkroom intent interview
@@ -104,9 +104,12 @@ Lay down, creating directories as needed:
 
 - `scenarios/<name>.feature` — the sanitized spec: plain behavioral
   description, **no criteria, points, or thresholds** (builders read
-  these), ending in a `Surfaces:` block that names every route (with
-  its outcome) and selector (with its state attributes) the builder
-  must produce — `darkroom audit` cross-checks the exposure against it
+  these), with a `"""surfaces` doc string on the step that claims
+  the contract, naming every route (with its outcome) and selector
+  (with its state attributes) the builder must produce — legal
+  Gherkin, so the file stays a `.feature` any tool reads; `darkroom
+  audit` cross-checks the exposure against it. Implementation advice
+  belongs in the feature's prose, never inside the doc string
 - `~/.darkroom/projects/<name>/proofs/<name>.proof.toml` — one per
   scenario, holding the criteria now and the exposure steps once the
   converge skill writes them; never inside the tenant

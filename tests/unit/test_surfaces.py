@@ -1,5 +1,5 @@
-"""The Surfaces block: the spec's declared contract, cross-checked against
-the exam's steps by the audit."""
+"""The surfaces doc string: the spec's declared contract, cross-checked
+against the exam's steps by the audit."""
 
 import sys
 import textwrap
@@ -22,15 +22,19 @@ from darkroom.vault import FilesystemVault
 SPEC = """\
 Feature: deletion is token-guarded
   Scenario: only the holder of the note's token may delete it
-    Deleting with a wrong token is refused.
-
-  Surfaces:
-    POST /notes                        → 201 {id, token}
-    DELETE /notes/{id}  X-Note-Token   -> 204; wrong token → 403; after → 404
-    #delete-button [data-state=armed|fired]
-
-  Notes:
-    GET /never — this is outside the block
+    Given a note with a token
+    When a wrong token tries to delete it
+    Then the deletion is refused
+    And the surfaces hold:
+      \"\"\"surfaces
+      POST /notes                        → 201 {id, token}
+      DELETE /notes/{id}  X-Note-Token   -> 204; wrong token → 403; after → 404
+      #delete-button                     [data-state=armed|fired]
+      \"\"\"
+    And the step's own doc string is not a contract:
+      \"\"\"
+      GET /never — a plain doc string, outside the surfaces
+      \"\"\"
 """
 
 PROOF = """\
@@ -69,12 +73,33 @@ class TestParse:
                 "route", "DELETE", "/notes/*",
                 "DELETE /notes/{id}  X-Note-Token   -> 204; wrong token → 403; after → 404",
             ),
-            Surface("selector", target="#delete-button", line="#delete-button [data-state=armed|fired]"),
+            Surface(
+                "selector", target="#delete-button",
+                line="#delete-button                     [data-state=armed|fired]",
+            ),
         ]
 
-    def test_no_block_means_nothing_declared(self):
+    def test_no_doc_string_means_nothing_declared(self):
         assert parse_surfaces("Feature: x\n  Scenario: y\n    Build: GET /x -> 200\n") is None
-        assert parse_surfaces("Feature: x\n  Surfaces:\n") == []
+        assert parse_surfaces('Feature: x\n  Scenario: y\n    Given x:\n      """\n      GET /x\n      """\n') is None
+        assert parse_surfaces('Feature: x\n  Scenario: y\n    Given x:\n      """surfaces\n      """\n') == []
+
+    def test_compound_selector_keeps_its_descendant_parts(self):
+        text = (
+            "Feature: x\n  Scenario: a\n    Then a:\n      ```surfaces\n"
+            "      #notes li                   one item per saved note\n"
+            "      input[name=\"text\"]          the field\n"
+            "      ```\n"
+        )
+        assert [s.target for s in parse_surfaces(text)] == ["#notes li", 'input[name="text"]']
+
+    def test_markdown_fences_and_several_blocks_add_up(self):
+        text = (
+            "Feature: x\n"
+            "  Scenario: a\n    Then a:\n      ```surfaces\n      GET /a → 200\n      ```\n"
+            "  Scenario: b\n    Then b:\n      ```surfaces\n      #b\n      ```\n"
+        )
+        assert [str(s) for s in parse_surfaces(text)] == ["GET /a", "#b"]
 
     def test_paths_normalize(self):
         assert normalize_path("{base_url}/notes/{note_id}?x=1") == "/notes/*"
@@ -125,7 +150,7 @@ def _project(tmp_path, spec_text):
 class TestAuditIntegration:
     def test_findings_carry_codes_and_never_errors(self, tmp_path):
         vault, proofs, specs = _project(
-            tmp_path, SPEC.replace("#delete-button [data-state=armed|fired]", "#other")
+            tmp_path, SPEC.replace("#delete-button                     [data-state=armed|fired]", "#other")
         )
         findings = audit(vault, proofs, specs=specs)
         assert not has_errors(findings)
@@ -134,7 +159,7 @@ class TestAuditIntegration:
         ]
         assert findings[0].scenario == "deletion_guarded"
 
-    def test_spec_without_block_yields_nothing(self, tmp_path):
+    def test_spec_without_doc_string_yields_nothing(self, tmp_path):
         vault, proofs, specs = _project(tmp_path, "Feature: x\n  Build: GET /anything -> 200\n")
         assert audit(vault, proofs, specs=specs) == []
 

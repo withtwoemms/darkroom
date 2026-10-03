@@ -35,12 +35,14 @@ versioned independently of the package — see `ROADMAP.md`.
   environment from `[serve.env]` templates (`{port}`, serve vars,
   `{service.host}`/`{service.port}`) — a missing value fails boot by
   name.
-- **`Surfaces:` block** in scenario specs (routes with outcomes,
-  selectors with state attributes), cross-checked by `darkroom audit`
-  against the exposure's steps: `surface-undeclared` (warning) and
-  `surface-untouched` (info); specs without the block get no findings.
-  Audit findings now carry a `code`, and the audit reads the tenant's
-  `spec_glob`.
+- **The surfaces doc string** in scenario specs: a Gherkin doc string
+  typed `"""surfaces` (routes with outcomes, selectors with state
+  attributes) on the step that claims the contract — legal Gherkin,
+  so a spec stays a `.feature` any tool parses — cross-checked by
+  `darkroom audit` against the exposure's steps: `surface-undeclared`
+  (warning) and `surface-untouched` (info); specs without one get no
+  findings. Audit findings now carry a `code`, and the audit reads the
+  tenant's `spec_glob`.
 - **`darkroom migrate [--check] [--force]`**: merges each drive +
   rubric pair in the home into a proof, dropping the restatements,
   carrying `version`/`trials`, reporting unpaired files, and printing

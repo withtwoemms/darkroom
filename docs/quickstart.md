@@ -223,9 +223,9 @@ darkroom home init          # ~/.darkroom/projects/<name>/ — operator space, m
 1. **Author scenarios and proofs** with the interview skill
    (the `darkroom-interview` skill (`darkroom skills install`, or the plugin) — run it in Claude Code from your
    project). It interrogates your product description into scenarios
-   (specs, with a `Surfaces:` block naming what the builder must
-   produce) and criteria with thresholds, each citing the steps that
-   witness it.
+   (specs, each with a `"""surfaces` doc string naming what the
+   builder must produce) and criteria with thresholds, each citing the
+   steps that witness it.
 2. **Write the exam as proofs, in the home.** Stages 1–3 kept
    `drives/` in the repo because nothing was reading it but you; from
    here on the builder is an agent working in that repo, and exam

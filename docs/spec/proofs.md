@@ -146,28 +146,36 @@ value for a placeholder fails the scenario's boot by name. The
 | `evidence = [...]` on most criteria | the cited steps' kinds |
 | `drives/` + `vault/*.rubric.toml` | `proofs/` — the two layouts never mix: a home holding proofs is read as proofs, and `drives/` and vault rubrics are then ignored |
 
-## The spec's `Surfaces:` block
+## The spec's surfaces doc string
 
-A scenario spec may end with a block naming every surface the builder
-must produce — routes with their outcomes, selectors with their state
-attributes:
+A scenario spec names every surface the builder must produce — routes
+with their outcomes, selectors with their state attributes — in a
+Gherkin doc string whose media type is `surfaces`, on whichever step
+claims it:
 
+```gherkin
+    And the surfaces hold:
+      """surfaces
+      POST /notes                        → 201 {id, token}
+      DELETE /notes/{id}  X-Note-Token   → 204; wrong token → 403; after → 404
+      #delete-button [data-state=armed|fired]
+      """
 ```
-  Surfaces:
-    POST /notes                        → 201 {id, token}
-    DELETE /notes/{id}  X-Note-Token   → 204; wrong token → 403; after → 404
-    #delete-button [data-state=armed|fired]
-```
 
-Left of the arrow is the surface: a line opening with an HTTP method is
-a route (`{name}` segments match anything), anything else a selector
-(its first token is what a step must cite). `darkroom audit`
-cross-checks the block against the scenario's exposure both ways —
+A doc string is legal Gherkin wherever a step is (``` ``` ``` fences
+work too), so the spec stays a `.feature` any tool can parse — the
+media type is what marks this one as the contract; a step's untyped
+doc string is its own business. Left of the arrow is the surface: a
+line opening with an HTTP method is a route (`{name}` segments match
+anything), anything else a selector (its first token is what a step
+must cite). Implementation advice for the builder stays in the
+feature's prose, not in the contract. `darkroom audit` cross-checks
+the declared surfaces against the scenario's exposure both ways —
 `surface-undeclared` (warning: a step touches a surface the spec never
 names, so the builder was never told) and `surface-untouched` (info: a
 declared surface no step reaches — declared, not proven). Specs are
-matched to scenarios by file stem; a spec without the block declares
-nothing and gets no findings.
+matched to scenarios by file stem; several surfaces doc strings in one
+spec add up; a spec without one declares nothing and gets no findings.
 
 ## Migration
 

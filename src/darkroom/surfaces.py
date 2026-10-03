@@ -1,23 +1,29 @@
-"""The ``Surfaces:`` block: the spec's declared contract, audited.
+"""The surfaces doc string: the spec's declared contract, audited.
 
-A spec may end with a block naming every surface the scenario rests on —
-routes with the outcome the builder must produce, selectors with the
-state attributes a page must carry::
+A spec names every surface the scenario rests on — routes with the
+outcome the builder must produce, selectors with the state attributes a
+page must carry — in a Gherkin doc string whose media type is
+``surfaces``, on whichever step claims it::
 
-    Surfaces:
-        POST /notes                        → 201 {id, token}
-        DELETE /notes/{id}  X-Note-Token   → 204; wrong token → 403
-        #delete-button [data-state=armed|fired]
+    And the surfaces hold:
+      \"\"\"surfaces
+      POST /notes                        → 201 {id, token}
+      DELETE /notes/{id}  X-Note-Token   → 204; wrong token → 403
+      #delete-button [data-state=armed|fired]
+      \"\"\"
 
-Left of the arrow is the surface: a line opening with an HTTP method is
-a route (``{name}`` segments match anything), anything else a selector
-(its first token is what a step must cite). The audit cross-checks the
-block against the scenario's exam both ways: a step touching a surface
-the spec never names is ``surface-undeclared`` (the spec is the
-builder's whole contract, so the exam is testing something the builder
-was never told), and a declared surface no step touches is
-``surface-untouched`` (declared, but unproven). A spec without the
-block declares nothing and gets no findings.
+A doc string is legal Gherkin anywhere a step is, so the spec stays a
+``.feature`` any tool can parse; the media type is what makes this one
+the contract. Left of the arrow is the surface: a line opening with an
+HTTP method is a route (``{name}`` segments match anything), anything
+else a selector — everything up to the first run of two spaces, so
+``#notes li`` is one selector and what follows is its description. The audit
+cross-checks the block against the scenario's exam both ways: a step
+touching a surface the spec never names is ``surface-undeclared`` (the
+spec is the builder's whole contract, so the exam is testing something
+the builder was never told), and a declared surface no step touches is
+``surface-untouched`` (declared, but unproven). A spec without the doc
+string declares nothing and gets no findings.
 """
 
 from __future__ import annotations
@@ -28,8 +34,12 @@ from pathlib import Path
 
 HTTP_METHODS = frozenset({"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"})
 
-_HEADER = re.compile(r"^(\s*)Surfaces:\s*$")
+# a doc string opens with """ or ``` and an optional media type; only one
+# typed `surfaces` is the contract — other doc strings are the step's own
+_FENCE_OPEN = re.compile(r'^\s*("""|```)\s*surfaces\s*$')
+_FENCE_CLOSE = re.compile(r'^\s*("""|```)\s*$')
 _ARROW = re.compile(r"\s*(?:→|->)\s*")
+_COLUMN_GAP = re.compile(r"\s{2,}")
 _PLACEHOLDER = re.compile(r"\{[^}]*\}")
 
 
@@ -69,31 +79,34 @@ def selector(text: str) -> Surface:
 
 
 def parse_surfaces(text: str) -> list[Surface] | None:
-    """The surfaces a spec declares, or None when it has no block."""
+    """The surfaces a spec declares, or None when it has no surfaces doc
+    string. Several such doc strings (one per scenario, say) add up."""
     lines = text.splitlines()
-    for index, line in enumerate(lines):
-        header = _HEADER.match(line)
-        if header is None:
+    found = False
+    surfaces: list[Surface] = []
+    index = 0
+    while index < len(lines):
+        if _FENCE_OPEN.match(lines[index]) is None:
+            index += 1
             continue
-        indent = len(header.group(1))
-        surfaces: list[Surface] = []
-        for body in lines[index + 1 :]:
-            if not body.strip():
-                continue
-            if len(body) - len(body.lstrip()) <= indent:
-                break
-            entry = _ARROW.split(body.strip(), maxsplit=1)[0].strip()
+        found = True
+        index += 1
+        while index < len(lines) and _FENCE_CLOSE.match(lines[index]) is None:
+            body = lines[index].strip()
+            index += 1
+            entry = _ARROW.split(body, maxsplit=1)[0].strip() if body else ""
             if not entry:
                 continue
             first, *rest = entry.split()
             if first.upper() in HTTP_METHODS and rest:
-                surfaces.append(
-                    Surface("route", first.upper(), normalize_path(rest[0]), body.strip())
-                )
+                surfaces.append(Surface("route", first.upper(), normalize_path(rest[0]), body))
             else:
-                surfaces.append(Surface("selector", target=first, line=body.strip()))
-        return surfaces
-    return None
+                # a selector may have descendant parts ("#notes li"); the
+                # description column starts at the first run of 2+ spaces
+                target = _COLUMN_GAP.split(entry, maxsplit=1)[0].strip()
+                surfaces.append(Surface("selector", target=target, line=body))
+        index += 1  # past the closing fence
+    return surfaces if found else None
 
 
 def load_surfaces(path: Path) -> list[Surface] | None:
@@ -154,7 +167,7 @@ def cross_check(declared: list[Surface], script: dict) -> list[tuple[str, str]]:
                 (
                     "surface-undeclared",
                     f"the exam touches {surface.kind} '{surface}' but the spec's "
-                    "Surfaces block never names it — the builder was not told",
+                    "surfaces never name it — the builder was not told",
                 )
             )
     for surface in declared:

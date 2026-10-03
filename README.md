@@ -152,9 +152,10 @@ witnesses = ["save", "read_back"]     # evidence kinds follow from the steps cit
 ```
 
 `darkroom expose` runs the exposure (`darkroom drive`, its older
-name, still does). A scenario spec may end with a `Surfaces:` block
-naming the routes and selectors the builder must produce;
-`darkroom audit` cross-checks every step against it.
+name, still does). A scenario spec names the routes and selectors the
+builder must produce in a `"""surfaces` doc string — legal Gherkin,
+so the spec stays readable by any tool; `darkroom audit` cross-checks
+every step against it.
 
 Step kinds cover HTTP, commands, Ed25519 keygen/signing, assertions,
 waits, container failure injection, and real browser interaction
