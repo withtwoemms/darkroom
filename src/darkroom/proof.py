@@ -89,10 +89,10 @@ def loads_proof(text: str, name: str = "proof") -> dict:
         ids.add(cid)
         if not isinstance(criterion.get("points"), (int, float)):
             raise ProofError(f"{name}: criterion '{cid}' needs numeric points")
-        if not criterion.get("witnesses"):
+        if not criterion.get("witnesses") and not criterion.get("evidence"):
             raise ProofError(
                 f"{name}: criterion '{cid}' cites no witnesses — name the steps "
-                "whose records prove it"
+                "whose records prove it (or declare the evidence kinds it rests on)"
             )
     for step in proof.get("step", []):
         step.setdefault("kind", "http")
