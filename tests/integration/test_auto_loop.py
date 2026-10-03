@@ -128,7 +128,8 @@ def test_full_automated_convergence(tmp_path, capsys, monkeypatch):
     assert "CONVERGED after 2 iteration(s)" in out
 
     # gates ratcheted on convergence, citing rubric provenance
-    gates = json.loads((project / "evidence-gates.json").read_text())
+    gates_path = tmp_path / "darkroom-home" / "projects" / "mini" / "state" / "gates.json"
+    gates = json.loads(gates_path.read_text())
     assert gates["peaks"][0]["scenario"] == "answer_flow"
     assert gates["peaks"][0]["score"] == 100.0
     assert gates["peaks"][0]["rubric_version"] == "1"
@@ -138,7 +139,8 @@ def test_full_automated_convergence(tmp_path, capsys, monkeypatch):
         ["git", "log", "--oneline"], cwd=project, capture_output=True, text=True
     ).stdout
     assert "auto: iteration 1 (50.0%)" in log
-    assert "auto: records gate (answer_flow)" in log
+    # the gate ratchets in the home, so there is nothing in the tenant to commit
+    assert "auto: records gate" not in log
 
     # the loop leaves a clean tree — a following scenario can start
     status = subprocess.run(

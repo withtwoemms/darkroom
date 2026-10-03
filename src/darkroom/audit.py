@@ -22,7 +22,7 @@ if sys.version_info >= (3, 11):
 else:  # pragma: no cover - exercised only on 3.10
     import tomli as tomllib
 
-from darkroom.drive import DRIVE_SUFFIX, DriveError, load_drive
+from darkroom.drive import DRIVE_SUFFIX, DriveError, load_exam
 from darkroom.vault import RubricVault
 
 # what each drive step kind can register in the manifest
@@ -51,9 +51,13 @@ def _witness_capable(step: dict) -> bool:
 
 @dataclass(frozen=True)
 class AuditFinding:
-    severity: str  # "error" | "warning"
+    severity: str  # "error" | "warning" | "info"
     scenario: str
     message: str
+    code: str = ""  # a stable name for the class of finding, where one exists
+
+
+SURFACE_SEVERITY = {"surface-undeclared": "warning", "surface-untouched": "info"}
 
 
 def producible_kinds(script: dict) -> set[str]:
@@ -69,21 +73,62 @@ def producible_kinds(script: dict) -> set[str]:
     return kinds
 
 
-def _drive_scripts(drives_dir: Path) -> dict[str, dict]:
+def _drive_scripts(
+    drives_dir: Path, preludes: dict[str, list[dict]] | None = None
+) -> dict[str, dict]:
+    """Every exam in the directory, includes expanded so the audit sees
+    the steps the engine will run."""
+    from darkroom.proof import PROOF_SUFFIX, ProofError, exposure, load_proof
+
     scripts: dict[str, dict] = {}
+    for path in sorted(Path(drives_dir).glob(f"*{PROOF_SUFFIX}")):
+        try:
+            script = exposure(load_proof(path), preludes)
+        except (ProofError, OSError, ValueError):
+            continue
+        scripts[script["scenario"]] = script
+    if scripts:
+        return scripts
     for path in sorted(Path(drives_dir).glob(f"*{DRIVE_SUFFIX}")):
         try:
-            script = load_drive(path)
+            script = load_exam(path, preludes)
         except (DriveError, OSError, ValueError):
             continue
         scripts[script["scenario"]] = script
     return scripts
 
 
-def audit(vault: RubricVault, drives_dir: Path) -> list[AuditFinding]:
-    """Cross-check every rubric criterion against its drive's capabilities."""
+def _surface_findings(scenario: str, script: dict, spec: Path | None) -> list[AuditFinding]:
+    """The spec's surfaces doc string against the exam's steps; nothing when the
+    scenario has no spec or the spec declares no surfaces."""
+    from darkroom.surfaces import cross_check, load_surfaces
+
+    if spec is None:
+        return []
+    try:
+        declared = load_surfaces(spec)
+    except OSError:
+        return []
+    if declared is None:
+        return []
+    return [
+        AuditFinding(SURFACE_SEVERITY[code], scenario, message, code)
+        for code, message in cross_check(declared, script)
+    ]
+
+
+def audit(
+    vault: RubricVault,
+    drives_dir: Path,
+    preludes: dict[str, list[dict]] | None = None,
+    specs: list[Path] | None = None,
+) -> list[AuditFinding]:
+    """Cross-check every rubric criterion against its drive's capabilities,
+    and the drive's steps against the spec's declared surfaces (specs are
+    matched to scenarios by file stem)."""
     findings: list[AuditFinding] = []
-    scripts = _drive_scripts(drives_dir)
+    scripts = _drive_scripts(drives_dir, preludes)
+    spec_by_scenario = {Path(p).name.split(".", 1)[0]: Path(p) for p in specs or []}
 
     for feature_id in vault.list():
         rubric = tomllib.loads(vault.read(feature_id))
@@ -138,6 +183,7 @@ def audit(vault: RubricVault, drives_dir: Path) -> list[AuditFinding]:
                             "(expectation outcomes are logged since drive-scripts 1.4)",
                         )
                     )
+        findings.extend(_surface_findings(scenario, script, spec_by_scenario.get(scenario)))
     return findings
 
 

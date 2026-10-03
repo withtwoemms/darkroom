@@ -16,7 +16,8 @@ package.
 | [evaluation.md](evaluation.md) | evaluation (JSON) | 1.0 |
 | gates.md | regression gates (JSON) | 1.0 |
 | tickets.md | tickets (Markdown + frontmatter) | 1.0 |
-| drive-scripts.md | drive scripts (TOML) | 1.5 |
+| [proofs.md](proofs.md) | proofs: exposure + rubric, one sealed file (TOML) | 1.0 |
+| drive-scripts.md | drive scripts (TOML) — the exposure's step vocabulary; standalone use deprecated | 1.7 |
 | role-hooks.md | judge/builder hook contract | 1.1 |
 | dossier.md | cross-run dossier bundle (JSON) | 1.1 |
 
@@ -58,6 +59,7 @@ the map:
 | evaluation | the judge | operator side, loop, gates | **no** — carries scores |
 | gates | operator side (loop, on convergence) | loop, CI | yes (the floor is public; the scores behind it are not) |
 | tickets | operator side | loop, both roles | yes |
+| proofs | operator side (the exam) | the engine (exposure), the judge (rubric half only) | no — operator home |
 | drive scripts | operator side (the exam) | the drive engine | no — operator home |
 | role hooks | operator config | the loop | no — operator home |
 | dossier | operator side (assembled from state) | operator, narration tooling | **no** — carries score trajectories |

@@ -6,6 +6,62 @@ project follows [semantic versioning](https://semver.org/) (pre-1.0: minor
 releases may break API, patch releases never do). The manifest schema is
 versioned independently of the package — see `ROADMAP.md`.
 
+## [Unreleased]
+
+### Added
+
+- **Proofs** (`docs/spec/proofs.md`, format 1.0): the sealed exam as
+  one file — `~/.darkroom/projects/<name>/proofs/<scenario>.proof.toml`
+  holds the exposure (`[[step]]`, drive-scripts 1.7 vocabulary
+  unchanged) and the rubric (`[[criterion]]`) together. A criterion's
+  `witnesses` resolve in the same file and its evidence kinds derive
+  from the steps it cites; `kind = "http"` and `feature_id` are
+  defaults. The vault hands the judge the rubric half only (`list` by
+  scenario, `read` renders criteria, never steps), on the filesystem
+  and OpenBao backends alike, so judging code is untouched.
+- **Derived contract and home-side gates.** With no `[evidence]
+  contract` declared, the contract a run is verified against is
+  derived from the proofs at run time (`drive`/`expose`, `auto`'s
+  assessor); with no `[evidence] gates`, the ratchet lives at
+  `~/.darkroom/projects/<name>/state/gates.json`. A tenant on proofs
+  commits neither file. Declared paths still win.
+- **Preludes**: `~/.darkroom/projects/<name>/preludes.toml` names step
+  sequences an exam includes ahead of its own (`include = [...]`),
+  names intact so criteria can cite them; collisions and unknown
+  preludes are load errors. Drive scripts may include them too.
+- **`[serve.defaults]`, `[serve.env]`, `[browser.defaults]`** in
+  `darkroom.toml`: every exam's `[serve]`/`[browser]` starts from the
+  project's defaults, and the engine sets the served process's
+  environment from `[serve.env]` templates (`{port}`, serve vars,
+  `{service.host}`/`{service.port}`) — a missing value fails boot by
+  name.
+- **The surfaces doc string** in scenario specs: a Gherkin doc string
+  typed `"""surfaces` (routes with outcomes, selectors with state
+  attributes) on the step that claims the contract — legal Gherkin,
+  so a spec stays a `.feature` any tool parses — cross-checked by
+  `darkroom audit` against the exposure's steps: `surface-undeclared`
+  (warning) and `surface-untouched` (info); specs without one get no
+  findings. Audit findings now carry a `code`, and the audit reads the
+  tenant's `spec_glob`.
+- **`darkroom migrate [--check] [--force]`**: merges each drive +
+  rubric pair in the home into a proof, dropping the restatements,
+  carrying `version`/`trials`, reporting unpaired files, and printing
+  the `[serve.defaults]` block for serve keys identical across ≥ 90%
+  of the corpus (dropped from each proof once darkroom.toml declares
+  them). The tenant is never written.
+- **`darkroom expose`**: `darkroom drive` under the proof vocabulary.
+
+### Deprecated
+
+- Drive scripts and vault rubrics as two files. Both keep working
+  unchanged (a home without proofs is read exactly as before), and a
+  home holding proofs ignores `drives/` and vault rubrics — the
+  layouts never mix. `darkroom migrate` converts.
+- Tenant-side `evidence-contract.toml` / `[evidence] contract` and
+  `evidence-gates.json` / `[evidence] gates`: honored when declared,
+  needed no longer.
+- `feature_id` in rubrics and `kind = "http"` on steps: now defaults.
+
 ## [0.19.7] - 2026-10-02
 
 ### Fixed

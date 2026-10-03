@@ -307,7 +307,7 @@ def _cmd_ticket(args) -> int:
 def _cmd_audit(args) -> int:
     from darkroom.adapter import load_adapter
     from darkroom.audit import audit, has_errors
-    from darkroom.homedir import default_drives, find_operator_config
+    from darkroom.homedir import find_operator_config
     from darkroom.operator import build_vault, load_operator
     from darkroom.vault import VaultError
 
@@ -330,14 +330,23 @@ def _cmd_audit(args) -> int:
         print(f"error: {exc}")
         return 2
 
-    drives = Path(args.drives) if args.drives else default_drives(adapter.name)
-    findings = audit(vault, drives)
+    from darkroom.homedir import default_preludes, exams_dir
+    from darkroom.preludes import PreludeError, load_preludes
+
+    drives = Path(args.drives) if args.drives else exams_dir(adapter.name)
+    try:
+        preludes = load_preludes(default_preludes(adapter.name))
+    except PreludeError as exc:
+        print(f"error: {exc}")
+        return 2
+    findings = audit(vault, drives, preludes, adapter.spec_files())
     for f in findings:
         print(f"{f.severity} [{f.scenario}]: {f.message}")
     errors = sum(1 for f in findings if f.severity == "error")
-    warnings = len(findings) - errors
+    warnings = sum(1 for f in findings if f.severity == "warning")
+    infos = len(findings) - errors - warnings
     print(
-        f"audit: {errors} error(s), {warnings} warning(s) across the vault"
+        f"audit: {errors} error(s), {warnings} warning(s), {infos} note(s) across the vault"
         if findings else "audit: every criterion is witnessable by its drive"
     )
     return 1 if has_errors(findings) else 0
@@ -502,8 +511,10 @@ def _cmd_auto(args) -> int:
 
     if result.converged and judge.last_evaluation is not None:
         from darkroom.gates import dump_gates, update_gates
+        from darkroom.homedir import gates_file
 
-        gates_path = adapter.resolve(adapter.gates_path)
+        gates_path = gates_file(adapter)
+        gates_path.parent.mkdir(parents=True, exist_ok=True)
         gates = _load_gates_or_empty(gates_path)
         new_gates, _ = update_gates(
             gates, judge.last_evaluation,
@@ -566,6 +577,11 @@ def _cmd_vault(args) -> int:
         if args.vault_command == "seal":
             if isinstance(vault, FilesystemVault):
                 sealed = seal(adapter, vault)
+                if vault.uses_proofs():
+                    print(f"sealed {len(sealed)} proof(s) in {vault.proofs}:")
+                    for name in sealed:
+                        print(f"  {name}")
+                    return 0
                 print(f"sealed {len(sealed)} rubric(s) into {vault.root}:")
             else:
                 rubric_files = adapter.rubric_files()
@@ -631,7 +647,7 @@ def _cmd_vault(args) -> int:
 def _cmd_drive(args) -> int:
     from darkroom.adapter import load_adapter
     from darkroom.drive import DriveError, drive
-    from darkroom.homedir import default_drives, ensure_project_home
+    from darkroom.homedir import ensure_project_home
     from darkroom.roles import AdapterAssessor
 
     adapter_path = _find_adapter_or_error(args.project)
@@ -641,8 +657,10 @@ def _cmd_drive(args) -> int:
     if args.drives is not None:
         drives_dir = args.drives
     else:
+        from darkroom.homedir import exams_dir
+
         ensure_project_home(adapter.name)
-        drives_dir = default_drives(adapter.name)
+        drives_dir = exams_dir(adapter.name)
 
     import os
 
@@ -667,15 +685,14 @@ def _cmd_drive(args) -> int:
     verify_ok = True
     manifest_path = AdapterAssessor._newest_manifest(adapter)
     if manifest_path is not None:
-        contract = None
-        if adapter.contract_path is not None:
-            contract_file = adapter.resolve(adapter.contract_path)
-            if contract_file.exists():
-                from darkroom.contract import load_contract, scoped_contract
+        from darkroom.contract import scoped_contract
+        from darkroom.vault import VaultError, runtime_contract
 
-                contract = scoped_contract(
-                    load_contract(contract_file), args.scenario
-                )
+        try:
+            contract = scoped_contract(runtime_contract(adapter), args.scenario)
+        except VaultError as exc:
+            print(f"error: {exc}")
+            return 2
         result = verify([manifest_path], contract)
         verify_ok = result.ok
         checked = "structure only" if contract is None else "contract"
@@ -686,6 +703,71 @@ def _cmd_drive(args) -> int:
     green = sum(1 for r in report.results if r.ok)
     print(f"{green}/{len(report.results)} scenario(s) green")
     return 0 if report.ok and verify_ok else 1
+
+
+def _cmd_migrate(args) -> int:
+    from darkroom.adapter import load_adapter
+    from darkroom.homedir import default_drives, default_preludes, default_proofs, default_vault
+    from darkroom.migrate import (
+        MigrateError,
+        apply_serve_defaults,
+        defaults_block,
+        plan_migration,
+        write_migration,
+    )
+    from darkroom.preludes import PreludeError, load_preludes
+
+    adapter_path = _find_adapter_or_error(args.project)
+    if adapter_path is None:
+        return 2
+    adapter = load_adapter(adapter_path)
+    drives = args.drives or default_drives(adapter.name)
+    vault = args.vault or default_vault(adapter.name)
+    out = args.out or default_proofs(adapter.name)
+    try:
+        preludes = load_preludes(default_preludes(adapter.name))
+        plan = plan_migration(drives, vault, preludes=preludes)
+    except (OSError, ValueError, PreludeError) as exc:
+        print(f"error: {exc}")
+        return 2
+
+    for scenario in plan.unpaired_drives:
+        print(f"warning [{scenario}]: drive has no rubric in {vault}; not migrated")
+    for feature_id in plan.unpaired_rubrics:
+        print(f"warning [{feature_id}]: rubric has no drive in {drives}; not migrated")
+    for scenario, why in plan.problems.items():
+        print(f"error [{scenario}]: {why}")
+
+    block = defaults_block(plan.serve_defaults)
+    if block:
+        shared = {k: v for k, v in adapter.serve_defaults.items()}
+        if all(repr(shared.get(k)) == repr(v) for k, v in plan.serve_defaults.items()):
+            apply_serve_defaults(plan)
+            print("serve keys matching darkroom.toml's [serve.defaults] dropped from each proof")
+        else:
+            print(
+                "serve keys identical across the corpus — add this to darkroom.toml and "
+                "re-run to drop them from each proof:\n" + block.rstrip()
+            )
+
+    print(
+        f"migrate: {len(plan.proofs)} proof(s) from {drives} + {vault}"
+        + (" (check only)" if args.check else f" -> {out}")
+    )
+    if args.check:
+        return 0 if plan.ok else 1
+    try:
+        written = write_migration(plan, out, force=args.force)
+    except MigrateError as exc:
+        print(f"error: {exc}")
+        return 2
+    for path in written:
+        print(f"  {path.name}")
+    print(
+        "proofs are now the exam: darkroom reads proofs/ ahead of drives/ and vault/; "
+        "run `darkroom vault seal` and `darkroom audit`, then retire the old pair"
+    )
+    return 0 if plan.ok else 1
 
 
 def _cmd_home(args) -> int:
@@ -824,7 +906,9 @@ def main(argv=None) -> int:
     run_parser.set_defaults(func=_cmd_run)
 
     drive_parser = sub.add_parser(
-        "drive", help="run drive scripts: the exam, executed against a black box"
+        "drive",
+        aliases=["expose"],
+        help="run the exam against a black box (expose: the same, in the proof vocabulary)",
     )
     drive_parser.add_argument("--scenario", default=None)
     drive_parser.add_argument(
@@ -911,6 +995,17 @@ def main(argv=None) -> int:
     audit_parser.add_argument("--drives", type=Path, default=None)
     audit_parser.add_argument("--project", type=Path, default=None)
     audit_parser.set_defaults(func=_cmd_audit)
+
+    migrate_parser = sub.add_parser(
+        "migrate", help="merge each drive + rubric pair into one proof in the project home"
+    )
+    migrate_parser.add_argument("--check", action="store_true", help="plan only; write nothing")
+    migrate_parser.add_argument("--force", action="store_true", help="overwrite existing proofs")
+    migrate_parser.add_argument("--drives", type=Path, default=None)
+    migrate_parser.add_argument("--vault", type=Path, default=None)
+    migrate_parser.add_argument("--out", type=Path, default=None)
+    migrate_parser.add_argument("--project", type=Path, default=None)
+    migrate_parser.set_defaults(func=_cmd_migrate)
 
     dossier_parser = sub.add_parser(
         "dossier",

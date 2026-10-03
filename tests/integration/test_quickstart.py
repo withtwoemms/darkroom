@@ -128,6 +128,7 @@ def test_quickstart_stages_one_through_three(tmp_path, capsys, monkeypatch):
     root = tmp_path / "quicknotes"
     _make_quicknotes(root)
     monkeypatch.chdir(root)
+    monkeypatch.setenv("DARKROOM_HOME", str(tmp_path / "home"))
     monkeypatch.delenv("EVIDENCE_MODE", raising=False)
     monkeypatch.delenv("EVIDENCE_DIR", raising=False)
 
@@ -183,5 +184,6 @@ def test_quickstart_stages_one_through_three(tmp_path, capsys, monkeypatch):
     assert code == 0, out
     assert "iteration 1: 0.0" in out
     assert "CONVERGED" in out
-    assert (root / "evidence-gates.json").exists()
+    assert (tmp_path / "home" / "projects" / "quicknotes" / "state" / "gates.json").exists()
+    assert not (root / "evidence-gates.json").exists()  # the ratchet lives in the home
     assert 'note["text"].upper()' not in app.read_text()  # builder fixed it
