@@ -76,24 +76,36 @@ def _check_scenarios(adapter: ProjectAdapter, findings: list[Finding]) -> None:
         )
         return
 
-    if not adapter.rubric_glob:
+    # a spec pairs with its proof folder in the home (0.20), else with a
+    # rubric the tenant's rubric_glob names (the older layout)
+    from darkroom.homedir import default_proofs
+    from darkroom.proof import proof_dirs
+
+    proofs = proof_dirs(default_proofs(adapter.name)) if adapter.name else []
+    if proofs:
+        paired_with, keys = "proof", {_stem_key(p) for p in proofs}
+    elif adapter.rubric_glob:
+        paired_with, keys = "rubric", {_stem_key(p) for p in adapter.rubric_files()}
+    else:
         findings.append(
             Finding(
                 severity="warning",
                 code="no-rubric-glob",
-                message="specs exist but no rubric_glob is declared",
+                message=(
+                    "specs exist but no proofs are in the home and no rubric_glob "
+                    "is declared"
+                ),
             )
         )
         return
 
-    rubric_keys = {_stem_key(p) for p in adapter.rubric_files()}
     for spec in specs:
-        if _stem_key(spec) not in rubric_keys:
+        if _stem_key(spec) not in keys:
             findings.append(
                 Finding(
                     severity="warning",
                     code="unpaired-spec",
-                    message=f"spec '{spec.name}' has no matching rubric",
+                    message=f"spec '{spec.name}' has no matching {paired_with}",
                 )
             )
 

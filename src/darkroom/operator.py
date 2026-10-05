@@ -140,11 +140,11 @@ def build_vault(config: OperatorConfig, project_name: str):
         return OpenBaoVault(
             url=config.vault_url, path=kv_path, mount=config.vault_mount
         )
-    from darkroom.homedir import default_preludes, default_proofs, default_vault
+    from darkroom.homedir import default_backdrops, default_proofs, default_vault
     from darkroom.vault import FilesystemVault
 
     return FilesystemVault(
         config.vault_path or default_vault(project_name),
         proofs=default_proofs(project_name),
-        preludes=default_preludes(project_name),
+        backdrops=default_backdrops(project_name),
     )

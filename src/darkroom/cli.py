@@ -330,16 +330,16 @@ def _cmd_audit(args) -> int:
         print(f"error: {exc}")
         return 2
 
-    from darkroom.homedir import default_preludes, exams_dir
-    from darkroom.preludes import PreludeError, load_preludes
+    from darkroom.backdrops import BackdropError, load_backdrops
+    from darkroom.homedir import default_backdrops, exams_dir
 
     drives = Path(args.drives) if args.drives else exams_dir(adapter.name)
     try:
-        preludes = load_preludes(default_preludes(adapter.name))
-    except PreludeError as exc:
+        backdrops = load_backdrops(default_backdrops(adapter.name))
+    except BackdropError as exc:
         print(f"error: {exc}")
         return 2
-    findings = audit(vault, drives, preludes, adapter.spec_files())
+    findings = audit(vault, drives, backdrops, adapter.spec_files())
     for f in findings:
         print(f"{f.severity} [{f.scenario}]: {f.message}")
     errors = sum(1 for f in findings if f.severity == "error")
@@ -347,7 +347,8 @@ def _cmd_audit(args) -> int:
     infos = len(findings) - errors - warnings
     print(
         f"audit: {errors} error(s), {warnings} warning(s), {infos} note(s) across the vault"
-        if findings else "audit: every criterion is witnessable by its drive"
+        if findings
+        else "audit: every criterion is witnessable, every step addresses a published surface"
     )
     return 1 if has_errors(findings) else 0
 
@@ -689,7 +690,9 @@ def _cmd_drive(args) -> int:
         from darkroom.vault import VaultError, runtime_contract
 
         try:
-            contract = scoped_contract(runtime_contract(adapter), args.scenario)
+            contract = scoped_contract(
+                runtime_contract(adapter, proofs_dir=Path(drives_dir)), args.scenario
+            )
         except VaultError as exc:
             print(f"error: {exc}")
             return 2
@@ -707,7 +710,8 @@ def _cmd_drive(args) -> int:
 
 def _cmd_migrate(args) -> int:
     from darkroom.adapter import load_adapter
-    from darkroom.homedir import default_drives, default_preludes, default_proofs, default_vault
+    from darkroom.backdrops import BackdropError, load_backdrops
+    from darkroom.homedir import default_backdrops, default_drives, default_proofs, default_vault
     from darkroom.migrate import (
         MigrateError,
         apply_serve_defaults,
@@ -715,7 +719,7 @@ def _cmd_migrate(args) -> int:
         plan_migration,
         write_migration,
     )
-    from darkroom.preludes import PreludeError, load_preludes
+    from darkroom.surfaces import draft_surfaces, surfaces_path
 
     adapter_path = _find_adapter_or_error(args.project)
     if adapter_path is None:
@@ -725,11 +729,23 @@ def _cmd_migrate(args) -> int:
     vault = args.vault or default_vault(adapter.name)
     out = args.out or default_proofs(adapter.name)
     try:
-        preludes = load_preludes(default_preludes(adapter.name))
-        plan = plan_migration(drives, vault, preludes=preludes)
-    except (OSError, ValueError, PreludeError) as exc:
+        backdrops = load_backdrops(default_backdrops(adapter.name))
+        plan = plan_migration(drives, vault, backdrops=backdrops)
+    except (OSError, ValueError, BackdropError) as exc:
         print(f"error: {exc}")
         return 2
+
+    # a Build: note in a spec was engineering's half written in product's
+    # file; it becomes a draft .surfaces beside the spec, for the builder
+    # to make true. Specs are never edited; existing .surfaces never replaced.
+    drafts: list[tuple[Path, str]] = []
+    for spec in adapter.spec_files():
+        target = surfaces_path(spec)
+        if target.exists():
+            continue
+        draft = draft_surfaces(spec.read_text())
+        if draft:
+            drafts.append((target, draft))
 
     for scenario in plan.unpaired_drives:
         print(f"warning [{scenario}]: drive has no rubric in {vault}; not migrated")
@@ -754,6 +770,11 @@ def _cmd_migrate(args) -> int:
         f"migrate: {len(plan.proofs)} proof(s) from {drives} + {vault}"
         + (" (check only)" if args.check else f" -> {out}")
     )
+    if drafts:
+        print(
+            f"  {len(drafts)} draft .surfaces from Build: notes"
+            + (" (check only)" if args.check else "")
+        )
     if args.check:
         return 0 if plan.ok else 1
     try:
@@ -762,7 +783,10 @@ def _cmd_migrate(args) -> int:
         print(f"error: {exc}")
         return 2
     for path in written:
-        print(f"  {path.name}")
+        print(f"  {path.name}/")
+    for target, draft in drafts:
+        target.write_text(draft)
+        print(f"  {target.relative_to(adapter.root)} (draft — engineering makes it true)")
     print(
         "proofs are now the exam: darkroom reads proofs/ ahead of drives/ and vault/; "
         "run `darkroom vault seal` and `darkroom audit`, then retire the old pair"
@@ -782,7 +806,13 @@ def _cmd_home(args) -> int:
     if args.home_command == "init":
         home = ensure_project_home(adapter.name)
         print(f"home initialized: {home}")
-        for sub in ("operator.toml (place yours here)", "vault/", "drives/", "state/"):
+        for sub in (
+            "operator.toml (place yours here)",
+            "backdrops.toml (shared setup, when you have some)",
+            "proofs/",
+            "vault/",
+            "state/",
+        ):
             print(f"  {sub}")
         return 0
     print(project_home(adapter.name))
@@ -913,7 +943,7 @@ def main(argv=None) -> int:
     drive_parser.add_argument("--scenario", default=None)
     drive_parser.add_argument(
         "--drives", type=Path, default=None,
-        help="drive-script directory (default: the project's darkroom home drives)",
+        help="the exam's directory: proof folders, or drive scripts (default: the project's home)",
     )
     drive_parser.add_argument("--project", type=Path, default=None)
     drive_parser.add_argument(
@@ -997,10 +1027,16 @@ def main(argv=None) -> int:
     audit_parser.set_defaults(func=_cmd_audit)
 
     migrate_parser = sub.add_parser(
-        "migrate", help="merge each drive + rubric pair into one proof in the project home"
+        "migrate",
+        help=(
+            "turn each drive + rubric pair into a proof folder in the project home, "
+            "and each spec's Build: note into a draft .surfaces"
+        ),
     )
     migrate_parser.add_argument("--check", action="store_true", help="plan only; write nothing")
-    migrate_parser.add_argument("--force", action="store_true", help="overwrite existing proofs")
+    migrate_parser.add_argument(
+        "--force", action="store_true", help="overwrite existing proof folders"
+    )
     migrate_parser.add_argument("--drives", type=Path, default=None)
     migrate_parser.add_argument("--vault", type=Path, default=None)
     migrate_parser.add_argument("--out", type=Path, default=None)

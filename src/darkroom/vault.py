@@ -59,18 +59,20 @@ class FilesystemVault:
     """Rubrics as files in a directory outside every builder-visible path.
 
     Two layouts: ``vault/<feature-id>.rubric.toml`` (the rubric alone,
-    the drive in ``drives/``), or ``proofs/<scenario>.proof.toml`` beside
-    it (exposure and rubric in one sealed file). When a ``proofs``
-    directory holds proofs it is the authority: ``list`` names them by
-    scenario and ``read`` renders the rubric half, so the judge is given
-    criteria and never the exposure.
+    the drive in ``drives/``), or ``proofs/<scenario>/`` beside it
+    (``exposure.toml`` and ``rubric.toml``, one sealed folder). When a
+    ``proofs`` directory holds proofs it is the authority: ``list`` names
+    them by scenario and ``read`` renders the rubric half, so the judge is
+    given criteria and never the exposure.
     """
 
-    def __init__(self, root: Path, proofs: Path | None = None, preludes: Path | None = None):
+    def __init__(self, root: Path, proofs: Path | None = None, backdrops: Path | None = None):
+        from darkroom.backdrops import BACKDROPS_FILE
+
         self.root = Path(root)
         self.proofs = Path(proofs) if proofs is not None else self.root.parent / "proofs"
-        self.preludes_path = (
-            Path(preludes) if preludes is not None else self.root.parent / "preludes.toml"
+        self.backdrops_path = (
+            Path(backdrops) if backdrops is not None else self.root.parent / BACKDROPS_FILE
         )
 
     def initialize(self) -> None:
@@ -86,27 +88,20 @@ class FilesystemVault:
             f.write(f"{datetime.now().isoformat()} {line}\n")
 
     def uses_proofs(self) -> bool:
-        from darkroom.proof import PROOF_SUFFIX
+        from darkroom.proof import proof_dirs
 
-        return self.proofs.is_dir() and any(self.proofs.glob(f"*{PROOF_SUFFIX}"))
+        return bool(proof_dirs(self.proofs))
 
-    def _proof_path(self, scenario: str) -> Path:
-        from darkroom.proof import PROOF_SUFFIX
+    def _backdrops(self) -> dict[str, list[dict]]:
+        from darkroom.backdrops import load_backdrops
 
-        return self.proofs / f"{scenario}{PROOF_SUFFIX}"
-
-    def _preludes(self) -> dict[str, list[dict]]:
-        from darkroom.preludes import load_preludes
-
-        return load_preludes(self.preludes_path)
+        return load_backdrops(self.backdrops_path)
 
     def list(self) -> list[str]:
         if self.uses_proofs():
-            from darkroom.proof import PROOF_SUFFIX
+            from darkroom.proof import proof_dirs
 
-            return sorted(
-                p.name[: -len(PROOF_SUFFIX)] for p in self.proofs.glob(f"*{PROOF_SUFFIX}")
-            )
+            return [p.name for p in proof_dirs(self.proofs)]
         return sorted(
             p.name[: -len(RUBRIC_SUFFIX)]
             for p in self.root.glob(f"*{RUBRIC_SUFFIX}")
@@ -114,13 +109,13 @@ class FilesystemVault:
 
     def read(self, feature_id: str, version: str | None = None) -> str:
         if self.uses_proofs():
-            from darkroom.proof import ProofError, load_proof, rubric_text
+            from darkroom.proof import ProofError, is_proof, load_proof, rubric_text
 
-            path = self._proof_path(feature_id)
-            if not path.exists():
+            folder = self.proofs / feature_id
+            if not is_proof(folder):
                 raise VaultError(f"no proof '{feature_id}' in {self.proofs}")
             try:
-                text = rubric_text(load_proof(path), self._preludes())
+                text = rubric_text(load_proof(folder), self._backdrops())
             except ProofError as exc:
                 raise VaultError(str(exc)) from None
             if version is not None:
@@ -151,18 +146,19 @@ def seal_proofs(vault: FilesystemVault) -> list[str]:
     """Validate every proof in the home and record the sealing. Proofs are
     born operator-side, so there is nothing to move — sealing is the
     check that each parses, cites real witnesses, and is listed."""
-    from darkroom.proof import PROOF_SUFFIX, ProofError, load_proof, rubric
+    from darkroom.proof import ProofError, load_proof, proof_dirs, rubric
 
     if not vault.proofs.is_dir():
         raise VaultError(f"no proofs directory at {vault.proofs}; nothing to seal")
-    preludes = vault._preludes()
+    backdrops = vault._backdrops()
     sealed = []
-    for path in sorted(vault.proofs.glob(f"*{PROOF_SUFFIX}")):
+    for folder in proof_dirs(vault.proofs):
         try:
-            rubric(load_proof(path), preludes)
+            rubric(load_proof(folder), backdrops)
         except ProofError as exc:
             raise VaultError(str(exc)) from None
-        sealed.append(path.name[: -len(PROOF_SUFFIX)])
+        folder.chmod(0o700)
+        sealed.append(folder.name)
     if not sealed:
         raise VaultError(f"no proofs in {vault.proofs}; nothing to seal")
     vault.proofs.chmod(0o700)
@@ -218,35 +214,38 @@ def derive_contract(vault: RubricVault, project: str = "") -> EvidenceContract:
     return EvidenceContract(project=project, scenarios=scenarios)
 
 
-def runtime_contract(adapter: ProjectAdapter) -> EvidenceContract | None:
+def runtime_contract(
+    adapter: ProjectAdapter, proofs_dir: Path | None = None
+) -> EvidenceContract | None:
     """The contract a run is verified against: the tenant's declared file
-    when it has one, else the one the home's proofs imply — derived on the
-    spot, so a tenant on proofs commits no contract at all. None when
-    neither exists (verify is then structural only)."""
+    when it has one, else the one the proofs imply — the directory the run
+    was given when it holds proofs, else the home's — derived on the spot,
+    so a tenant on proofs commits no contract at all. None when none of
+    these exist (verify is then structural only)."""
     from darkroom.contract import load_contract
 
     if adapter.contract_path is not None:
         declared = adapter.resolve(adapter.contract_path)
         if declared.exists():
             return load_contract(declared)
-    if not adapter.name:
-        return None
-    from darkroom.homedir import default_preludes, default_proofs
-    from darkroom.preludes import load_preludes
-    from darkroom.proof import ProofError, load_proofs
+    from darkroom.backdrops import BackdropError, load_backdrops
+    from darkroom.homedir import default_backdrops, default_proofs
+    from darkroom.proof import ProofError, load_proofs, proof_dirs
     from darkroom.proof import derive_contract as derive_from_proofs
 
-    proofs_dir = default_proofs(adapter.name)
-    if not proofs_dir.is_dir():
+    if proofs_dir is None or not proof_dirs(proofs_dir):
+        if not adapter.name:
+            return None
+        proofs_dir = default_proofs(adapter.name)
+    if not Path(proofs_dir).is_dir():
         return None
     try:
         proofs = load_proofs(proofs_dir)
         if not proofs:
             return None
-        return derive_from_proofs(
-            list(proofs.values()), adapter.name, load_preludes(default_preludes(adapter.name))
-        )
-    except (ProofError, OSError, ValueError) as exc:
+        backdrops = load_backdrops(default_backdrops(adapter.name)) if adapter.name else {}
+        return derive_from_proofs(list(proofs.values()), adapter.name, backdrops)
+    except (ProofError, BackdropError, OSError, ValueError) as exc:
         raise VaultError(str(exc)) from None
 
 

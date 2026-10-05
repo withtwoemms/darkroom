@@ -197,18 +197,17 @@ class TestBrowserDrive:
         monkeypatch.delenv("EVIDENCE_DIR", raising=False)
 
         code = main(
-            ["drive", "--drives", "drives-ui", "--scenario", "notes_page"]
+            ["expose", "--drives", "proofs-ui", "--scenario", "notes_page"]
         )
         out = capsys.readouterr().out
         assert code == 0, out
         assert "notes_page:" in out
+        assert "verify: ok (contract)" in out  # derived from the proof's rubric
 
         manifest = next(project.glob("evidence/runs/*/manifest.json"))
-        assert main(
-            ["verify", str(manifest),
-             "--contract", str(project / "evidence-contract-ui.toml")]
-        ) == 0
-        items = load_manifest(manifest).scenarios[0].items
+        bundle = load_manifest(manifest).scenarios[0]
+        assert bundle.provenance["rubric_version"] == "1"
+        items = bundle.items
         assert [i.step for i in items if i.kind == "screenshot"] == [
             "empty_state", "saved_state",
         ]

@@ -1,0 +1,13 @@
+[routes]
+POST /notes                   → 201 {id, token}
+GET /notes/{id}               → 200 {id, text, archived}; the token never appears
+POST /notes/{id}/archive      → 200 {archived: true}; idempotent
+
+[commands]
+
+[pages]
+
+[files]
+
+[notes]
+archiving is a flag, not a move — the note stays fetchable

@@ -1,0 +1,16 @@
+[routes]
+
+[commands]
+
+[pages]
+/                             the notes page: the form, and the list once a note is saved
+#note-form                    the form
+#note-text                    the note field
+#save                         submits the form
+#notes li                     one item per saved note, in save order
+
+[files]
+
+[notes]
+the page is server-rendered; Save is a full-page form post, so the list
+is in the response, not fetched afterwards

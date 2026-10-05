@@ -41,7 +41,7 @@ class TestEnsure:
     def test_creates_partitioned_tree_mode_700(self, tmp_path, monkeypatch):
         monkeypatch.setenv("DARKROOM_HOME", str(tmp_path / "home"))
         project = ensure_project_home("watch")
-        for sub in ("vault", "drives", "state"):
+        for sub in ("vault", "proofs", "state"):
             assert (project / sub).is_dir()
         assert ((tmp_path / "home").stat().st_mode & 0o777) == 0o700
         assert (project.stat().st_mode & 0o777) == 0o700

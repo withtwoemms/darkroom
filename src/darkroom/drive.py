@@ -903,19 +903,22 @@ def load_drive(path: Path) -> dict:
     return script
 
 
-def load_exam(path: Path, preludes: dict[str, list[dict]] | None = None) -> dict:
-    """A drive script or a proof, with its includes expanded into steps."""
-    from darkroom.preludes import PreludeError, expand
+def load_exam(path: Path, backdrops: dict[str, list[dict]] | None = None) -> dict:
+    """A drive script with its backdrops expanded into steps."""
+    from darkroom.backdrops import BackdropError, expand
 
     script = load_drive(path)
     try:
-        return expand(script, preludes or {})
-    except PreludeError as exc:
+        return expand(script, backdrops or {})
+    except BackdropError as exc:
         raise DriveError(str(exc)) from None
 
 
 def drive_scenario(
-    adapter: ProjectAdapter, script: dict, containers: bool = False
+    adapter: ProjectAdapter,
+    script: dict,
+    containers: bool = False,
+    provenance: dict | None = None,
 ) -> ScenarioResult:
     scenario = script["scenario"]
     result = ScenarioResult(scenario=scenario)
@@ -977,6 +980,8 @@ def drive_scenario(
             )
 
         capture = EvidenceCapture(scenario)
+        if provenance and capture.run is not None:
+            capture.run.record_provenance(scenario, provenance)
         if environment is not None:
             capture.log("environment", {"images": environment.digests()})
         elif server is not None and server.services is not None:
@@ -1039,31 +1044,36 @@ def drive(
     mode, starts a run, executes each script (fresh server per
     scenario), and ends the run so the manifest is written.
     """
-    from darkroom.homedir import default_preludes
-    from darkroom.preludes import PreludeError, load_preludes
-    from darkroom.proof import PROOF_SUFFIX, ProofError, exposure, load_proof
+    from darkroom.backdrops import BackdropError, load_backdrops
+    from darkroom.homedir import default_backdrops
+    from darkroom.proof import ProofError, exposure, load_proof, proof_dirs
+    from darkroom.proof import provenance as proof_provenance
     from darkroom.run import end_run, start_run
 
     try:
-        preludes = load_preludes(default_preludes(adapter.name) if adapter.name else None)
-    except PreludeError as exc:
+        backdrops = load_backdrops(default_backdrops(adapter.name) if adapter.name else None)
+    except BackdropError as exc:
         raise DriveError(str(exc)) from None
 
     # proofs are the exam when the directory holds them; drive scripts otherwise
-    proofs = sorted(Path(drives_dir).glob(f"*{PROOF_SUFFIX}"))
-    suffix = PROOF_SUFFIX if proofs else DRIVE_SUFFIX
+    proofs = proof_dirs(drives_dir)
 
-    def _load(path: Path) -> dict:
-        if suffix == PROOF_SUFFIX:
+    def _load(path: Path) -> tuple[dict, dict]:
+        """The runnable script and what the manifest records about it."""
+        if proofs:
             try:
-                return exposure(load_proof(path), preludes)
+                proof = load_proof(path)
+                return exposure(proof, backdrops), proof_provenance(path, proof)
             except ProofError as exc:
                 raise DriveError(str(exc)) from None
-        return load_exam(path, preludes)
+        return load_exam(path, backdrops), {}
+
+    def _names(path: Path) -> str:
+        return path.name if proofs else load_drive(path)["scenario"]
 
     scripts = proofs or sorted(Path(drives_dir).glob(f"*{DRIVE_SUFFIX}"))
     if scenario is not None:
-        scripts = [p for p in scripts if load_drive(p)["scenario"] == scenario]
+        scripts = [p for p in scripts if _names(p) == scenario]
     if not scripts:
         raise DriveError(
             f"no exams{f' for scenario {scenario!r}' if scenario else ''} in {drives_dir}"
@@ -1092,11 +1102,13 @@ def drive(
     report = DriveReport()
     try:
         for path in scripts:
-            name = path.name[: -len(suffix)]
+            name = path.name if proofs else path.name[: -len(DRIVE_SUFFIX)]
             try:
-                script = _load(path)
+                script, provenance = _load(path)
                 report.results.append(
-                    drive_scenario(adapter, script, containers=containers)
+                    drive_scenario(
+                        adapter, script, containers=containers, provenance=provenance
+                    )
                 )
             except DriveError as exc:
                 # a scenario that cannot even boot is a failed scenario,

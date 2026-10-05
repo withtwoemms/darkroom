@@ -45,6 +45,15 @@ approach.
 
 {rubric}
 
+## Published surfaces
+
+Engineering's own declaration of the interface the evidence addresses
+(routes, commands, pages, files, and notes). Read it to know what a
+transcript or screenshot is *of*; it is a claim, not evidence — score
+only what the evidence shows.
+
+{surfaces}
+
 ## Evidence
 
 Evidence files live under {run_dir} (you may Read them; image evidence
@@ -229,6 +238,21 @@ class AgentJudge:
             )
         return "\n\n".join(sections)
 
+    def _surfaces_text(self, ctx: LoopContext, scenario: str | None) -> str:
+        """The ``.surfaces`` engineering published beside each spec in
+        scope — the builder's declaration, handed to the judge as context."""
+        from darkroom.surfaces import surfaces_path
+
+        sections = []
+        for spec in ctx.adapter.spec_files():
+            stem = spec.name.split(".", 1)[0]
+            if scenario is not None and stem != scenario:
+                continue
+            path = surfaces_path(spec)
+            if path.is_file():
+                sections.append(f"### {stem}\n\n{path.read_text().rstrip()}")
+        return "\n\n".join(sections) if sections else "(nothing published)"
+
     def _evidence_text(self, manifest_path: Path, scenario: str | None) -> str:
         manifest = load_manifest(manifest_path)
         registry = default_registry()
@@ -258,6 +282,7 @@ class AgentJudge:
             _template_for(self.config, JUDGE_TEMPLATE),
             {
                 "rubric": self._rubric_text(ctx.scenario),
+                "surfaces": self._surfaces_text(ctx, ctx.scenario),
                 "evidence": self._evidence_text(
                     assessment.manifest_path, ctx.scenario
                 ),

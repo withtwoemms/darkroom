@@ -37,14 +37,15 @@ VERSION_WALK_CAP = 20
 
 
 def _rubric_half(text: str) -> str:
-    """A stored proof carries steps; the judge is handed its criteria only."""
+    """A stored secret may carry a whole proof (exposure and rubric in one
+    text); the judge is handed its criteria only."""
     data = tomllib.loads(text)
     if "step" not in data:
         return text
-    from darkroom.proof import ProofError, loads_proof, rubric_text
+    from darkroom.proof import ProofError, rubric_text, validate_proof
 
     try:
-        return rubric_text(loads_proof(text))
+        return rubric_text(validate_proof(data))
     except ProofError as exc:
         raise VaultError(str(exc)) from None
 

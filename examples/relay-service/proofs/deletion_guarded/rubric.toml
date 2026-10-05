@@ -1,0 +1,13 @@
+version = "1"
+
+[[criterion]]
+id = "wrong_token_refused"
+points = 15
+description = "a wrong token is refused, and the note is still there afterwards"
+witnesses = ["wrong_token_refused", "note_survives"]
+
+[[criterion]]
+id = "right_token_deletes"
+points = 10
+description = "the holder's token deletes the note, and it cannot be fetched again"
+witnesses = ["right_token_deletes", "gone"]

@@ -1,4 +1,8 @@
-"""Manifest serialization: dump RunManifest to JSON, load from JSON (v1 and v2)."""
+"""Manifest serialization: dump RunManifest to JSON, load from JSON (v1 and v2).
+
+2.1 adds an optional per-scenario ``provenance`` object (the exposure's
+digest and the rubric's version); 2.0 readers ignore it, 2.0 files load
+with it empty."""
 
 from __future__ import annotations
 
@@ -8,7 +12,7 @@ from pathlib import Path
 
 from darkroom.model import EvidenceItem, RunManifest, ScenarioBundle
 
-CURRENT_SCHEMA_VERSION = "2.0"
+CURRENT_SCHEMA_VERSION = "2.1"
 
 # v1 type -> (kind, mime) mapping
 _V1_TYPE_MAP: dict[str, tuple[str, str]] = {
@@ -36,6 +40,7 @@ def dumps_manifest(manifest: RunManifest) -> str:
         "scenarios": [
             {
                 "scenario": bundle.scenario,
+                **({"provenance": bundle.provenance} if bundle.provenance else {}),
                 "items": [
                     {
                         "kind": item.kind,
@@ -121,6 +126,7 @@ def _load_v2(data: dict) -> RunManifest:
             ScenarioBundle(
                 scenario=scenario_data["scenario"],
                 items=items,
+                provenance=dict(scenario_data.get("provenance", {})),
             )
         )
 

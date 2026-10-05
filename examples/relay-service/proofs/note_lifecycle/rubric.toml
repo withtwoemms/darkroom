@@ -1,0 +1,7 @@
+version = "1"
+
+[[criterion]]
+id = "create_fetch_archive"
+points = 20
+description = "a created note comes back with an id; fetching it shows the text and never the token; archiving it twice reads archived both times"
+witnesses = ["create", "fetch_hides_token", "archive", "archive_again_idempotent"]

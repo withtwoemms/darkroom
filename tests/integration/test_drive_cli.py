@@ -20,7 +20,7 @@ class TestDriveCLI:
         monkeypatch.delenv("EVIDENCE_MODE", raising=False)
         monkeypatch.delenv("EVIDENCE_DIR", raising=False)
 
-        assert main(["drive", "--drives", "drives"]) == 0
+        assert main(["drive", "--drives", "proofs"]) == 0
         out = capsys.readouterr().out
         assert "note_lifecycle:" in out and "deletion_guarded:" in out
         assert "verify: ok (contract)" in out
@@ -42,7 +42,7 @@ class TestDriveCLI:
 
         # the contract declares two scenarios; driving one must not fail
         # verification for the other
-        assert main(["drive", "--drives", "drives", "--scenario", "note_lifecycle"]) == 0
+        assert main(["drive", "--drives", "proofs", "--scenario", "note_lifecycle"]) == 0
         out = capsys.readouterr().out
         assert "verify: ok (contract)" in out
         assert "not present" not in out

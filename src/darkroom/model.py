@@ -30,6 +30,9 @@ class ScenarioBundle:
 
     scenario: str
     items: list[EvidenceItem] = field(default_factory=list)
+    # what the run exposed and will be judged by — the exposure's digest
+    # and the rubric's version — so a verdict names the exam it answered
+    provenance: dict = field(default_factory=dict)
 
     def add(self, item: EvidenceItem) -> None:
         self.items.append(item)
@@ -40,7 +43,7 @@ class RunManifest:
     """Top-level manifest describing an entire evidence run."""
 
     run_id: str
-    schema_version: str = "2.0"
+    schema_version: str = "2.1"
     project: str = ""
     timestamp: str = ""
     scenarios: list[ScenarioBundle] = field(default_factory=list)

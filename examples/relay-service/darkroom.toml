@@ -5,12 +5,10 @@ name = "relay-service"
 
 [commands]
 serve = "python3 app.py {port}"
-test = "darkroom drive --drives drives"
+test = "darkroom expose --drives proofs"
 
 [evidence]
 dir = "evidence"
-contract = "evidence-contract.toml"
 
 [scenarios]
 spec_glob = "scenarios/*.feature"
-rubric_glob = "scenarios/*.rubric.toml"

@@ -97,7 +97,7 @@ class TestScenarioBundle:
 class TestRunManifest:
     def test_defaults(self):
         manifest = RunManifest(run_id="test-run")
-        assert manifest.schema_version == "2.0"
+        assert manifest.schema_version == "2.1"
         assert manifest.project == ""
         assert manifest.timestamp == ""
         assert manifest.scenarios == []

@@ -5,10 +5,12 @@ precedent — partitioned per project by the adapter's declared name:
 
     ~/.darkroom/projects/<name>/
     ├── operator.toml     auto-discovered by agent mode
-    ├── vault/            default vault location
-    ├── drives/           default drive-script location
+    ├── backdrops.toml    shared step sequences exposures are posed against
+    ├── proofs/           one folder per scenario: exposure.toml + rubric.toml
+    ├── vault/            the audit log; on the older layout, sealed rubrics
+    ├── drives/           the older layout's drive scripts
     └── state/            loop state: evaluations, feedback, builder-log,
-                          tickets — outside every builder-addressable path
+                          tickets, gates — outside every builder-addressable path
 
 Relocating loop state here closes a real leak: it previously defaulted
 inside the tenant, leaving judge evaluations (scores) readable by the
@@ -43,7 +45,7 @@ def ensure_project_home(project_name: str) -> Path:
     home.mkdir(parents=True, exist_ok=True)
     home.chmod(0o700)
     project = project_home(project_name)
-    for sub in ("vault", "drives", "state"):
+    for sub in ("vault", "proofs", "state"):
         (project / sub).mkdir(parents=True, exist_ok=True)
     project.chmod(0o700)
     return project
@@ -59,16 +61,25 @@ def default_vault(project_name: str) -> Path:
 
 
 def exam_is_operator_side(project_name: str) -> bool:
-    """Has this project's exam moved out of the tenant — an operator config
-    or sealed rubrics in the home? The home directory itself is no signal:
-    ``auto`` creates it for loop state even in the quickstart's free stage."""
+    """Has this project's exam moved out of the tenant — an operator config,
+    proofs, or sealed rubrics in the home? The home directory itself is no
+    signal: ``auto`` creates it for loop state even in the quickstart's free
+    stage."""
     if not project_name:
         return False
     home = project_home(project_name)
     if (home / "operator.toml").is_file():
         return True
+    if _holds_proofs(home / "proofs"):
+        return True
     vault = home / "vault"
     return vault.is_dir() and any(vault.glob("*.rubric.toml"))
+
+
+def _holds_proofs(proofs: Path) -> bool:
+    from darkroom.proof import proof_dirs
+
+    return bool(proof_dirs(proofs))
 
 
 def default_drives(project_name: str) -> Path:
@@ -79,15 +90,17 @@ def default_proofs(project_name: str) -> Path:
     return project_home(project_name) / "proofs"
 
 
-def default_preludes(project_name: str) -> Path:
-    return project_home(project_name) / "preludes.toml"
+def default_backdrops(project_name: str) -> Path:
+    from darkroom.backdrops import BACKDROPS_FILE
+
+    return project_home(project_name) / BACKDROPS_FILE
 
 
 def exams_dir(project_name: str) -> Path:
     """Where the project's exams live: ``proofs/`` once it holds proofs,
     else ``drives/`` — the two layouts never mix."""
     proofs = default_proofs(project_name)
-    if proofs.is_dir() and any(proofs.glob("*.proof.toml")):
+    if _holds_proofs(proofs):
         return proofs
     return default_drives(project_name)
 

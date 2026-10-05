@@ -104,6 +104,12 @@ class EvidenceRun:
         bundle = self._manifest.get_or_create_bundle(item.scenario)
         bundle.add(item)
 
+    def record_provenance(self, scenario: str, provenance: dict) -> None:
+        """Name the exam a scenario's evidence answers (exposure digest,
+        rubric version) on its bundle."""
+        bundle = self._manifest.get_or_create_bundle(scenario)
+        bundle.provenance = dict(provenance)
+
     def write_manifest(self) -> Path | None:
         """Write manifest.json summarizing the run. Only in evidence mode."""
         if not self.evidence_mode:

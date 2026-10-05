@@ -1,4 +1,5 @@
-"""darkroom migrate: drive + rubric pairs become proofs, nothing lost."""
+"""darkroom migrate: drive + rubric pairs become proof folders, Build: notes
+become draft .surfaces, nothing lost."""
 
 import sys
 import textwrap
@@ -14,7 +15,7 @@ from darkroom.migrate import (
     suggest_serve_defaults,
     write_migration,
 )
-from darkroom.proof import exposure, load_proof, rubric
+from darkroom.proof import EXPOSURE_FILE, RUBRIC_FILE, exposure, load_proof, rubric
 from darkroom.tomlout import dumps_toml
 
 if sys.version_info >= (3, 11):
@@ -118,13 +119,15 @@ class TestPlan:
         drives, vault = _project(tmp_path)
         plan = plan_migration(drives, vault)
         written = write_migration(plan, tmp_path / "proofs")
-        assert [p.name for p in written] == [
-            "alpha.proof.toml", "beta.proof.toml", "gamma.proof.toml",
-        ]
+        assert [p.name for p in written] == ["alpha", "beta", "gamma"]
+        assert sorted(p.name for p in written[0].iterdir()) == [EXPOSURE_FILE, RUBRIC_FILE]
         assert (tmp_path / "proofs").stat().st_mode & 0o777 == 0o700
+        assert written[0].stat().st_mode & 0o777 == 0o700
         original = tomllib.loads((drives / "alpha.drive.toml").read_text())
-        proof = load_proof(tmp_path / "proofs" / "alpha.proof.toml")
+        proof = load_proof(tmp_path / "proofs" / "alpha")
         assert exposure(proof) == original
+        assert "criterion" not in (written[0] / EXPOSURE_FILE).read_text()
+        assert "[[step]]" not in (written[0] / RUBRIC_FILE).read_text()
         scored = rubric(proof)
         assert [c["evidence"] for c in scored["criterion"]] == [
             ["log", "http_transcript"], ["screenshot"], ["http_transcript", "video"],
@@ -205,9 +208,57 @@ class TestCli:
         out = capsys.readouterr().out
         assert code == 0 and "dropped from each proof" in out
         proofs = tmp_path / "home" / "projects" / "press" / "proofs"
-        proof = load_proof(proofs / "alpha.proof.toml")
+        proof = load_proof(proofs / "alpha")
         assert "serve" not in proof
-        assert not (root / "proofs").exists()  # the tenant is never written
+        assert not (root / "proofs").exists()  # the tenant gains no exam material
+
+    def test_an_included_drive_is_posed_against_a_backdrop(self, tmp_path, monkeypatch):
+        root = self._tenant(tmp_path, monkeypatch)
+        drives, vault = _project(tmp_path, names=("alpha",), ttls=(120,))
+        text = (drives / "alpha.drive.toml").read_text()
+        (drives / "alpha.drive.toml").write_text(text.replace(
+            'scenario = "alpha"\n', 'scenario = "alpha"\ninclude = ["founded"]\n'
+        ))
+        home = tmp_path / "home" / "projects" / "press"
+        home.mkdir(parents=True)
+        (home / "backdrops.toml").write_text(
+            '[[backdrop]]\nname = "founded"\n[[backdrop.step]]\nname = "found"\nurl = "x"\n'
+        )
+        assert main([
+            "migrate", "--project", str(root), "--drives", str(drives), "--vault", str(vault),
+        ]) == 0
+        exposure_text = (home / "proofs" / "alpha" / EXPOSURE_FILE).read_text()
+        assert 'backdrop = ["founded"]' in exposure_text and "include" not in exposure_text
+
+    def test_build_notes_become_draft_surfaces_beside_the_spec(self, tmp_path, monkeypatch, capsys):
+        root = self._tenant(
+            tmp_path, monkeypatch, '[scenarios]\nspec_glob = "scenarios/*.feature"'
+        )
+        specs = root / "scenarios"
+        specs.mkdir()
+        (specs / "alpha.feature").write_text(
+            "Feature: a\n  Scenario: b\n    Given c\n\n  Build: `POST /notes` answers 201.\n"
+        )
+        (specs / "beta.feature").write_text("Feature: b\n  Scenario: plain\n    Given d\n")
+        (specs / "gamma.feature").write_text("Feature: g\n\n  Build: `GET /x`.\n")
+        (specs / "gamma.surfaces").write_text("[routes]\nGET /x   already published\n")
+        drives, vault = _project(tmp_path)
+        assert main([
+            "migrate", "--check", "--project", str(root),
+            "--drives", str(drives), "--vault", str(vault),
+        ]) == 0
+        assert "1 draft .surfaces" in capsys.readouterr().out
+        assert not (specs / "alpha.surfaces").exists()
+        assert main([
+            "migrate", "--project", str(root), "--drives", str(drives), "--vault", str(vault),
+        ]) == 0
+        out = capsys.readouterr().out
+        assert "scenarios/alpha.surfaces (draft" in out
+        draft = (specs / "alpha.surfaces").read_text()
+        assert "[routes]\nPOST /notes\n" in draft and "answers 201" in draft
+        assert not (specs / "beta.surfaces").exists()
+        assert (specs / "gamma.surfaces").read_text().startswith("[routes]\nGET /x   already")
+        assert "Build:" in (specs / "alpha.feature").read_text()  # the spec is never edited
 
     def test_expose_is_drive(self, tmp_path, monkeypatch, capsys):
         root = self._tenant(tmp_path, monkeypatch)

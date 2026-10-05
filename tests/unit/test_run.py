@@ -141,7 +141,7 @@ class TestEvidenceRun:
 
         with open(manifest_path) as f:
             data = json.load(f)
-        assert data["schema_version"] == "2.0"
+        assert data["schema_version"] == "2.1"
         assert data["run_id"] == "test-manifest"
         assert data["project"] == "proj"
         assert len(data["scenarios"]) == 1
