@@ -220,28 +220,30 @@ something the builder never sees.
 darkroom home init          # ~/.darkroom/projects/<name>/ — operator space, mode 700
 ```
 
-1. **Author scenarios and proofs** with the interview skill
+1. **Author scenarios and rubrics** with the interview skill
    (the `darkroom-interview` skill (`darkroom skills install`, or the plugin) — run it in Claude Code from your
    project). It interrogates your product description into scenarios
-   (specs, each with a `"""surfaces` doc string naming what the
-   builder must produce) and criteria with thresholds, each citing the
-   steps that witness it.
+   (specs: plain Gherkin, what the product must do) and criteria with
+   thresholds, each citing the steps that will witness it. These are
+   product's two files.
 2. **Write the exam as proofs, in the home.** Stages 1–3 kept
    `drives/` in the repo because nothing was reading it but you; from
    here on the builder is an agent working in that repo, and exam
-   material it can open is an exam it can read. A proof is the drive
-   script's steps plus the criteria that score them, in one file
-   the home has a place for — and it is where `darkroom expose` (née
-   `drive`) looks when `--drives` is absent:
+   material it can open is an exam it can read. A proof is a folder
+   the home has a place for — the drive script's steps as
+   `exposure.toml` (QA's file), the criteria as `rubric.toml`
+   (product's) — and it is where `darkroom expose` (née `drive`) looks
+   when `--drives` is absent:
 
    ```bash
-   # ~/.darkroom/projects/quicknotes/proofs/note_saved.proof.toml
-   # = the stage-1 drive script + [[criterion]] tables citing its steps
+   # ~/.darkroom/projects/quicknotes/proofs/note_saved/
+   #   exposure.toml   = the stage-1 drive script
+   #   rubric.toml     = version + [[criterion]] tables citing its steps
    git rm -rq --cached drives && rm -r drives
    ```
 
    (A project that already has drive scripts and sealed rubrics runs
-   `darkroom migrate` instead — one proof per pair, nothing retyped.)
+   `darkroom migrate` instead — one folder per pair, nothing retyped.)
    Then drop `--drives drives` from the `test` command in
    `darkroom.toml` (`test = "darkroom expose"`), delete
    `evidence-contract.toml` and its `[evidence] contract` line — the
@@ -249,10 +251,14 @@ darkroom home init          # ~/.darkroom/projects/<name>/ — operator space, m
    ratchet in the home's `state/` — and commit.
 3. **Seal and audit**: `darkroom vault seal` validates every proof
    (each criterion cites a real step); `darkroom audit` checks each
-   criterion is witnessable and each step touches a declared surface.
-   Once proofs exist (or an `operator.toml` does), `darkroom preflight`
-   warns about exam material still inside the tenant and `darkroom
-   auto` refuses to spend against it.
+   criterion is witnessable and each step addresses a surface the
+   build has published. That publication is the builder's own file,
+   `scenarios/<name>.surfaces` — the routes, commands, pages, and
+   files it exposes for the scenario — written as it builds, and the
+   one place QA learns what an exposure can reach. Once proofs exist
+   (or an `operator.toml` does), `darkroom preflight` warns about exam
+   material still inside the tenant and `darkroom auto` refuses to
+   spend against it.
 4. **Write the operator config** — `~/.darkroom/projects/<name>/operator.toml`:
 
 ```toml

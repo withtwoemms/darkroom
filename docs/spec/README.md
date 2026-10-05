@@ -11,12 +11,12 @@ package.
 
 | Spec | Format | Schema version |
 |------|--------|----------------|
-| [manifest.md](manifest.md) | run manifest (JSON) | 2.0 |
+| [manifest.md](manifest.md) | run manifest (JSON) | 2.1 |
 | [contract.md](contract.md) | evidence contract (TOML) | 1.0 |
 | [evaluation.md](evaluation.md) | evaluation (JSON) | 1.0 |
 | gates.md | regression gates (JSON) | 1.0 |
 | tickets.md | tickets (Markdown + frontmatter) | 1.0 |
-| [proofs.md](proofs.md) | proofs: exposure + rubric, one sealed file (TOML) | 1.0 |
+| [proofs.md](proofs.md) | proofs: `exposure.toml` + `rubric.toml`, one sealed folder; backdrops; the `.surfaces` file | 1.0 |
 | drive-scripts.md | drive scripts (TOML) — the exposure's step vocabulary; standalone use deprecated | 1.7 |
 | role-hooks.md | judge/builder hook contract | 1.1 |
 | dossier.md | cross-run dossier bundle (JSON) | 1.1 |
@@ -59,7 +59,8 @@ the map:
 | evaluation | the judge | operator side, loop, gates | **no** — carries scores |
 | gates | operator side (loop, on convergence) | loop, CI | yes (the floor is public; the scores behind it are not) |
 | tickets | operator side | loop, both roles | yes |
-| proofs | operator side (the exam) | the engine (exposure), the judge (rubric half only) | no — operator home |
+| proofs | operator side (the exam): QA the exposure, product the rubric | the engine (exposure), the judge (rubric half only) | no — operator home |
+| surfaces | the builder (engineering's published interface) | the audit, the judge (as context, never evidence) | yes — it writes them |
 | drive scripts | operator side (the exam) | the drive engine | no — operator home |
 | role hooks | operator config | the loop | no — operator home |
 | dossier | operator side (assembled from state) | operator, narration tooling | **no** — carries score trajectories |

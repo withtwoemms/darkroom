@@ -5,13 +5,14 @@ scenario, named `<anything>.drive.toml`, conventionally in the
 operator home's `drives/` directory.
 
 > **Deprecated as a standalone file since darkroom 0.20.** The drive
-> script's step vocabulary lives on unchanged as the exposure half of a
-> [proof](proofs.md), which holds the steps and the criteria that score
-> them in one sealed file. Existing drive scripts and vault rubrics keep
-> working; `darkroom migrate` merges each pair into a proof, and a home
-> holding proofs is read as proofs. Everything below — step kinds,
-> fields, interpolation, expectations — continues to version here and
-> applies to proofs verbatim.
+> script's step vocabulary lives on unchanged as the exposure of a
+> [proof](proofs.md) — `proofs/<scenario>/exposure.toml`, beside the
+> `rubric.toml` that scores it. Existing drive scripts and vault
+> rubrics keep working; `darkroom migrate` turns each pair into a proof
+> folder, and a home holding proofs is read as proofs. Everything below
+> — step kinds, fields, interpolation, expectations — continues to
+> version here and applies to exposures verbatim; a drive script may
+> also name `backdrop = [...]` (proofs.md).
 
 ## Purpose
 

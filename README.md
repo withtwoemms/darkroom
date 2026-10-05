@@ -119,15 +119,17 @@ webauthn = true
 ```
 
 The **exam** is data, held operator-side as one **proof** per scenario
-— in the project's darkroom home
-(`~/.darkroom/projects/<name>/proofs/`), never in the repo the builder
-works in. A proof is the **exposure** (the steps that drive the app as
-a black box and capture every exchange as evidence) and the **rubric**
-(the criteria that score what was captured) in one sealed file; the
-quickstart's stage 4 puts it there, and `darkroom auto` refuses to run
-while exam material is still inside the tenant:
+— a folder in the project's darkroom home
+(`~/.darkroom/projects/<name>/proofs/<scenario>/`), never in the repo
+the builder works in. A proof is two files with two authors: the
+**exposure** (QA's — the steps that drive the app as a black box and
+capture every exchange as evidence) and the **rubric** (product's —
+the criteria that score what was captured). The quickstart's stage 4
+puts them there, and `darkroom auto` refuses to run while exam
+material is still inside the tenant:
 
 ```toml
+# proofs/note_saved/exposure.toml
 scenario = "note_saved"
 record = true          # screencast the whole scenario
 
@@ -143,6 +145,11 @@ save = { note_id = "$.id" }
 name = "read_back"
 url = "{base_url}/notes/{note_id}"
 expect = { status = 200, body_contains = "first light" }
+```
+
+```toml
+# proofs/note_saved/rubric.toml
+version = "1"
 
 [[criterion]]
 id = "saved_and_readable"
@@ -152,10 +159,13 @@ witnesses = ["save", "read_back"]     # evidence kinds follow from the steps cit
 ```
 
 `darkroom expose` runs the exposure (`darkroom drive`, its older
-name, still does). A scenario spec names the routes and selectors the
-builder must produce in a `"""surfaces` doc string — legal Gherkin,
-so the spec stays readable by any tool; `darkroom audit` cross-checks
-every step against it.
+name, still does). The builder, for its part, publishes the interface
+it chose beside each spec — `scenarios/<name>.surfaces`, the routes,
+commands, pages, and files the build exposes — and `darkroom audit`
+holds every exposure to that publication both ways: a step probing
+something unpublished, a published surface nothing proves. Setup
+many exposures share (founding, joining, signing in) is named once in
+the home's `backdrops.toml` and posed ahead with `backdrop = [...]`.
 
 Step kinds cover HTTP, commands, Ed25519 keygen/signing, assertions,
 waits, container failure injection, and real browser interaction
@@ -193,17 +203,21 @@ darkroom auto --scenario note_saved     # operator config discovered from the ho
 
 Authority lives in the per-project **darkroom home**
 (`~/.darkroom/projects/<name>/`, mode 700): operator config, proofs,
-shared preludes, loop state, and the **vault**, through which the judge
-is handed each proof's rubric half — criteria, never steps — and which
-the builder never reads. `darkroom vault seal` validates the proofs
-(or, on the older layout, moves rubrics out of the tenant); the OpenBao
-backend adds token-gated reads and server-side audit. The loop
+backdrops, loop state, and the **vault**, through which the judge is
+handed each proof's rubric — criteria, never steps — with the build's
+published surfaces for context and never as evidence; the builder
+reads none of it. `darkroom vault seal` validates the proofs (or, on
+the older layout, moves rubrics out of the tenant); the OpenBao
+backend adds token-gated reads and server-side audit. Every manifest
+names the exam it answered — the exposure's digest and the rubric's
+version — so a verdict is never ambiguous about what it judged. The loop
 stagnation-escalates (diagnostic access, model escalation, sharper
 feedback), rolls back regressions to the best checkpoint, and ratchets
 the gates in the home's state on convergence. A red gate always means
 something real: rubric changes re-baseline; they never masquerade as
 regressions. Projects on the older drive-script + rubric layout keep
-working; `darkroom migrate` merges each pair into a proof.
+working; `darkroom migrate` turns each pair into a proof folder and
+each spec's `Build:` note into a draft `.surfaces`.
 
 Every agent invocation is **metered** (model, tokens, cost) into loop
 state, and `darkroom dossier` assembles the cross-run record into

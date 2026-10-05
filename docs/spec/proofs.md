@@ -1,29 +1,41 @@
 # Proofs
 
-**Format:** TOML · **Schema version:** 1.0 · **File:** one proof per
-scenario, named `<scenario>.proof.toml`, in the operator home's
-`proofs/` directory (`~/.darkroom/projects/<name>/proofs/`).
+**Format:** TOML (two files) · **Schema version:** 1.0 · **Location:**
+one folder per scenario, `proofs/<scenario>/`, in the operator home
+(`~/.darkroom/projects/<name>/proofs/`), holding `exposure.toml` and
+`rubric.toml`.
 
 ## Purpose
 
-A proof is the sealed exam for one scenario as one file: the
-**exposure** — the steps that drive the system under test as a black
-box and capture what it does — and the **rubric** — the criteria that
-score what the exposure produced. Drive scripts and vault rubrics
-carried the same two halves in two files only because drives arrived
-two releases after rubrics; they were always one secret with one
-lifecycle. In a proof a criterion's `witnesses` resolve inside the same
-file (a cited step that does not exist is a load error, not a
-judge-time surprise), the evidence kinds a criterion rests on are
-derived from the steps it cites instead of being restated, and the
-evidence contract and gates no longer need a tenant-side file at all.
+A proof is the sealed exam for one scenario: the **exposure** — the
+steps that drive the system under test as a black box and capture
+what it does — and the **rubric** — the criteria that score what the
+exposure produced. They share a lifecycle and a folder, not an author:
+the exposure is QA's file and the rubric is product's, which is why
+they are two files rather than one — each hat edits its own, and a
+diff to the standard never hides in a diff to the mechanics. A
+criterion's `witnesses` resolve against the exposure beside it (a
+cited step that does not exist is a load error, not a judge-time
+surprise), the evidence kinds a criterion rests on are derived from
+the steps it cites instead of being restated, and the evidence
+contract and gates no longer need a tenant-side file at all.
 
-The photography vocabulary, for orientation: the **spec** states the
-behavior, the **exposure** produces the record, the **rubric** says
-what a good record shows, the **judge** scores the record against it,
-the **gate** ratchets the score, and the **proof** is the sealed
-exposure-plus-rubric. `darkroom expose` runs the exposure (`darkroom
-drive` is the same command under its older name).
+The hats, since the vocabulary runs through everything below:
+
+| hat | writes | reads | never sees |
+|-----|--------|-------|------------|
+| product | the spec (`scenarios/<name>.feature`), the rubric (`rubric.toml`) | surfaces, evidence | — |
+| engineering (the builder) | the code, the surfaces (`scenarios/<name>.surfaces`) | the spec, feedback | the exposure, the rubric |
+| QA (the operator) | the exposure (`exposure.toml`), backdrops | the spec, surfaces | — |
+| review (the judge) | the verdict | the rubric, evidence, surfaces | the code |
+
+And the photography vocabulary: the **spec** states the behavior, the
+**backdrop** is the setup it is posed against, the **exposure**
+produces the record, the **rubric** says what a good record shows,
+the **judge** scores the record against it, the **gate** ratchets the
+score, and the **proof** is the sealed exposure-plus-rubric. `darkroom
+expose` runs the exposure (`darkroom drive` is the same command under
+its older name).
 
 ## Trust position
 
@@ -36,19 +48,31 @@ comes from the same two sanitized channels as before: the scenario
 spec and the harness log (step names and failure details). Step names
 that would reveal criteria or scoring are misauthored.
 
-## Document shape
+## `exposure.toml`
 
 | Field | Type | Required | Meaning |
 |-------|------|----------|---------|
-| `scenario` | string | yes | the scenario this proof exposes and scores |
-| `version` | string (default `"1"`) | no | the rubric's version: bump when the standard changes, not the mechanics — scores across a version change re-baseline, never read as regression |
-| `trials` | integer (default 1) | no | how many runs each criterion's evidence must appear in |
-| `include` | array of strings | no | preludes (below) expanded, in order, ahead of the proof's own steps |
+| `scenario` | string | yes | the scenario this proof exposes; the folder is named after it |
+| `backdrop` | array of strings | no | backdrops (below) expanded, in order, ahead of the exposure's own steps |
 | `[serve]` | table | no | overrides of the adapter's `[serve.defaults]` for this scenario |
 | `[browser]` | table | no | overrides of the adapter's `[browser.defaults]` |
 | `record` | boolean | no | screencast the scenario (browser scenarios) |
 | `[[step]]` | array of tables | yes | the exposure, in order — every step kind, field, interpolation form, and expectation of [drive-scripts.md](drive-scripts.md) 1.7 applies unchanged; `kind` defaults to `"http"` |
+
+`version`, `trials`, and `[[criterion]]` are refused here: the
+exposure produces records, it does not score them.
+
+## `rubric.toml`
+
+| Field | Type | Required | Meaning |
+|-------|------|----------|---------|
+| `version` | string (default `"1"`) | no | the rubric's version: bump when the standard changes, not the mechanics — scores across a version change re-baseline, never read as regression |
+| `trials` | integer (default 1) | no | how many runs each criterion's evidence must appear in |
+| `scenario` | string | no | may restate the exposure's; must match if present |
 | `[[criterion]]` | array of tables | yes (≥ 1) | the rubric |
+
+`[[step]]`, `backdrop`, `[serve]`, `[browser]`, and `record` are refused
+here: the rubric scores records, it does not drive.
 
 Every criterion carries:
 
@@ -56,8 +80,8 @@ Every criterion carries:
 |-------|------|----------|---------|
 | `id` | string | yes | unique within the proof |
 | `points` | number | yes | the criterion's weight |
-| `description` | string | no | what a good record shows, for the judge |
-| `witnesses` | array of step names | one of `witnesses` / `evidence` | the steps whose resolved records prove it; each must name a step in the (expanded) exposure |
+| `description` | string | no | what a good record shows, in product's words — never a status code, a selector, or a step name; those are the exposure's business |
+| `witnesses` | array of step names | one of `witnesses` / `evidence` | the steps whose records prove it; each must name a step in the expanded exposure, and never one from a backdrop |
 | `evidence` | array of evidence kinds | one of `witnesses` / `evidence` | the kinds the criterion rests on; omitted, it is derived from the witnesses |
 | `confidence` | string | no | passed through to the judge |
 
@@ -77,7 +101,9 @@ they produce — the step kind says:
 A cited step carrying an `expect` table adds `log` (the expectation
 witness of drive-scripts 1.4) ahead of its own kind. A criterion that
 declares `evidence` keeps its declaration verbatim; one that declares
-neither is refused at load.
+neither is refused at load. `darkroom audit` refuses a cited step that
+leaves no record — a bare `goto`, `click`, or `fill` without `expect` —
+since it gates a run but gives the judge nothing to score.
 
 ### The rubric a judge receives
 
@@ -86,35 +112,85 @@ scenario with underscores as dashes — kept so evaluation and gate
 records key the way they always have), `version`, `scenario`, `trials`
 (when not 1), then each `[[criterion]]` with `id`, `points`,
 `description`, `confidence`, the (derived or declared) `evidence`, and
-`witnesses`. No step appears. An OpenBao vault stores the whole proof
-and renders this half on read.
+`witnesses`. No step appears. An OpenBao vault stores rubric text per
+feature id and renders the same half on read.
 
-## Preludes
+## Backdrops
 
-`~/.darkroom/projects/<name>/preludes.toml` names step sequences many
-proofs share — founding a circle, registering two members:
+`~/.darkroom/projects/<name>/backdrops.toml` names step sequences many
+exposures are posed against — founding a circle, registering two
+members. A backdrop is set before the sitting, reused across many,
+and never the subject:
 
 ```toml
-[[prelude]]
+[[backdrop]]
 name = "founded"
 
-[[prelude.step]]
+[[backdrop.step]]
 name = "found"
 method = "POST"
 url = "{base_url}/circles"
 save = { slug = "$.slug" }
 ```
 
-A proof with `include = ["founded"]` runs those steps first, names
-intact, so its criteria can cite `found` as a witness. Includes expand
-in order; a step name that collides with the proof's own, or a prelude
-that does not exist, is a load error. Drive scripts may include
-preludes too.
+An exposure with `backdrop = ["founded"]` runs those steps first,
+names intact, so its own steps can use `{slug}`. Backdrops expand in
+order; a step name that collides with the exposure's own, or a
+backdrop that does not exist, is a load error. The authoring rule: a
+witness is never in the backdrop — what the scenario proves is in its
+own steps, so a change to shared setup never silently changes what
+forty rubrics rest on. Drive scripts may carry `backdrop` too.
+
+## Surfaces
+
+The spec says what the product must do; the build decides how it is
+reached. Engineering publishes that decision beside the spec, in
+`scenarios/<name>.surfaces` — a plain columnar text, five sections:
+
+```
+[routes]
+POST /notes                   → 201 {id, token}; the token is shown once
+DELETE /notes/{id}            X-Note-Token header → 204; a wrong token → 403
+                              and the note is untouched
+
+[commands]
+relay export                  writes notes.json; exit 0
+
+[pages]
+/                             the notes page: the form, and the list once saved
+#notes li                     one item per saved note
+
+[files]
+notes.json                    the export, one object per note
+
+[notes]
+the token is compared in constant time; there is no "forgot my token"
+```
+
+Left of the first run of two spaces is the surface, the rest its
+description (an indented line continues it). A route opens with an
+HTTP method, then a path whose `{name}` segments match anything; a
+page is a path (opening with `/`) or a selector (anything else —
+`#notes li` is one selector); a command is the words a command step
+must contain, in order; files and notes are for the reader. The file
+is in the tenant because it is the builder's own: it tells QA what an
+exposure can address and tells the judge what a transcript or
+screenshot is *of* — the judge's prompt carries it as context, never
+as evidence.
+
+`darkroom audit` binds each exposure to its publication both ways:
+`surface-unpublished` (warning — a step touches a surface the build
+never published: QA is probing an interface engineering has not
+declared, or the file is stale) and `surface-untouched` (info — a
+published surface no step reaches: published, not proven). A page a
+browser opens and a `GET` the exposure makes are one surface; files
+and notes are never cross-checked. A scenario with no `.surfaces`
+gets no findings; a malformed one is `surfaces-malformed` (error).
 
 ## The adapter's share
 
-Three `darkroom.toml` tables let a proof carry only what differs from
-the project:
+Three `darkroom.toml` tables let an exposure carry only what differs
+from the project:
 
 ```toml
 [serve.defaults]        # every exposure's [serve] starts here
@@ -144,50 +220,36 @@ value for a placeholder fails the scenario's boot by name. The
 | `feature_id` in the rubric | the scenario, dashed |
 | `kind = "http"` on most steps | the default |
 | `evidence = [...]` on most criteria | the cited steps' kinds |
-| `drives/` + `vault/*.rubric.toml` | `proofs/` — the two layouts never mix: a home holding proofs is read as proofs, and `drives/` and vault rubrics are then ignored |
+| `Build:` prose in the spec | `scenarios/<name>.surfaces`, engineering's file |
+| `drives/` + `vault/*.rubric.toml` | `proofs/<scenario>/` — the two layouts never mix: a home holding proofs is read as proofs, and `drives/` and vault rubrics are then ignored |
 
-## The spec's surfaces doc string
+## What a run records
 
-A scenario spec names every surface the builder must produce — routes
-with their outcomes, selectors with their state attributes — in a
-Gherkin doc string whose media type is `surfaces`, on whichever step
-claims it:
-
-```gherkin
-    And the surfaces hold:
-      """surfaces
-      POST /notes                        → 201 {id, token}
-      DELETE /notes/{id}  X-Note-Token   → 204; wrong token → 403; after → 404
-      #delete-button [data-state=armed|fired]
-      """
-```
-
-A doc string is legal Gherkin wherever a step is (``` ``` ``` fences
-work too), so the spec stays a `.feature` any tool can parse — the
-media type is what marks this one as the contract; a step's untyped
-doc string is its own business. Left of the arrow is the surface: a
-line opening with an HTTP method is a route (`{name}` segments match
-anything), anything else a selector (its first token is what a step
-must cite). Implementation advice for the builder stays in the
-feature's prose, not in the contract. `darkroom audit` cross-checks
-the declared surfaces against the scenario's exposure both ways —
-`surface-undeclared` (warning: a step touches a surface the spec never
-names, so the builder was never told) and `surface-untouched` (info: a
-declared surface no step reaches — declared, not proven). Specs are
-matched to scenarios by file stem; several surfaces doc strings in one
-spec add up; a spec without one declares nothing and gets no findings.
+Every scenario bundle in the [manifest](manifest.md) (2.1) carries a
+`provenance` object: `exposure_sha256`, the digest of the
+`exposure.toml` as run, and `rubric_version`, the rubric's `version`
+at the time. A verdict therefore names the exam it answered, and a
+run made before an exposure was edited is distinguishable from one
+made after.
 
 ## Migration
 
 `darkroom migrate` pairs each `drives/<scenario>.drive.toml` with the
 vault rubric whose `scenario` names it and writes
-`proofs/<scenario>.proof.toml`, dropping `kind = "http"`, `feature_id`,
-and any `evidence` the witnesses imply, carrying `version` and
-`trials`. Serve keys identical across ≥ 90% of the drives are printed
-as a `[serve.defaults]` block; once darkroom.toml carries it, a re-run
-drops those keys from each proof. `--check` plans without writing;
-`--force` overwrites existing proofs. The tenant is never written.
-Unpaired drives or rubrics are reported and left alone.
+`proofs/<scenario>/exposure.toml` and `rubric.toml`, dropping `kind =
+"http"`, `feature_id`, and any `evidence` the witnesses imply,
+renaming `include` to `backdrop`, carrying `version` and `trials`.
+Serve keys identical across ≥ 90% of the drives are printed as a
+`[serve.defaults]` block; once darkroom.toml carries it, a re-run drops
+those keys from each exposure. For every spec with a `Build:` note and
+no `.surfaces` yet, a draft `.surfaces` is written beside it — the
+note's backticked routes and selectors lifted into `[routes]` and
+`[pages]`, the prose kept whole under `[notes]`, descriptions left for
+engineering to add — and the spec itself is never edited. `--check`
+plans without writing; `--force` overwrites existing proof folders.
+Unpaired drives or rubrics are reported and left alone. Extracting
+backdrops from the migrated exposures needs judgment and is the
+authoring skill's job, not the tool's.
 
 ## Versioning
 
@@ -197,10 +259,11 @@ Step kinds, fields, and expectations continue to version in
 
 ## Example
 
+`proofs/deletion_guarded/exposure.toml`:
+
 ```toml
 scenario = "deletion_guarded"
-version = "1"
-include = ["noted"]                 # a prelude that creates a note, saving {note_id} and {token}
+backdrop = ["noted"]                # creates a note, saving {note_id} and {token}
 
 [[step]]
 name = "wrong_token_refused"
@@ -208,6 +271,11 @@ method = "DELETE"
 url = "{base_url}/notes/{note_id}"
 headers = { X-Note-Token = "not-it" }
 expect = { status = 403 }
+
+[[step]]
+name = "note_survives"
+url = "{base_url}/notes/{note_id}"
+expect = { status = 200 }
 
 [[step]]
 name = "right_token_deletes"
@@ -220,25 +288,32 @@ expect = { status = 204 }
 name = "gone"
 url = "{base_url}/notes/{note_id}"
 expect = { status = 404 }
+```
+
+`proofs/deletion_guarded/rubric.toml`:
+
+```toml
+version = "1"
 
 [[criterion]]
 id = "wrong_token_refused"
 points = 10
-description = "a wrong token is refused with 403 and the note survives"
-witnesses = ["wrong_token_refused"]           # evidence: log, http_transcript
+description = "a wrong token is refused, and the note is still there afterwards"
+witnesses = ["wrong_token_refused", "note_survives"]   # evidence: log, http_transcript
 
 [[criterion]]
 id = "right_token_deletes"
 points = 10
-description = "the holder's token deletes; the note is then 404"
+description = "the holder's token deletes the note, and it cannot be fetched again"
 witnesses = ["right_token_deletes", "gone"]
 ```
 
 ## Conformance
 
-- A producer MUST name the file `<scenario>.proof.toml` with the
-  `scenario` field matching the stem, and MUST give every criterion an
-  `id`, numeric `points`, and `witnesses` or `evidence`.
+- A producer MUST name the folder after the exposure's `scenario`,
+  MUST put the steps in `exposure.toml` and the criteria in
+  `rubric.toml`, and MUST give every criterion an `id`, numeric
+  `points`, and `witnesses` or `evidence`.
 - A consumer MUST refuse a criterion citing a witness that names no
   step in the expanded exposure.
 - A consumer handing a proof to a judge MUST render the rubric half
@@ -247,3 +322,5 @@ witnesses = ["right_token_deletes", "gone"]
   mix proofs with drive scripts and vault rubrics in one run.
 - Derived evidence MUST follow the table above; declared `evidence`
   MUST be passed through unchanged.
+- A run of a proof MUST record the exposure's digest and the rubric's
+  version on the scenario's manifest bundle.
