@@ -47,10 +47,10 @@ approach.
 
 ## Published surfaces
 
-Engineering's own declaration of the interface the evidence addresses
-(routes, commands, pages, files, and notes). Read it to know what a
-transcript or screenshot is *of*; it is a claim, not evidence — score
-only what the evidence shows.
+The addresses the build exposes for this scenario — routes, commands,
+pages, files — so you know what a transcript or screenshot is *of*.
+Addresses only: nothing here says what they do. Score only what the
+evidence shows.
 
 {surfaces}
 
@@ -239,9 +239,11 @@ class AgentJudge:
         return "\n\n".join(sections)
 
     def _surfaces_text(self, ctx: LoopContext, scenario: str | None) -> str:
-        """The ``.surfaces`` engineering published beside each spec in
-        scope — the builder's declaration, handed to the judge as context."""
-        from darkroom.surfaces import surfaces_path
+        """The inventory of what engineering published beside each spec in
+        scope — addresses only. The ``.surfaces`` file's descriptions and
+        notes are builder prose and never reach the judge: a judge handed
+        the builder's account of the change starts scoring the account."""
+        from darkroom.surfaces import SurfacesError, inventory, load_surfaces, surfaces_path
 
         sections = []
         for spec in ctx.adapter.spec_files():
@@ -249,8 +251,13 @@ class AgentJudge:
             if scenario is not None and stem != scenario:
                 continue
             path = surfaces_path(spec)
-            if path.is_file():
-                sections.append(f"### {stem}\n\n{path.read_text().rstrip()}")
+            if not path.is_file():
+                continue
+            try:
+                listed = inventory(load_surfaces(path))
+            except (SurfacesError, OSError):
+                listed = "(unreadable — see darkroom audit)"
+            sections.append(f"### {stem}\n\n{listed or '(nothing published)'}")
         return "\n\n".join(sections) if sections else "(nothing published)"
 
     def _evidence_text(self, manifest_path: Path, scenario: str | None) -> str:

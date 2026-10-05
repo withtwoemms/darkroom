@@ -171,6 +171,20 @@ class TestCrossCheck:
         ]
         assert code == "surface-unpublished"
 
+    def test_the_judge_gets_addresses_and_never_the_builders_prose(self):
+        from darkroom.surfaces import inventory
+
+        listed = inventory(parse_surfaces(SURFACES))
+        assert listed == (
+            "[routes]\nPOST /notes\nDELETE /notes/*\nGET /notes/*\n\n"
+            "[commands]\nrelay.py export\n\n"
+            "[pages]\n/\n#delete-button\n#notes li\n\n"
+            "[files]\nnotes.json"
+        )
+        for prose in ("wrong token", "one item per", "ceremony", "writes notes.json"):
+            assert prose not in listed
+        assert inventory(parse_surfaces("[notes]\nonly prose\n")) == ""
+
     def test_files_are_for_the_reader_never_checked(self):
         assert cross_check(parse_surfaces("[files]\nout.json   the export\n"), {"step": []}) == []
 

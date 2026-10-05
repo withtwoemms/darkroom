@@ -182,6 +182,29 @@ def load_surfaces(path: Path) -> Surfaces:
     return parse_surfaces(Path(path).read_text())
 
 
+def inventory(surfaces: Surfaces) -> str:
+    """The published surfaces as addresses only — section by section, no
+    descriptions, no notes. This is what the judge is handed: enough to
+    know what a transcript or screenshot is *of*, and nothing the
+    builder wrote in prose. Descriptions and notes are for QA and
+    product; builder-authored text that could read as argument never
+    reaches the party scoring the evidence."""
+    lines: list[str] = []
+    for section, kinds in (
+        ("routes", ("route",)),
+        ("commands", ("command",)),
+        ("pages", ("page", "selector")),
+        ("files", ("file",)),
+    ):
+        entries = surfaces.of(*kinds)
+        if not entries:
+            continue
+        lines.append(f"[{section}]")
+        lines.extend(str(s) for s in entries)
+        lines.append("")
+    return "\n".join(lines).rstrip()
+
+
 def touched_surfaces(script: dict) -> list[Surface]:
     """Every surface an exposure's steps address, in step order, deduplicated."""
     seen: list[Surface] = []

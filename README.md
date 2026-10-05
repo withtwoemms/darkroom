@@ -204,9 +204,9 @@ darkroom auto --scenario note_saved     # operator config discovered from the ho
 Authority lives in the per-project **darkroom home**
 (`~/.darkroom/projects/<name>/`, mode 700): operator config, proofs,
 backdrops, loop state, and the **vault**, through which the judge is
-handed each proof's rubric — criteria, never steps — with the build's
-published surfaces for context and never as evidence; the builder
-reads none of it. `darkroom vault seal` validates the proofs (or, on
+handed each proof's rubric — criteria, never steps — and the addresses
+of the build's published surfaces, never the builder's prose about
+them; the builder reads none of it. `darkroom vault seal` validates the proofs (or, on
 the older layout, moves rubrics out of the tenant); the OpenBao
 backend adds token-gated reads and server-side audit. Every manifest
 names the exam it answered — the exposure's digest and the rubric's

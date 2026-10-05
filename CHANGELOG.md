@@ -29,7 +29,8 @@ versioned independently of the package — see `ROADMAP.md`.
   it both ways: `surface-unpublished` (warning: a step probes what the
   build never declared) and `surface-untouched` (info: published, not
   proven); a malformed file is `surfaces-malformed`. The judge's prompt
-  carries the publication as context, never as evidence. Audit
+  carries the publication's addresses only — descriptions and notes
+  are builder prose and never reach the judge. Audit
   findings now carry a `code`, and the audit reads the tenant's
   `spec_glob`. Specs stay plain Gherkin: no routes, no selectors, no
   `Build:` notes.

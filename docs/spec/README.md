@@ -60,7 +60,7 @@ the map:
 | gates | operator side (loop, on convergence) | loop, CI | yes (the floor is public; the scores behind it are not) |
 | tickets | operator side | loop, both roles | yes |
 | proofs | operator side (the exam): QA the exposure, product the rubric | the engine (exposure), the judge (rubric half only) | no — operator home |
-| surfaces | the builder (engineering's published interface) | the audit, the judge (as context, never evidence) | yes — it writes them |
+| surfaces | the builder (engineering's published interface) | the audit, QA, product; the judge sees the addresses only — never descriptions or notes | yes — it writes them |
 | drive scripts | operator side (the exam) | the drive engine | no — operator home |
 | role hooks | operator config | the loop | no — operator home |
 | dossier | operator side (assembled from state) | operator, narration tooling | **no** — carries score trajectories |

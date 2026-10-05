@@ -27,7 +27,7 @@ The hats, since the vocabulary runs through everything below:
 | product | the spec (`scenarios/<name>.feature`), the rubric (`rubric.toml`) | surfaces, evidence | — |
 | engineering (the builder) | the code, the surfaces (`scenarios/<name>.surfaces`) | the spec, feedback | the exposure, the rubric |
 | QA (the operator) | the exposure (`exposure.toml`), backdrops | the spec, surfaces | — |
-| review (the judge) | the verdict | the rubric, evidence, surfaces | the code |
+| review (the judge) | the verdict | the rubric, evidence, the surfaces' addresses | the code, the builder's prose |
 
 And the photography vocabulary: the **spec** states the behavior, the
 **backdrop** is the setup it is posed against, the **exposure**
@@ -178,9 +178,19 @@ page is a path (opening with `/`) or a selector (anything else —
 `#notes li` is one selector); a command is the words a command step
 must contain, in order; files and notes are for the reader. The file
 is in the tenant because it is the builder's own: it tells QA what an
-exposure can address and tells the judge what a transcript or
-screenshot is *of* — the judge's prompt carries it as context, never
-as evidence.
+exposure can address, and tells product what was built.
+
+The judge is handed the **inventory only** — the addresses, section by
+section, with every description and the whole of `[notes]` stripped.
+An address says what a transcript or screenshot is *of*; a
+description says what it does, and that is the builder's account of
+the change, which a judge must never be handed: a judge reading the
+builder's prose starts scoring the prose. The trust rule behind the
+whole map applies — builder-writable text may reach the judge only
+where its manipulation is futile or caught — and an address is both:
+it cannot argue, and a padded inventory is `surface-untouched` in the
+audit. Builder prose reaches the operator and QA, the same way the
+blocker channel does.
 
 `darkroom audit` binds each exposure to its publication both ways:
 `surface-unpublished` (warning — a step touches a surface the build
