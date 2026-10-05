@@ -1,7 +1,17 @@
 # The Evidence Contract
 
 **Format:** TOML · **Schema version:** 1.0 · **File:** conventionally
-`evidence-contract.toml`.
+`evidence-contract.toml` — optional since darkroom 0.20.
+
+> **Derived, not committed, since 0.20.** With no `[evidence]
+> contract` declared, the contract a run is verified against is
+> derived at run time from the [proofs'](proofs.md) rubrics (the
+> union of each criterion's evidence kinds, `trials` carried) — the
+> same projection this document specifies, never written to disk. A
+> declared file still wins when present; the shape below is what a
+> hand-written one must have, and what a derived one is guaranteed to
+> have. A proofs directory whose folders hold exposures but no
+> rubrics yet implies no contract, and verification is structural.
 
 ## Purpose
 

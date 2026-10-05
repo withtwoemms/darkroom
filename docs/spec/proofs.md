@@ -72,7 +72,11 @@ exposure produces records, it does not score them.
 | `[[criterion]]` | array of tables | yes (≥ 1) | the rubric |
 
 `[[step]]`, `backdrop`, `[serve]`, `[browser]`, and `record` are refused
-here: the rubric scores records, it does not drive.
+here: the rubric scores records, it does not drive. The file may be
+absent while the exam is being written (the quickstart's stage 1):
+the exposure then runs and is verified structurally, and sealing,
+auditing, judging, and contract derivation refuse the folder by name
+until the rubric arrives.
 
 Every criterion carries:
 
@@ -314,6 +318,10 @@ witnesses = ["right_token_deletes", "gone"]
   MUST put the steps in `exposure.toml` and the criteria in
   `rubric.toml`, and MUST give every criterion an `id`, numeric
   `points`, and `witnesses` or `evidence`.
+- A folder holding `exposure.toml` alone is a proof still being
+  written: a consumer MAY expose it, MUST NOT seal, judge, or derive
+  a contract from it, and MUST report it by name when asked to
+  (`darkroom audit`: `no-rubric`; `darkroom vault seal` refuses).
 - A consumer MUST refuse a criterion citing a witness that names no
   step in the expanded exposure.
 - A consumer handing a proof to a judge MUST render the rubric half

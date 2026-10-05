@@ -159,12 +159,23 @@ class TestFolder:
         with pytest.raises(ProofError, match="named after its scenario"):
             load_proof(folder)
 
-    def test_a_half_missing_is_named(self, tmp_path):
+    def test_an_exposure_alone_runs_but_cannot_be_judged(self, tmp_path):
         folder = tmp_path / "note_created"
         folder.mkdir()
         (folder / EXPOSURE_FILE).write_text(EXPOSURE)
+        proof = load_proof(folder)
+        assert [s["name"] for s in exposure(proof)["step"]] == ["create", "shot", "id_present"]
         with pytest.raises(ProofError, match="no rubric.toml"):
-            load_proof(folder)
+            rubric(proof)
+        assert derive_contract([proof]).scenarios == []
+        with pytest.raises(ProofError, match="'version' belongs to the rubric"):
+            loads_proof('version = "1"\n' + EXPOSURE, None)
+
+    def test_the_exposure_is_required(self, tmp_path):
+        folder = tmp_path / "note_created"
+        folder.mkdir()
+        (folder / RUBRIC_FILE).write_text(RUBRIC)
+        assert not load_proofs(tmp_path)  # not a proof folder at all
 
     def test_sources_round_trip(self):
         proof = _proof()
@@ -306,6 +317,20 @@ class TestProofsVault:
         assert (proofs_dir / "note_created").stat().st_mode & 0o777 == 0o700
         assert "sealed 2 proof(s)" in (vault.root / "audit.log").read_text()
 
+    def test_seal_and_audit_refuse_an_exposure_without_its_rubric(self, tmp_path, monkeypatch):
+        proofs_dir = _home_with_proofs(tmp_path, monkeypatch, ONE)
+        bare = proofs_dir / "bare"
+        bare.mkdir()
+        (bare / EXPOSURE_FILE).write_text(EXPOSURE.replace("note_created", "bare"))
+        adapter = loads_adapter('[project]\nname = "press"', root=tmp_path / "tenant")
+        vault = FilesystemVault(proofs_dir.parent / "vault")
+        with pytest.raises(VaultError, match="bare: no rubric.toml"):
+            seal(adapter, vault)
+        [finding] = [f for f in audit(vault, proofs_dir) if f.code == "no-rubric"]
+        assert finding.severity == "error" and finding.scenario == "bare"
+        # the contract still derives from the proof that has one
+        assert [s.scenario for s in runtime_contract(adapter).scenarios] == ["note_created"]
+
     def test_seal_refuses_a_broken_proof(self, tmp_path, monkeypatch):
         bad = RUBRIC.replace('witnesses = ["create"]', 'witnesses = ["nope"]')
         proofs_dir = _home_with_proofs(tmp_path, monkeypatch, {"note_created": (EXPOSURE, bad)})
@@ -337,6 +362,15 @@ class TestRuntimeContract:
         monkeypatch.setenv("DARKROOM_HOME", str(tmp_path / "home"))
         adapter = loads_adapter('[project]\nname = "press"', root=tmp_path / "tenant")
         assert runtime_contract(adapter) is None
+
+    def test_none_while_every_proof_is_an_exposure_alone(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("DARKROOM_HOME", str(tmp_path / "home"))
+        folder = default_proofs("press") / "note_created"
+        folder.mkdir(parents=True)
+        (folder / EXPOSURE_FILE).write_text(EXPOSURE)
+        adapter = loads_adapter('[project]\nname = "press"', root=tmp_path / "tenant")
+        assert runtime_contract(adapter) is None
+        assert runtime_contract(adapter, proofs_dir=default_proofs("press")) is None
 
     def test_broken_proof_surfaces_as_vault_error(self, tmp_path, monkeypatch):
         _home_with_proofs(tmp_path, monkeypatch, {"x": ('scenario = "x"\n', "")})

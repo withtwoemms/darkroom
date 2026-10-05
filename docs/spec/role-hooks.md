@@ -45,6 +45,15 @@ The template is formatted with these placeholders and run via
 no evaluation aborts the loop. Scoring absence as zero would let an
 infrastructure failure masquerade as a quality signal.
 
+The built-in agent judge receives two inputs the hook contract does
+not yet carry as placeholders: the rubric text, inlined from the
+vault into its prompt (never a path, so no role holds a vault
+token), and the build's published surfaces (`scenarios/<name>.surfaces`,
+see [proofs.md](proofs.md)) as context — a claim about what the
+evidence is *of*, never evidence itself. A hook judge that wants the
+surfaces reads them from the tenant it is given the manifest of;
+a `{surfaces}` placeholder is a candidate minor bump.
+
 ## Builder hook
 
 | Placeholder | Direction | Meaning |

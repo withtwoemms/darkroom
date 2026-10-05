@@ -60,14 +60,13 @@ name = "quicknotes"
 
 [commands]
 serve = "python3 app.py {port}"
-test = "darkroom drive --drives drives"
+test = "darkroom expose --drives proofs"
 
 [evidence]
 dir = "evidence"
-contract = "evidence-contract.toml"
 ```
 
-`drives/note_saved.drive.toml` — a drive script: the exam as data.
+`proofs/note_saved/exposure.toml` — an exposure: the exam as data.
 darkroom boots your app fresh, runs the steps against it as a black
 box, and captures every exchange:
 
@@ -76,7 +75,6 @@ scenario = "note_saved"
 
 [[step]]
 name = "save"
-kind = "http"
 method = "POST"
 url = "{base_url}/notes"
 json = { text = "first light" }
@@ -92,33 +90,37 @@ expect = { status = 200, body_contains = "first light" }
 Run it, then look at what was captured:
 
 ```bash
-darkroom drive --drives drives
+darkroom expose --drives proofs
 darkroom gallery evidence/runs/*/manifest.json
 ```
 
 You have a **manifest** — an inventory of typed evidence (here, two
 HTTP transcripts), the artifact everything else in darkroom judges,
-diffs, and gates on — and a gallery page rendering it.
+diffs, and gates on — and a gallery page rendering it. The run said
+`verify: ok (structure only)`: nothing yet says what the evidence
+*should* show, so nothing held it to anything.
 
 ## Stage 2 — The exam (3 minutes)
 
-Declare what a run *must* capture. `evidence-contract.toml`:
+Say what a good record shows. `proofs/note_saved/rubric.toml`, beside
+the exposure — the two files are a **proof**, the sealed exam for
+one scenario:
 
 ```toml
-schema_version = "1.0"
-project = "quicknotes"
+version = "1"
 
-[[scenario]]
-name = "note_saved"
-
-  [[scenario.requires]]
-  kind = "http_transcript"
-  min_count = 2
+[[criterion]]
+id = "reads_back"
+points = 100
+description = "a saved note reads back with its text, verbatim"
+witnesses = ["save", "read_back"]     # the steps whose records prove it
 ```
 
-`darkroom drive` now verifies each run against the contract (you saw
-`verify: ok (contract)` already — the adapter points at it). Now
-break the app on purpose — in `app.py`, make `do_GET` always miss:
+`darkroom expose` now verifies each run against the **contract** the
+rubric implies — the evidence kinds its witnesses leave, two HTTP
+transcripts here — and says `verify: ok (contract)`. No contract
+file exists; it is derived from the rubric every run. Now break the
+app on purpose — in `app.py`, make `do_GET` always miss:
 
 ```python
     def do_GET(self):
@@ -126,7 +128,7 @@ break the app on purpose — in `app.py`, make `do_GET` always miss:
 ```
 
 ```bash
-darkroom drive --drives drives ; cat evidence/runs/*/harness.log | tail -3
+darkroom expose --drives proofs ; cat evidence/runs/*/harness.log | tail -3
 ```
 
 The scenario fails at `read_back` — and the evidence captured before
@@ -226,29 +228,25 @@ darkroom home init          # ~/.darkroom/projects/<name>/ — operator space, m
    (specs: plain Gherkin, what the product must do) and criteria with
    thresholds, each citing the steps that will witness it. These are
    product's two files.
-2. **Write the exam as proofs, in the home.** Stages 1–3 kept
-   `drives/` in the repo because nothing was reading it but you; from
-   here on the builder is an agent working in that repo, and exam
-   material it can open is an exam it can read. A proof is a folder
-   the home has a place for — the drive script's steps as
-   `exposure.toml` (QA's file), the criteria as `rubric.toml`
-   (product's) — and it is where `darkroom expose` (née `drive`) looks
-   when `--drives` is absent:
+2. **Move the proofs into the home.** Stages 1–3 kept `proofs/` in
+   the repo because nothing was reading it but you; from here on the
+   builder is an agent working in that repo, and exam material it can
+   open is an exam it can read. The home has a place for the folders
+   — `exposure.toml` is QA's file, `rubric.toml` product's — and it
+   is where `darkroom expose` looks when `--drives` is absent:
 
    ```bash
-   # ~/.darkroom/projects/quicknotes/proofs/note_saved/
-   #   exposure.toml   = the stage-1 drive script
-   #   rubric.toml     = version + [[criterion]] tables citing its steps
-   git rm -rq --cached drives && rm -r drives
+   mkdir -p ~/.darkroom/projects/quicknotes/proofs
+   mv proofs/note_saved ~/.darkroom/projects/quicknotes/proofs/
+   git rm -rq --cached proofs && rmdir proofs
    ```
 
-   (A project that already has drive scripts and sealed rubrics runs
-   `darkroom migrate` instead — one folder per pair, nothing retyped.)
-   Then drop `--drives drives` from the `test` command in
-   `darkroom.toml` (`test = "darkroom expose"`), delete
-   `evidence-contract.toml` and its `[evidence] contract` line — the
-   contract is now derived from the proofs at run time, and the gates
-   ratchet in the home's `state/` — and commit.
+   (A project on the older layout — drive scripts and sealed rubrics
+   — runs `darkroom migrate` instead: one folder per pair, nothing
+   retyped.) Then drop `--drives proofs` from the `test` command in
+   `darkroom.toml` (`test = "darkroom expose"`) and commit. The
+   contract keeps deriving from the proofs at run time, and the gates
+   ratchet in the home's `state/`; nothing exam-shaped is committed.
 3. **Seal and audit**: `darkroom vault seal` validates every proof
    (each criterion cites a real step); `darkroom audit` checks each
    criterion is witnessable and each step addresses a surface the
@@ -285,7 +283,7 @@ call. Start with one scenario and a small `max_iterations`.
 
 **Credentials, and which side of the boundary each lives on.** The
 sealed-exam design has one boundary: the builder must never read the
-exam (rubrics, drives, loop state). Credentials sort by that rule:
+exam (proofs, backdrops, loop state). Credentials sort by that rule:
 
 - *The agent CLI's own login* (`claude` authenticates through its own
   keychain login or `ANTHROPIC_API_KEY`) belongs to the operator's
@@ -318,8 +316,8 @@ exam (rubrics, drives, loop state). Credentials sort by that rule:
   "BAO_TOKEN=$BUILDER_BAO_TOKEN claude …"` — which is precisely a
   credential the builder is allowed to hold, because its policy says
   what it can reach.
-- *Everything in the darkroom home* (`operator.toml`, the vault, the
-  drives, loop state) is mode 700 and outside every tenant path; the
+- *Everything in the darkroom home* (`operator.toml`, the proofs, the
+  vault, loop state) is mode 700 and outside every tenant path; the
   builder is invoked with the tenant as its working directory and
   `--add-dir` only for what a role needs.
 
@@ -338,7 +336,7 @@ backend's server-side audit is the graduation path.
 - **Hardened backends** — containers for the system under test
   (`[containers]` extra) and an OpenBao rubric vault (`[vault]`).
 - **Pytest users**: the plugin gives any existing suite an `evidence`
-  fixture and manifest-backed runs — no drive scripts required.
+  fixture and manifest-backed runs — no exposures required.
 - **The formats** — `docs/spec/`: every artifact above is a written,
   versioned format any harness can emit.
 - **The arc** — `ROADMAP.md`, and `docs/vision.md` for where this is

@@ -77,14 +77,22 @@ class ProofError(Exception):
     pass
 
 
-def validate_proof(proof: dict, name: str = "proof") -> dict:
+def has_rubric(proof: dict) -> bool:
+    """Whether the proof carries its rubric. A folder may hold the exposure
+    alone while the exam is being written — it can be exposed, but not
+    sealed, audited, judged, or held to a contract — and ``rubric_text``
+    and friends refuse it by name."""
+    return bool(proof.get("criterion"))
+
+
+def validate_proof(proof: dict, name: str = "proof", rubric_required: bool = True) -> dict:
     """Check a merged proof's shape; returns it with step kinds defaulted
     (backdrops not yet expanded — see :func:`steps`)."""
     scenario = proof.get("scenario")
     if not scenario:
         raise ProofError(f"{name}: a proof needs a scenario")
     criteria = proof.get("criterion", [])
-    if not criteria:
+    if not criteria and rubric_required:
         raise ProofError(f"{name}: a proof needs at least one [[criterion]]")
     ids: set[str] = set()
     for criterion in criteria:
@@ -106,12 +114,21 @@ def validate_proof(proof: dict, name: str = "proof") -> dict:
     return proof
 
 
-def loads_proof(exposure_text: str, rubric_text: str, name: str = "proof") -> dict:
-    """Parse the two halves and validate them as one proof."""
+def loads_proof(exposure_text: str, rubric_text: str | None, name: str = "proof") -> dict:
+    """Parse the two halves and validate them as one proof. ``rubric_text``
+    may be None for a folder that holds the exposure alone."""
     try:
         exposure_data = tomllib.loads(exposure_text)
     except tomllib.TOMLDecodeError as exc:
         raise ProofError(f"{name}/{EXPOSURE_FILE}: {exc}") from None
+    if rubric_text is None:
+        for key in exposure_data:
+            if key in ("criterion", "version", "trials"):
+                raise ProofError(
+                    f"{name}/{EXPOSURE_FILE}: '{key}' belongs to the rubric — put it "
+                    f"in {RUBRIC_FILE} beside the exposure"
+                )
+        return validate_proof(dict(exposure_data), name, rubric_required=False)
     try:
         rubric_data = tomllib.loads(rubric_text)
     except tomllib.TOMLDecodeError as exc:
@@ -158,9 +175,8 @@ def load_proof(folder: Path) -> dict:
     rubric_path = folder / RUBRIC_FILE
     if not exposure_path.is_file():
         raise ProofError(f"{folder.name}: no {EXPOSURE_FILE} — a proof folder needs the exposure")
-    if not rubric_path.is_file():
-        raise ProofError(f"{folder.name}: no {RUBRIC_FILE} — a proof folder needs the rubric")
-    proof = loads_proof(exposure_path.read_text(), rubric_path.read_text(), folder.name)
+    rubric_text_ = rubric_path.read_text() if rubric_path.is_file() else None
+    proof = loads_proof(exposure_path.read_text(), rubric_text_, folder.name)
     if proof["scenario"] != folder.name:
         raise ProofError(
             f"{folder.name}: the exposure names scenario '{proof['scenario']}' — "
@@ -241,6 +257,11 @@ def _evidence_for(criterion: dict, by_name: dict[str, dict]) -> list[str]:
 def rubric(proof: dict, backdrops: dict[str, list[dict]] | None = None) -> dict:
     """The rubric half, in the shape judge and evaluation code already read:
     scenario, version, trials, and criteria with their evidence kinds."""
+    if not has_rubric(proof):
+        raise ProofError(
+            f"{proof['scenario']}: no {RUBRIC_FILE} — the exposure can run, but nothing "
+            "says what a good record shows"
+        )
     by_name = {s.get("name"): s for s in steps(proof, backdrops) if s.get("name")}
     for criterion in proof.get("criterion", []):
         for cited in criterion.get("witnesses", []):
@@ -305,9 +326,12 @@ def derive_contract(
     proofs: list[dict], project: str = "", backdrops: dict[str, list[dict]] | None = None
 ) -> EvidenceContract:
     """The evidence contract every proof implies: per scenario, the kinds
-    its criteria rest on — derived, so nothing need be committed."""
+    its criteria rest on — derived, so nothing need be committed. A proof
+    without its rubric implies nothing and is left out."""
     scenarios = []
     for proof in proofs:
+        if not has_rubric(proof):
+            continue
         data = rubric(proof, backdrops)
         kinds: list[str] = []
         for criterion in data["criterion"]:

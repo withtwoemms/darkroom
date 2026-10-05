@@ -23,7 +23,7 @@ else:  # pragma: no cover - exercised only on 3.10
     import tomli as tomllib
 
 from darkroom.drive import DRIVE_SUFFIX, DriveError, load_exam
-from darkroom.vault import RubricVault
+from darkroom.vault import RubricVault, VaultError
 
 # what each drive step kind can register in the manifest
 STEP_EVIDENCE: dict[str, frozenset[str]] = {
@@ -141,7 +141,11 @@ def audit(
     spec_by_scenario = {Path(p).name.split(".", 1)[0]: Path(p) for p in specs or []}
 
     for feature_id in vault.list():
-        rubric = tomllib.loads(vault.read(feature_id))
+        try:
+            rubric = tomllib.loads(vault.read(feature_id))
+        except VaultError as exc:
+            findings.append(AuditFinding("error", feature_id, str(exc), "no-rubric"))
+            continue
         scenario = rubric.get("scenario", feature_id.replace("-", "_"))
         script = scripts.get(scenario)
         if script is None:

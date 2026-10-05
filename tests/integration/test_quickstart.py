@@ -1,9 +1,9 @@
 """Executes docs/quickstart.md stages 1-3 so the guide cannot rot.
 
 The file contents here are the guide's, verbatim in substance: the
-quicknotes tenant, the drive script, the contract, the seeded bug,
-and the shell-hook judge/builder. If a darkroom change breaks any
-stage, this fails before a reader does.
+quicknotes tenant, the exposure, the rubric that joins it to make a
+proof, the seeded bug, and the shell-hook judge/builder. If a
+darkroom change breaks any stage, this fails before a reader does.
 """
 
 import subprocess
@@ -44,12 +44,11 @@ SEEDED_BUG = (
     'self._json(200, {"id": note["id"], "text": note["text"].upper()})'
 )
 
-DRIVE = """
+EXPOSURE = """
 scenario = "note_saved"
 
 [[step]]
 name = "save"
-kind = "http"
 method = "POST"
 url = "{base_url}/notes"
 json = { text = "first light" }
@@ -62,16 +61,14 @@ url = "{base_url}/notes/{note_id}"
 expect = { status = 200, body_contains = "first light" }
 """
 
-CONTRACT = """
-schema_version = "1.0"
-project = "quicknotes"
+RUBRIC = """
+version = "1"
 
-[[scenario]]
-name = "note_saved"
-
-  [[scenario.requires]]
-  kind = "http_transcript"
-  min_count = 2
+[[criterion]]
+id = "reads_back"
+points = 100
+description = "a saved note reads back with its text, verbatim"
+witnesses = ["save", "read_back"]
 """
 
 JUDGE_SH = """\
@@ -110,18 +107,16 @@ def _make_quicknotes(root: Path) -> None:
 
         [commands]
         serve = "{sys.executable} app.py {{port}}"
-        # the guide says `darkroom drive` — the module form is the same
+        # the guide says `darkroom expose` — the module form is the same
         # entry point without needing the console script on PATH
-        test = "{sys.executable} -m darkroom.cli drive --drives drives"
+        test = "{sys.executable} -m darkroom.cli expose --drives proofs"
 
         [evidence]
         dir = "evidence"
-        contract = "evidence-contract.toml"
         """)
     )
-    (root / "drives").mkdir()
-    (root / "drives" / "note_saved.drive.toml").write_text(textwrap.dedent(DRIVE))
-    (root / "evidence-contract.toml").write_text(textwrap.dedent(CONTRACT))
+    (root / "proofs" / "note_saved").mkdir(parents=True)
+    (root / "proofs" / "note_saved" / "exposure.toml").write_text(textwrap.dedent(EXPOSURE))
 
 
 def test_quickstart_stages_one_through_three(tmp_path, capsys, monkeypatch):
@@ -132,10 +127,17 @@ def test_quickstart_stages_one_through_three(tmp_path, capsys, monkeypatch):
     monkeypatch.delenv("EVIDENCE_MODE", raising=False)
     monkeypatch.delenv("EVIDENCE_DIR", raising=False)
 
-    # --- stage 1+2: drive is green and the contract verifies
-    assert main(["drive", "--drives", "drives"]) == 0
+    # --- stage 1: the exposure alone runs green; nothing holds it to anything yet
+    assert main(["expose", "--drives", "proofs"]) == 0
     out = capsys.readouterr().out
-    assert "note_saved:" in out and "verify: ok (contract)" in out
+    assert "note_saved:" in out and "verify: ok (structure only)" in out
+
+    # --- stage 2: the rubric joins it; the contract derives and verifies
+    (root / "proofs" / "note_saved" / "rubric.toml").write_text(textwrap.dedent(RUBRIC))
+    assert main(["expose", "--drives", "proofs"]) == 0
+    out = capsys.readouterr().out
+    assert "verify: ok (contract)" in out
+    assert not list(root.glob("evidence-contract*.toml"))
 
     # --- stage 2: the deliberate break fails at read_back, keeps evidence
     app = root / "app.py"
@@ -146,7 +148,7 @@ def test_quickstart_stages_one_through_three(tmp_path, capsys, monkeypatch):
             'self._json(404, {"error": "gone"})',
         )
     )
-    assert main(["drive", "--drives", "drives"]) != 0
+    assert main(["expose", "--drives", "proofs"]) != 0
     logs = sorted(root.glob("evidence/runs/*/harness.log"))
     assert "FAIL" in logs[-1].read_text()
     app.write_text(working)

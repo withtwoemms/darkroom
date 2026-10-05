@@ -42,7 +42,7 @@ The core is dependency-free. Extras add capabilities:
 | extra | adds |
 |---|---|
 | `playwright` | browser steps, screenshots, screencasts, WebAuthn ceremonies |
-| `crypto` | Ed25519 keygen/signing steps in drive scripts |
+| `crypto` | Ed25519 keygen/signing steps in exposures |
 | `vault` | the OpenBao / HashiCorp Vault rubric backend |
 | `containers` | containerized system-under-test environments |
 | `all` | everything above |

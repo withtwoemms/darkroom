@@ -239,10 +239,12 @@ def runtime_contract(
         proofs_dir = default_proofs(adapter.name)
     if not Path(proofs_dir).is_dir():
         return None
+    from darkroom.proof import has_rubric
+
     try:
         proofs = load_proofs(proofs_dir)
-        if not proofs:
-            return None
+        if not any(has_rubric(p) for p in proofs.values()):
+            return None  # exposures alone hold a run to nothing
         backdrops = load_backdrops(default_backdrops(adapter.name)) if adapter.name else {}
         return derive_from_proofs(list(proofs.values()), adapter.name, backdrops)
     except (ProofError, BackdropError, OSError, ValueError) as exc:
