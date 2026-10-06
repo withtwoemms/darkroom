@@ -160,7 +160,10 @@ background. While it runs, watch three things:
 ## Stage 6 — Triage a blocker
 
 When `HARNESS-BLOCKER.md` appears, decide one thing: **is the builder
-right that this is operator-side?**
+right that this is operator-side?** Read the scenario's `.surfaces`
+beside it — its descriptions and `[notes]` are the builder's own
+account of what it exposed, the one channel for its reasoning that
+is not the blocker, and the judge never sees either; you do.
 
 - **Often it is** — the builder traces, in the tenant code and the
   engine, why no tenant change can satisfy the exam (a witness the

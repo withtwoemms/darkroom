@@ -24,10 +24,16 @@ The hats, since the vocabulary runs through everything below:
 
 | hat | writes | reads | never sees |
 |-----|--------|-------|------------|
-| product | the spec (`scenarios/<name>.feature`), the rubric (`rubric.toml`) | surfaces, evidence | — |
+| product (the operator) | the spec (`scenarios/<name>.feature`), the rubric (`rubric.toml`) | surfaces, evidence | — |
 | engineering (the builder) | the code, the surfaces (`scenarios/<name>.surfaces`) | the spec, feedback | the exposure, the rubric |
 | QA (the operator) | the exposure (`exposure.toml`), backdrops | the spec, surfaces | — |
 | review (the judge) | the verdict | the rubric, evidence, the surfaces' addresses | the code, the builder's prose |
+
+Three people wear the four hats: the builder and the judge are agents;
+product and QA are both the operator — one person, two hats, and the
+hats separate *files*, not people. The discipline is in which file may
+be touched to make a run go green: QA fixes the exposure, product never
+quietly loosens the rubric, and neither edits the `.surfaces`.
 
 And the photography vocabulary: the **spec** states the behavior, the
 **backdrop** is the setup it is posed against, the **exposure**

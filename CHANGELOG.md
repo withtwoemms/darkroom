@@ -39,6 +39,10 @@ versioned independently of the package — see `ROADMAP.md`.
   names the exam it answered. 2.0 readers ignore it.
 - **Screenshots as witnesses**: a criterion may cite a `screenshot`
   step; the picture is the record.
+- **A proof folder may hold the exposure alone** while the exam is
+  being written (the quickstart's stage 1): it runs and is verified
+  structurally; sealing, auditing (`no-rubric`), judging, and contract
+  derivation refuse it by name until `rubric.toml` arrives.
 - **Derived contract and home-side gates.** With no `[evidence]
   contract` declared, the contract a run is verified against is
   derived from the proofs at run time (`drive`/`expose`, `auto`'s
