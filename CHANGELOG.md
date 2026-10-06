@@ -8,6 +8,14 @@ versioned independently of the package — see `ROADMAP.md`.
 
 ## [0.20.0] - 2026-10-06
 
+### Fixed
+
+- The release build stamped itself `0.20.1.dev0`: a unit test wrote
+  evidence under the repo root, those files had been committed, and
+  CI's test run dirtied the tree before `uv build`. Unit tests now
+  capture evidence under a temporary directory, `evidence/` is
+  ignored, and the release workflow refuses to build a dirty tree.
+
 ### Added
 
 - **Proofs** (`docs/spec/proofs.md`, format 1.0): the sealed exam as
