@@ -71,7 +71,7 @@ jobs:
           cp -r examples/relay-service /tmp/relay-service
           cd /tmp/relay-service
           UV_PROJECT_ENVIRONMENT=$GITHUB_WORKSPACE/.darkroom-3.12 uv run --python 3.12 --project $GITHUB_WORKSPACE \
-            darkroom drive --drives drives-ui --scenario notes_page
+            darkroom expose --drives proofs-ui --scenario notes_page
       - name: Upload the example screencast
         uses: actions/upload-artifact@v4
         with:

@@ -12,7 +12,7 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 
-from darkroom.contract import load_contract, scoped_contract
+from darkroom.contract import scoped_contract
 from darkroom.loop import Assessment, LoopContext
 from darkroom.verify import verify
 
@@ -59,11 +59,17 @@ class AdapterAssessor:
                 + (f"; test output: {output_tail}" if output_tail else ""),
             )
 
-        contract = None
-        if adapter.contract_path is not None:
-            contract_file = adapter.resolve(adapter.contract_path)
-            if contract_file.exists():
-                contract = load_contract(contract_file)
+        from darkroom.vault import VaultError, runtime_contract
+
+        try:
+            contract = runtime_contract(adapter)
+        except VaultError as exc:
+            return Assessment(
+                manifest_path=manifest_path,
+                tests_passed=tests_passed,
+                verify_ok=False,
+                notes=f"contract could not be derived: {exc}",
+            )
         result = verify([manifest_path], scoped_contract(contract, ctx.scenario))
         notes = "; ".join(f.message for f in result.errors[:5])
         if not tests_passed and output_tail:

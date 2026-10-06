@@ -42,7 +42,7 @@ The core is dependency-free. Extras add capabilities:
 | extra | adds |
 |---|---|
 | `playwright` | browser steps, screenshots, screencasts, WebAuthn ceremonies |
-| `crypto` | Ed25519 keygen/signing steps in drive scripts |
+| `crypto` | Ed25519 keygen/signing steps in exposures |
 | `vault` | the OpenBao / HashiCorp Vault rubric backend |
 | `containers` | containerized system-under-test environments |
 | `all` | everything above |
@@ -103,21 +103,38 @@ port = 9090
 ready_path = "/"
 ```
 
-The **exam** is data, held operator-side as one drive script per
-scenario — in the project's darkroom home
-(`~/.darkroom/projects/<name>/drives/`), never in the repo the builder
-works in; the quickstart's stage 4 moves it there, and `darkroom auto`
-refuses to run while a drive script is still inside the tenant. The
-engine boots the app fresh, executes the steps against it as a black
-box, and captures every exchange as evidence:
+What every scenario shares, the adapter says once — an exam then
+carries only what differs:
 
 ```toml
+[serve.defaults]        # every scenario's [serve] starts here
+ttl = 120
+
+[serve.env]             # the engine sets the served process's environment
+APP_TTL_SECONDS = "{ttl}"
+APP_DATABASE_URL = "postgresql://postgres:exam@{postgres.host}:{postgres.port}/postgres"
+
+[browser.defaults]
+webauthn = true
+```
+
+The **exam** is data, held operator-side as one **proof** per scenario
+— a folder in the project's darkroom home
+(`~/.darkroom/projects/<name>/proofs/<scenario>/`), never in the repo
+the builder works in. A proof is two files with two authors: the
+**exposure** (QA's — the steps that drive the app as a black box and
+capture every exchange as evidence) and the **rubric** (product's —
+the criteria that score what was captured). The quickstart's stage 4
+puts them there, and `darkroom auto` refuses to run while exam
+material is still inside the tenant:
+
+```toml
+# proofs/note_saved/exposure.toml
 scenario = "note_saved"
 record = true          # screencast the whole scenario
 
 [[step]]
 name = "save"
-kind = "http"
 method = "POST"
 url = "{base_url}/notes"
 json = { text = "first light" }
@@ -130,6 +147,26 @@ url = "{base_url}/notes/{note_id}"
 expect = { status = 200, body_contains = "first light" }
 ```
 
+```toml
+# proofs/note_saved/rubric.toml
+version = "1"
+
+[[criterion]]
+id = "saved_and_readable"
+points = 10
+description = "a saved note reads back with its text"
+witnesses = ["save", "read_back"]     # evidence kinds follow from the steps cited
+```
+
+`darkroom expose` runs the exposure (`darkroom drive`, its older
+name, still does). The builder, for its part, publishes the interface
+it chose beside each spec — `scenarios/<name>.surfaces`, the routes,
+commands, pages, and files the build exposes — and `darkroom audit`
+holds every exposure to that publication both ways: a step probing
+something unpublished, a published surface nothing proves. Setup
+many exposures share (founding, joining, signing in) is named once in
+the home's `backdrops.toml` and posed ahead with `backdrop = [...]`.
+
 Step kinds cover HTTP, commands, Ed25519 keygen/signing, assertions,
 waits, container failure injection, and real browser interaction
 (`goto`/`click`/`fill`/`screenshot`, with viewport control and
@@ -138,8 +175,10 @@ scenario keeps its evidence: a failing scenario is still judgeable,
 which is the point.
 
 `darkroom verify` checks each run against an **evidence contract**
-(per-scenario required kinds, counts, steps, trials), so "this build
-produced its proof" is a CI gate before any judging happens.
+(per-scenario required kinds, counts, steps, trials) — derived from
+the proofs' criteria at run time, so a tenant on proofs commits no
+contract at all — and "this build produced its evidence" is a CI gate
+before any judging happens.
 
 The **loop**, `darkroom auto`, runs assess → judge → build to
 convergence. Judge and builder can be shell hooks (see the
@@ -163,17 +202,22 @@ darkroom auto --scenario note_saved     # operator config discovered from the ho
 ```
 
 Authority lives in the per-project **darkroom home**
-(`~/.darkroom/projects/<name>/`, mode 700): operator config, drive
-scripts, loop state, and the **vault** of sealed rubrics, which the judge
-reads and the builder never can. `darkroom vault seal` moves
-rubrics out of the tenant; `derive-contract` regenerates the
-builder-safe contract from them; the OpenBao backend adds token-gated
-reads and server-side audit. The loop stagnation-escalates
-(diagnostic access, model escalation, sharper feedback), rolls back
-regressions to the best checkpoint, and ratchets
-`evidence-gates.json` on convergence. A red gate always means
+(`~/.darkroom/projects/<name>/`, mode 700): operator config, proofs,
+backdrops, loop state, and the **vault**, through which the judge is
+handed each proof's rubric — criteria, never steps — and the addresses
+of the build's published surfaces, never the builder's prose about
+them; the builder reads none of it. `darkroom vault seal` validates the proofs (or, on
+the older layout, moves rubrics out of the tenant); the OpenBao
+backend adds token-gated reads and server-side audit. Every manifest
+names the exam it answered — the exposure's digest and the rubric's
+version — so a verdict is never ambiguous about what it judged. The loop
+stagnation-escalates (diagnostic access, model escalation, sharper
+feedback), rolls back regressions to the best checkpoint, and ratchets
+the gates in the home's state on convergence. A red gate always means
 something real: rubric changes re-baseline; they never masquerade as
-regressions.
+regressions. Projects on the older drive-script + rubric layout keep
+working; `darkroom migrate` turns each pair into a proof folder and
+each spec's `Build:` note into a draft `.surfaces`.
 
 Every agent invocation is **metered** (model, tokens, cost) into loop
 state, and `darkroom dossier` assembles the cross-run record into

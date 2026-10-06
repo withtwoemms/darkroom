@@ -53,8 +53,8 @@ across the record:
   criterion stays flat while the builder's changed-files list keeps
   revisiting the same files, say the evidence suggests the problem is
   elsewhere — possibly the exam: recommend the operator check the
-  drive script's evidence kinds against the rubric's declarations
-  (the known failure mode where a rubric declares evidence the drive
+  exposure's evidence kinds against the criteria's declarations
+  (the known failure mode where a criterion declares evidence the exposure
   never produces).
 - **Novelty**: behavior the record shows that nothing required —
   e.g. changed files outside the scenario's obvious surface, or a

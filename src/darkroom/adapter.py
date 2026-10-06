@@ -63,6 +63,26 @@ class ProjectAdapter:
     environment_build: str = ""
     app_env: tuple[tuple[str, str], ...] = ()
     services: tuple[ServiceSpec, ...] = ()
+    # [serve.defaults]: serve-table values every exam starts from; an
+    # exam's own [serve] overrides key by key. [serve.env]: environment
+    # the engine sets on the served process, templates interpolated like
+    # the serve command. [browser.defaults]: the same for [browser].
+    serve_defaults: dict = field(default_factory=dict)
+    serve_env: tuple[tuple[str, str], ...] = ()
+    browser_defaults: dict = field(default_factory=dict)
+    # whether the tenant declared [evidence] gates itself; undeclared, the
+    # ratchet lives in the operator home's state, not beside the code
+    gates_declared: bool = True
+
+    def serve_vars(self, overrides: dict | None = None) -> dict:
+        merged = dict(self.serve_defaults)
+        merged.update(overrides or {})
+        return merged
+
+    def browser_options(self, overrides: dict | None = None) -> dict:
+        merged = dict(self.browser_defaults)
+        merged.update(overrides or {})
+        return merged
 
     def resolve(self, relative: Path) -> Path:
         relative = Path(relative)
@@ -132,9 +152,19 @@ def loads_adapter(text: str, root: Path) -> ProjectAdapter:
                 "starting with '/' on a service that declares a port"
             )
 
+    serve_table = data.get("serve", {})
+    serve_env = serve_table.get("env") or {}
+    for key, template in serve_env.items():
+        if not isinstance(template, str):
+            raise ValueError(f"[serve.env] {key} must be a string template")
+    browser_table = data.get("browser", {})
+
     return ProjectAdapter(
         root=Path(root),
         name=name,
+        serve_defaults=dict(serve_table.get("defaults") or {}),
+        serve_env=tuple(sorted(serve_env.items())),
+        browser_defaults=dict(browser_table.get("defaults") or {}),
         app_image=environment.get("app_image", ""),
         app_port=int(environment.get("app_port", 8000)),
         environment_build=environment.get("build", ""),
@@ -147,6 +177,7 @@ def loads_adapter(text: str, root: Path) -> ProjectAdapter:
         evidence_dir=Path(evidence.get("dir", "evidence")),
         contract_path=Path(contract) if contract else None,
         gates_path=Path(evidence.get("gates", "evidence-gates.json")),
+        gates_declared="gates" in evidence,
         spec_glob=scenarios.get("spec_glob", ""),
         rubric_glob=scenarios.get("rubric_glob", ""),
         defaults=dict(data.get("defaults", {})),

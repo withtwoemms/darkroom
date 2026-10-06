@@ -1,0 +1,14 @@
+[routes]
+POST /notes                   → 201 {id, token}; the token is shown once
+GET /notes/{id}               → 200 while it exists; 404 after deletion
+DELETE /notes/{id}            X-Note-Token header → 204; a wrong token → 403
+                              and the note is untouched
+
+[commands]
+
+[pages]
+
+[files]
+
+[notes]
+the token is compared in constant time; there is no "forgot my token"

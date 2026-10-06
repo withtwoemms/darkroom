@@ -689,6 +689,31 @@ class _Services:
         self.containers = {}
 
 
+def _serve_env(adapter: ProjectAdapter, port: int, substitutions: dict) -> dict[str, str]:
+    """[serve.env] templates resolved the way the serve command is:
+    {port}, the serve vars, and declared services' {name.host}/{name.port}."""
+    # service namespaces stay objects: format() reads {postgres.host} as
+    # an attribute, exactly as the serve command's template does
+    values: dict = {"port": str(port)}
+    for key, value in substitutions.items():
+        if isinstance(value, SimpleNamespace):
+            values[str(key)] = SimpleNamespace(
+                host=str(value.host), port="" if value.port is None else str(value.port)
+            )
+        else:
+            values[str(key)] = str(value)
+    resolved: dict[str, str] = {}
+    for name, template in adapter.serve_env:
+        try:
+            resolved[name] = template.format(**values)
+        except (KeyError, AttributeError) as exc:
+            missing = exc.args[0] if isinstance(exc, KeyError) else template
+            raise DriveError(
+                f"[serve.env] {name} needs a value for {{{missing}}}"
+            ) from None
+    return resolved
+
+
 class _Server:
     def __init__(
         self, adapter: ProjectAdapter, extra_vars: dict, services: _Services | None = None
@@ -700,12 +725,17 @@ class _Server:
         if services is not None:
             substitutions.update(services.namespaces)
         self.command = adapter.command("serve", port=self.port, **substitutions)
+        # [serve.env]: the engine sets the served process's environment
+        # directly, so a tenant needs no Makefile hop per knob
+        self.env = dict(os.environ)
+        self.env.update(_serve_env(adapter, self.port, substitutions))
         # its own session, so stop() can signal the whole tree: a serve
         # command is usually `make serve` -> `uv run` -> the server, and
         # terminating the shell alone orphaned the server every scenario
         self.process = subprocess.Popen(
             ["/bin/sh", "-c", self.command],
             cwd=adapter.root,
+            env=self.env,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
             start_new_session=True,
@@ -873,8 +903,22 @@ def load_drive(path: Path) -> dict:
     return script
 
 
+def load_exam(path: Path, backdrops: dict[str, list[dict]] | None = None) -> dict:
+    """A drive script with its backdrops expanded into steps."""
+    from darkroom.backdrops import BackdropError, expand
+
+    script = load_drive(path)
+    try:
+        return expand(script, backdrops or {})
+    except BackdropError as exc:
+        raise DriveError(str(exc)) from None
+
+
 def drive_scenario(
-    adapter: ProjectAdapter, script: dict, containers: bool = False
+    adapter: ProjectAdapter,
+    script: dict,
+    containers: bool = False,
+    provenance: dict | None = None,
 ) -> ScenarioResult:
     scenario = script["scenario"]
     result = ScenarioResult(scenario=scenario)
@@ -896,12 +940,16 @@ def drive_scenario(
     try:
         if needs_server:
             if containers:
-                environment = _ContainerEnvironment(adapter, script.get("serve", {}))
+                environment = _ContainerEnvironment(
+                    adapter, adapter.serve_vars(script.get("serve"))
+                )
                 ctx.values["base_url"] = environment.base_url
                 _wait_healthy(environment.base_url)
             else:
                 services = _Services(adapter) if adapter.services else None
-                server = _Server(adapter, script.get("serve", {}), services=services)
+                server = _Server(
+                    adapter, adapter.serve_vars(script.get("serve")), services=services
+                )
                 ctx.values["base_url"] = server.base_url
                 if services is not None:
                     # a drive that re-boots the app in place (a restart
@@ -910,7 +958,7 @@ def drive_scenario(
                     for svc_name, ns in services.namespaces.items():
                         ctx.values[f"{svc_name}.host"] = ns.host
                         ctx.values[f"{svc_name}.port"] = "" if ns.port is None else str(ns.port)
-                if script.get("browser", {}).get("webauthn"):
+                if adapter.browser_options(script.get("browser")).get("webauthn"):
                     # WebAuthn RP IDs must be valid domains — an IP
                     # origin is rejected, so passkey scenarios address
                     # the same server as localhost
@@ -923,7 +971,7 @@ def drive_scenario(
                 import tempfile
 
                 record_dir = Path(tempfile.mkdtemp(prefix="darkroom-screencast-"))
-            browser_options = script.get("browser", {})
+            browser_options = adapter.browser_options(script.get("browser"))
             browser = _BrowserSession(
                 record_dir=record_dir,
                 viewport=browser_options.get("viewport"),
@@ -932,6 +980,8 @@ def drive_scenario(
             )
 
         capture = EvidenceCapture(scenario)
+        if provenance and capture.run is not None:
+            capture.run.record_provenance(scenario, provenance)
         if environment is not None:
             capture.log("environment", {"images": environment.digests()})
         elif server is not None and server.services is not None:
@@ -994,17 +1044,39 @@ def drive(
     mode, starts a run, executes each script (fresh server per
     scenario), and ends the run so the manifest is written.
     """
+    from darkroom.backdrops import BackdropError, load_backdrops
+    from darkroom.homedir import default_backdrops
+    from darkroom.proof import ProofError, exposure, load_proof, proof_dirs
+    from darkroom.proof import provenance as proof_provenance
     from darkroom.run import end_run, start_run
 
-    scripts = sorted(Path(drives_dir).glob(f"*{DRIVE_SUFFIX}"))
+    try:
+        backdrops = load_backdrops(default_backdrops(adapter.name) if adapter.name else None)
+    except BackdropError as exc:
+        raise DriveError(str(exc)) from None
+
+    # proofs are the exam when the directory holds them; drive scripts otherwise
+    proofs = proof_dirs(drives_dir)
+
+    def _load(path: Path) -> tuple[dict, dict]:
+        """The runnable script and what the manifest records about it."""
+        if proofs:
+            try:
+                proof = load_proof(path)
+                return exposure(proof, backdrops), proof_provenance(path, proof)
+            except ProofError as exc:
+                raise DriveError(str(exc)) from None
+        return load_exam(path, backdrops), {}
+
+    def _names(path: Path) -> str:
+        return path.name if proofs else load_drive(path)["scenario"]
+
+    scripts = proofs or sorted(Path(drives_dir).glob(f"*{DRIVE_SUFFIX}"))
     if scenario is not None:
-        scripts = [
-            p for p in scripts if load_drive(p)["scenario"] == scenario
-        ]
+        scripts = [p for p in scripts if _names(p) == scenario]
     if not scripts:
         raise DriveError(
-            f"no drive scripts{f' for scenario {scenario!r}' if scenario else ''} "
-            f"in {drives_dir}"
+            f"no exams{f' for scenario {scenario!r}' if scenario else ''} in {drives_dir}"
         )
 
     containers = resolve_container_mode(containers_mode, adapter)
@@ -1030,11 +1102,13 @@ def drive(
     report = DriveReport()
     try:
         for path in scripts:
-            name = path.name[: -len(DRIVE_SUFFIX)]
+            name = path.name if proofs else path.name[: -len(DRIVE_SUFFIX)]
             try:
-                script = load_drive(path)
+                script, provenance = _load(path)
                 report.results.append(
-                    drive_scenario(adapter, script, containers=containers)
+                    drive_scenario(
+                        adapter, script, containers=containers, provenance=provenance
+                    )
                 )
             except DriveError as exc:
                 # a scenario that cannot even boot is a failed scenario,

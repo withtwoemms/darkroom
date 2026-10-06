@@ -1,0 +1,13 @@
+version = "1"
+
+[[criterion]]
+id = "page_renders_form"
+points = 10
+description = "the page opens under its title with the note form visible and nothing yet in the list"
+witnesses = ["open_notes_page", "empty_state"]
+
+[[criterion]]
+id = "saved_note_visible"
+points = 10
+description = "after a note is typed and saved, its text appears in the rendered list"
+witnesses = ["save_note", "saved_state"]

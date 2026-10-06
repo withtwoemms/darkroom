@@ -1,6 +1,6 @@
 ---
 name: darkroom-interview
-description: Conduct the darkroom intent interview - distill a product description into scenarios, rubrics, and an evidence contract for evidence-based delivery. Use when a user wants to set up a project for darkroom, author scenarios or rubrics, define "done" for a feature, or prepare a project for the convergence loop.
+description: Conduct the darkroom intent interview - distill a product description into product's two files per scenario, the spec (plain Gherkin) and the rubric (proofs/<scenario>/rubric.toml), for evidence-based delivery. Use when a user wants to set up a project for darkroom, author scenarios or criteria, define "done" for a feature, or prepare a project for the convergence loop.
 ---
 
 # The darkroom intent interview
@@ -11,6 +11,15 @@ The discipline comes from the rubric lifecycle (decomposition → interview
 → drafting → calibration → sign-off); your output is files, not prose.
 The user is the operator — they see everything, including rubrics.
 Sealing happens at the end, and only if they run the autonomous loop.
+
+You are wearing **product's** hat. Product writes two files per
+scenario and no others: the spec (`scenarios/<name>.feature` — what
+must be true, in plain Gherkin, no routes, no selectors, no `Build:`
+notes) and the rubric (`proofs/<name>/rubric.toml` — what a good
+record shows). Engineering publishes *how* it is reached in
+`scenarios/<name>.surfaces` as it builds; QA writes the exposure
+beside the rubric (the converge skill). A spec that names a route or
+a selector is product doing engineering's job, and it will be wrong.
 
 **The governing rule: a criterion that cannot be proven by capturable
 evidence does not get written.** Two hard corollaries, learned
@@ -61,32 +70,37 @@ Ask one focused question at a time; never a questionnaire wall. When the
 user declines to pin something down, keep the criterion and mark it
 `confidence = "low"` with fewer points — flagged, never silently guessed.
 
-## Stage 4 — Draft the rubrics
+## Stage 4 — Draft the rubric
 
-One rubric file per scenario:
+The rubric is product's half of each scenario's proof
+(`~/.darkroom/projects/<name>/proofs/<scenario>/rubric.toml`); the
+converge skill writes `exposure.toml` beside it:
 
 ```toml
-feature_id = "client-approves-proof"   # dash-case
 version = "1"
-scenario = "client_approves_proof"     # snake_case, matches tests
 
 [[criterion]]
 id = "approval_persists"
 points = 20
-description = "Approving transitions the proof to 'approved' in storage; status survives reload"
-evidence = ["http_transcript", "screenshot"]
-witnesses = ["status_after_reload"]   # drive steps whose resolved values prove it
+description = "an approval is still in force after the page is reloaded"
+witnesses = ["status_after_reload"]   # steps whose records prove it; evidence kinds follow
 ```
 
 Rules: a criterion that rests on a specific check cites it
-structurally — `witnesses = [...]` lists the drive steps whose
-*resolved values* prove it (an `assert`, an `http`/`command` step, or
+structurally — `witnesses = [...]` lists the steps whose *records*
+prove it (an `assert`, an `http`/`command` step, a `screenshot`, or
 any step with an `expect` table; `darkroom audit` refuses a cited bare
-`goto`, which gates a run but leaves nothing a judge can read); every
-criterion names its evidence kinds (reject unprovable
-criteria at this stage and say why); points encode the charter's
-priorities; nondeterministic scenarios get a top-level `trials = N`;
+`goto`, which gates a run but leaves nothing a judge can read); its
+evidence kinds derive from the cited steps, so declare `evidence =
+[...]` only for a criterion that cites none (reject unprovable
+criteria at this stage and say why). A `description` is in product's
+words — what a good record shows — never a status code, a selector, a
+step name, or a restatement of the witnesses; the exposure says how,
+the rubric says what. Points encode the charter's priorities;
+nondeterministic scenarios get a top-level `trials = N`;
 low-confidence criteria carry `confidence = "low"` and few points.
+Never cite a step that lives in a backdrop (shared setup): what a
+scenario proves is in its own steps.
 
 ## Stage 5 — Self-audit before presenting
 
@@ -101,15 +115,19 @@ the audit happened.
 
 Lay down, creating directories as needed:
 
-- `scenarios/<name>.feature` — the sanitized spec: plain behavioral
-  description, **no criteria, points, or thresholds** (builders read
-  these)
-- `scenarios/<feature-id>.rubric.toml` — one per scenario
+- `scenarios/<name>.feature` — the sanitized spec: plain Gherkin
+  behavioral description, **no criteria, points, or thresholds**
+  (builders read these), and no routes, selectors, or `Build:` notes
+  either — how the behavior is reached is engineering's call,
+  published in `scenarios/<name>.surfaces` as it builds
+- `~/.darkroom/projects/<name>/proofs/<name>/rubric.toml` — one per
+  scenario, product's file; the converge skill writes
+  `exposure.toml` beside it; never inside the tenant
 - `darkroom.toml` — if absent: `[project]` name, a `[commands] test`
-  stub for their test runner, `[evidence]` dir + contract path,
-  `[scenarios]` globs (`scenarios/*.feature`, `scenarios/*.rubric.toml`)
-- `evidence-contract.toml` — derive it from the rubrics (union of each
-  scenario's evidence kinds; carry `trials`)
+  stub for their test runner, `[scenarios] spec_glob =
+  "scenarios/*.feature"`, and `[serve.defaults]` for whatever every
+  scenario's serve would otherwise repeat. No contract or gates path:
+  both derive from the proofs
 
 Then validate mechanically: run `darkroom preflight` and fix findings
 until it passes. Do not present artifacts that fail preflight.

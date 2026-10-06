@@ -6,6 +6,93 @@ project follows [semantic versioning](https://semver.org/) (pre-1.0: minor
 releases may break API, patch releases never do). The manifest schema is
 versioned independently of the package — see `ROADMAP.md`.
 
+## [Unreleased]
+
+### Added
+
+- **Proofs** (`docs/spec/proofs.md`, format 1.0): the sealed exam as
+  one folder per scenario — `~/.darkroom/projects/<name>/proofs/
+  <scenario>/` holds `exposure.toml` (QA's steps, drive-scripts 1.7
+  vocabulary unchanged) beside `rubric.toml` (product's criteria): one
+  lifecycle, two authors, two files. A criterion's `witnesses` resolve
+  against the exposure beside it and its evidence kinds derive from
+  the steps it cites; `kind = "http"` and `feature_id` are defaults.
+  The vault hands the judge the rubric half only (`list` by scenario,
+  `read` renders criteria, never steps), on the filesystem and OpenBao
+  backends alike, so judging code is untouched. The rubric's
+  `description` is product's words; status codes, selectors, and
+  step names belong to the exposure.
+- **The `.surfaces` file**: engineering publishes the interface it
+  chose for a scenario beside the spec — `scenarios/<name>.surfaces`,
+  five columnar sections (`[routes]`, `[commands]`, `[pages]`,
+  `[files]`, `[notes]`) — and `darkroom audit` binds every exposure to
+  it both ways: `surface-unpublished` (warning: a step probes what the
+  build never declared) and `surface-untouched` (info: published, not
+  proven); a malformed file is `surfaces-malformed`. The judge's prompt
+  carries the publication's addresses only — descriptions and notes
+  are builder prose and never reach the judge. Audit
+  findings now carry a `code`, and the audit reads the tenant's
+  `spec_glob`. Specs stay plain Gherkin: no routes, no selectors, no
+  `Build:` notes.
+- **Manifest 2.1**: each scenario bundle may carry `provenance` — the
+  exposure's `sha256` as run and the rubric's `version` — so a verdict
+  names the exam it answered. 2.0 readers ignore it.
+- **Screenshots as witnesses**: a criterion may cite a `screenshot`
+  step; the picture is the record.
+- **A proof folder may hold the exposure alone** while the exam is
+  being written (the quickstart's stage 1): it runs and is verified
+  structurally; sealing, auditing (`no-rubric`), judging, and contract
+  derivation refuse it by name until `rubric.toml` arrives.
+- **Derived contract and home-side gates.** With no `[evidence]
+  contract` declared, the contract a run is verified against is
+  derived from the proofs at run time (`drive`/`expose`, `auto`'s
+  assessor); with no `[evidence] gates`, the ratchet lives at
+  `~/.darkroom/projects/<name>/state/gates.json`. A tenant on proofs
+  commits neither file. Declared paths still win.
+- **Backdrops**: `~/.darkroom/projects/<name>/backdrops.toml` names
+  step sequences an exposure is posed against (`backdrop = [...]`) —
+  set before the sitting, reused across many, never the subject —
+  expanded ahead of its own steps, names intact; collisions and
+  unknown backdrops are load errors. Drive scripts may carry
+  `backdrop` too. The rule that follows: a witness is never in the
+  backdrop.
+- **`[serve.defaults]`, `[serve.env]`, `[browser.defaults]`** in
+  `darkroom.toml`: every exam's `[serve]`/`[browser]` starts from the
+  project's defaults, and the engine sets the served process's
+  environment from `[serve.env]` templates (`{port}`, serve vars,
+  `{service.host}`/`{service.port}`) — a missing value fails boot by
+  name.
+- **`darkroom migrate [--check] [--force]`**: turns each drive +
+  rubric pair in the home into a proof folder, dropping the
+  restatements, renaming `include` to `backdrop`, carrying
+  `version`/`trials`, reporting unpaired files, and printing the
+  `[serve.defaults]` block for serve keys identical across ≥ 90% of
+  the corpus (dropped from each exposure once darkroom.toml declares
+  them). For every spec with a `Build:` note and no `.surfaces`, a
+  draft `.surfaces` is written beside it — routes and selectors
+  lifted, the prose kept under `[notes]`, descriptions left to
+  engineering; the spec itself is never edited.
+- **`darkroom expose`**: `darkroom drive` under the proof vocabulary.
+  `darkroom preflight` pairs each spec with its proof folder in the
+  home (`unpaired-spec`) before falling back to a tenant `rubric_glob`;
+  `darkroom home init` lays down `proofs/` and names `backdrops.toml`.
+- The example tenant (`examples/relay-service`) ships in the new
+  shape: plain specs, a `.surfaces` beside each, proof folders in
+  `proofs/` and `proofs-ui/`, no committed contract.
+
+### Deprecated
+
+- Drive scripts and vault rubrics as two files. Both keep working
+  unchanged (a home without proofs is read exactly as before), and a
+  home holding proofs ignores `drives/` and vault rubrics — the
+  layouts never mix. `darkroom migrate` converts.
+- Tenant-side `evidence-contract.toml` / `[evidence] contract` and
+  `evidence-gates.json` / `[evidence] gates`: honored when declared,
+  needed no longer.
+- `feature_id` in rubrics and `kind = "http"` on steps: now defaults.
+- `Build:` notes in specs: engineering's half in product's file;
+  `darkroom migrate` drafts the `.surfaces` that replaces each.
+
 ## [0.19.7] - 2026-10-02
 
 ### Fixed

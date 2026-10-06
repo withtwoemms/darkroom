@@ -1,0 +1,14 @@
+{
+  "captured_at": "2026-09-30T03:05:26.051675",
+  "scenario": "addr",
+  "step": "say.expect",
+  "data": {
+    "expect": {
+      "exit_code": 0
+    },
+    "found": {
+      "exit_code": 0
+    },
+    "ok": true
+  }
+}

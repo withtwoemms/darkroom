@@ -59,7 +59,7 @@ class TestV2RoundTrip:
         loaded = loads_manifest(text)
 
         assert loaded.run_id == "test-run"
-        assert loaded.schema_version == "2.0"
+        assert loaded.schema_version == "2.1"
         assert loaded.project == "my-project"
         assert loaded.timestamp == "2026-03-17T13:44:02"
         assert len(loaded.scenarios) == 1
@@ -95,7 +95,7 @@ class TestV2RoundTrip:
         manifest = RunManifest(run_id="test")
         text = dumps_manifest(manifest)
         data = json.loads(text)
-        assert data["schema_version"] == "2.0"
+        assert data["schema_version"] == "2.1"
 
     def test_path_as_posix(self):
         item = EvidenceItem(

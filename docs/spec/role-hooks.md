@@ -45,6 +45,17 @@ The template is formatted with these placeholders and run via
 no evaluation aborts the loop. Scoring absence as zero would let an
 infrastructure failure masquerade as a quality signal.
 
+The built-in agent judge receives two inputs the hook contract does
+not yet carry as placeholders: the rubric text, inlined from the
+vault into its prompt (never a path, so no role holds a vault
+token), and the *inventory* of the build's published surfaces
+(`scenarios/<name>.surfaces`, see [proofs.md](proofs.md)) — addresses
+only, so it knows what a transcript or screenshot is *of*; the file's
+descriptions and notes are the builder's prose and never reach a
+judge. A hook judge that wants the same reads the file from the
+tenant and MUST apply the same stripping; a `{surfaces}` placeholder
+carrying the inventory is a candidate minor bump.
+
 ## Builder hook
 
 | Placeholder | Direction | Meaning |

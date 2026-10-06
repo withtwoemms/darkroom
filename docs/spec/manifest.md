@@ -1,6 +1,6 @@
 # The Run Manifest
 
-**Format:** JSON · **Schema version:** 2.0 · **File:** conventionally
+**Format:** JSON · **Schema version:** 2.1 · **File:** conventionally
 `runs/<run_id>/manifest.json`, adjacent to the evidence files it
 indexes.
 
@@ -28,7 +28,7 @@ Top level:
 
 | Field | Type | Required | Meaning |
 |-------|------|----------|---------|
-| `schema_version` | string | yes | `"2.0"` |
+| `schema_version` | string | yes | `"2.1"` (2.0 differs only in lacking `provenance`) |
 | `run_id` | string | yes | unique identifier for the run |
 | `project` | string | yes (may be `""`) | project name |
 | `timestamp` | string | yes (may be `""`) | run start, ISO 8601 |
@@ -39,6 +39,7 @@ Scenario bundle:
 | Field | Type | Required | Meaning |
 |-------|------|----------|---------|
 | `scenario` | string | yes | scenario name |
+| `provenance` | object | no (2.1) | the exam this evidence answers: `exposure_sha256` (digest of the proof's `exposure.toml` as run) and `rubric_version` (the rubric's `version` at the time); absent for drive scripts and the pytest plugin |
 | `items` | array of evidence items | yes | captured artifacts, in capture order |
 
 Evidence item:
@@ -91,13 +92,17 @@ MUST NOT emit v1.
 
 ```json
 {
-  "schema_version": "2.0",
+  "schema_version": "2.1",
   "run_id": "20260922T081500-3f2a",
   "project": "relay-service",
   "timestamp": "2026-09-22T08:15:00+00:00",
   "scenarios": [
     {
       "scenario": "note_created",
+      "provenance": {
+        "exposure_sha256": "9f2c…e41a",
+        "rubric_version": "1"
+      },
       "items": [
         {
           "kind": "http_transcript",

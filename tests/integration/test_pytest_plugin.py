@@ -57,7 +57,7 @@ class TestEvidenceModeSession:
         manifests = list(evidence_dir.glob("runs/*/manifest.json"))
         assert len(manifests) == 1
         manifest = json.loads(manifests[0].read_text())
-        assert manifest["schema_version"] == "2.0"
+        assert manifest["schema_version"] == "2.1"
         scenarios = {b["scenario"] for b in manifest["scenarios"]}
         assert scenarios == {"checkout"}
         item = manifest["scenarios"][0]["items"][0]

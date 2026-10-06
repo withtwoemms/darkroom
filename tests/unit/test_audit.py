@@ -176,7 +176,7 @@ class TestWitnessCitations:
             _vault(tmp_path, RUBRIC_CITES), _drives(tmp_path, DRIVE_GOTO_BARE)
         )
         assert has_errors(findings)
-        assert "produces no resolved value" in findings[-1].message
+        assert "leaves no record" in findings[-1].message
 
     def test_goto_with_expect_is_a_witness(self, tmp_path):
         findings = audit(

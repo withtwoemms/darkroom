@@ -45,6 +45,15 @@ approach.
 
 {rubric}
 
+## Published surfaces
+
+The addresses the build exposes for this scenario — routes, commands,
+pages, files — so you know what a transcript or screenshot is *of*.
+Addresses only: nothing here says what they do. Score only what the
+evidence shows.
+
+{surfaces}
+
 ## Evidence
 
 Evidence files live under {run_dir} (you may Read them; image evidence
@@ -229,6 +238,28 @@ class AgentJudge:
             )
         return "\n\n".join(sections)
 
+    def _surfaces_text(self, ctx: LoopContext, scenario: str | None) -> str:
+        """The inventory of what engineering published beside each spec in
+        scope — addresses only. The ``.surfaces`` file's descriptions and
+        notes are builder prose and never reach the judge: a judge handed
+        the builder's account of the change starts scoring the account."""
+        from darkroom.surfaces import SurfacesError, inventory, load_surfaces, surfaces_path
+
+        sections = []
+        for spec in ctx.adapter.spec_files():
+            stem = spec.name.split(".", 1)[0]
+            if scenario is not None and stem != scenario:
+                continue
+            path = surfaces_path(spec)
+            if not path.is_file():
+                continue
+            try:
+                listed = inventory(load_surfaces(path))
+            except (SurfacesError, OSError):
+                listed = "(unreadable — see darkroom audit)"
+            sections.append(f"### {stem}\n\n{listed or '(nothing published)'}")
+        return "\n\n".join(sections) if sections else "(nothing published)"
+
     def _evidence_text(self, manifest_path: Path, scenario: str | None) -> str:
         manifest = load_manifest(manifest_path)
         registry = default_registry()
@@ -258,6 +289,7 @@ class AgentJudge:
             _template_for(self.config, JUDGE_TEMPLATE),
             {
                 "rubric": self._rubric_text(ctx.scenario),
+                "surfaces": self._surfaces_text(ctx, ctx.scenario),
                 "evidence": self._evidence_text(
                     assessment.manifest_path, ctx.scenario
                 ),

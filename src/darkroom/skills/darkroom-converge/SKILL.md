@@ -1,6 +1,6 @@
 ---
 name: darkroom-converge
-description: Run a scenario through the darkroom convergence loop as the operator - author the drive and rubric, pre-flight, commit both repos, launch auto, triage blockers, regress, and deploy. Use when a user wants to build or ship a feature via darkroom auto, converge a scenario, or after the intent interview has produced a rubric that now needs a drive and a run.
+description: Run a scenario through the darkroom convergence loop as the operator - author the exposure beside product's rubric, pre-flight against the builder's published surfaces, commit both repos, launch auto, triage blockers, regress, and deploy. Use when a user wants to build or ship a feature via darkroom auto, converge a scenario, or after the intent interview has produced a rubric that now needs its exposure and a run.
 ---
 
 # Converging a scenario with darkroom
@@ -20,24 +20,46 @@ sequence below is ordered so the cheap checks gate the expensive one.
 
 The two repos you touch, and never confuse:
 
-- The **tenant** (the project repo): `scenarios/*.feature`, the app,
-  `darkroom.toml`, the Makefile. The builder reads and writes here.
-- The **operator home** (`~/.darkroom/projects/<name>/`): `drives/`,
-  the sealed `vault/`, `state/`. The builder cannot read this — it is
-  structurally outside every tenant path. Drives and rubrics live
-  here; sealing happens here.
+- The **tenant** (the project repo): `scenarios/*.feature` (product's
+  spec), `scenarios/*.surfaces` (engineering's published interface —
+  the routes, commands, pages, and files the build exposes for each
+  scenario), the app, `darkroom.toml`, the Makefile. The builder reads
+  and writes here.
+- The **operator home** (`~/.darkroom/projects/<name>/`): `proofs/`
+  (one folder per scenario: `exposure.toml`, QA's steps, beside
+  `rubric.toml`, product's criteria), `backdrops.toml` (shared setup an
+  exposure is posed against with `backdrop = [...]`), `vault/` (the
+  audit log; on the older layout, the sealed rubrics beside
+  `drives/`), `state/`. The builder cannot read this — it is
+  structurally outside every tenant path. Sealing happens here.
 
-## Stage 1 — Author the drive and confirm the rubric
+You wear **QA's** hat here: you write the exposure, you never edit the
+rubric to make an exposure pass, and you never edit a `.surfaces` —
+that is the builder's declaration, and an exposure that cannot reach
+what it declares is either your defect or the builder's missing work.
 
-The rubric (from the interview) already names each criterion's
-witness. Now write the drive that *produces* those witnesses:
-`~/.darkroom/projects/<name>/drives/<scenario>.drive.toml`.
+## Stage 1 — Author the exposure against the published surfaces
 
-- **Reuse a proven drive as the template**, never invent API shape.
-  Find the closest existing drive that founds the same objects and
+The rubric (from the interview) already names each witness. Now
+write the steps that *produce* those witnesses:
+`~/.darkroom/projects/<name>/proofs/<scenario>/exposure.toml`. Each
+step's evidence kind follows from its kind, so a criterion declares
+`evidence` only when it cites no step.
+
+- **Read the `.surfaces` first.** The builder published what this
+  scenario exposes beside its spec; an exposure addresses those
+  surfaces and nothing else. If the file is missing or stale, the
+  surfaces a new feature needs are the builder's first deliverable —
+  write the exposure to the spec's intent and expect `darkroom audit`
+  to flag `surface-unpublished` until the build catches up.
+- **Reuse a proven exposure as the template**, never invent API shape.
+  Find the closest existing proof that founds the same objects and
   copy its setup verbatim (the founding ceremony, the registration
-  path, the signing syntax). Most authoring defects are a wrong
-  assumption about how the app is actually reached.
+  path, the signing syntax) — or, when several exposures share it,
+  name it once in `backdrops.toml` and pose against it with
+  `backdrop = [...]`. A witness is never in the backdrop. Most
+  authoring defects are a wrong assumption about how the app is
+  actually reached.
 - **Value-witness every load-bearing claim.** A `click` or `goto`
   logs only its action, not the value its `expect` checked — so a
   criterion that depends on a value (a `data-*` surface, a status, a
@@ -58,10 +80,13 @@ witness. Now write the drive that *produces* those witnesses:
 ## Stage 2 — Audit (static, free)
 
 Run `darkroom audit`. It statically rejects any criterion whose
-declared evidence kinds no drive step can produce. Fix until clean.
-This catches the *unproducible-kind* defect — but not a drive that
-runs and fails. That is the next gate, and it is the one operators
-skip.
+declared evidence kinds no step can produce, and holds the exposure to
+the builder's `.surfaces` both ways (`surface-unpublished`,
+`surface-untouched`). Fix until clean — an unpublished surface on an
+existing feature is your defect; on a new feature it is the builder's
+next job. This catches the *unproducible-kind* and *wrong-address*
+defects — but not an exposure that runs and fails. That is the next
+gate, and it is the one operators skip.
 
 ## Stage 3 — Dry-run (executes the drive, free)
 
@@ -135,7 +160,10 @@ background. While it runs, watch three things:
 ## Stage 6 — Triage a blocker
 
 When `HARNESS-BLOCKER.md` appears, decide one thing: **is the builder
-right that this is operator-side?**
+right that this is operator-side?** Read the scenario's `.surfaces`
+beside it — its descriptions and `[notes]` are the builder's own
+account of what it exposed, the one channel for its reasoning that
+is not the blocker, and the judge never sees either; you do.
 
 - **Often it is** — the builder traces, in the tenant code and the
   engine, why no tenant change can satisfy the exam (a witness the
