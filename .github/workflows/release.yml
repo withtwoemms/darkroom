@@ -40,6 +40,17 @@ jobs:
               print("release guard FAILED:\n  " + "\n  ".join(errors)); sys.exit(1)
           print(f"release guard OK: plugin, marketplace, and {len(list(Path('src/darkroom/skills').iterdir()))} skills agree with {tag}")
           PY
+      - name: Guard — the tree is clean before the build
+        # setuptools_scm stamps a dirty tree as the *next* dev version
+        # (0.20.0 shipped as 0.20.1.dev0 once, after the unit tests rewrote
+        # tracked evidence files); a release must build from the tag, exactly
+        run: |
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "tree is dirty after the tests; the build would not carry the tag's version:"
+            git status --porcelain
+            exit 1
+          fi
+          echo "tree is clean at $(git describe --tags --long --dirty)"
       - name: Build distributions
         run: uv build
       - name: Guard — the wheel carries the skills
