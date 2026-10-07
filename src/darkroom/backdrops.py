@@ -32,6 +32,7 @@ else:  # pragma: no cover - exercised only on 3.10
     import tomli as tomllib
 
 BACKDROPS_FILE = "backdrops.toml"
+BACKDROP_MARK = "_backdrop"  # set on expanded steps: the backdrop they came from
 
 
 class BackdropError(Exception):
@@ -79,7 +80,9 @@ def expand(script: dict, backdrops: dict[str, list[dict]]) -> dict:
             )
         for step in backdrops[name]:
             _claim(step, f"backdrop '{name}'", seen, script)
-            expanded.append(dict(step))
+            # the engine ignores the marker; the audit uses it to leave a
+            # backdrop's surfaces to the scenario that owns them
+            expanded.append({**step, BACKDROP_MARK: name})
     for step in script.get("step", []):
         _claim(step, "the exposure itself", seen, script)
         expanded.append(step)

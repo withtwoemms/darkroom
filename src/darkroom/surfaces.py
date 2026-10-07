@@ -219,8 +219,22 @@ def _is_command_surface(cmd: str) -> bool:
     return _SHELL_CONTROL.search(cmd) is None
 
 
+_RUNTIME_PATH = re.compile(r"^\{base_url\}\{[^}]+\}(\?.*)?$")
+
+
+def _addressable(url: str) -> bool:
+    """A URL whose whole path is a run-time value (``{base_url}{link}``)
+    names nothing the audit can check; the step that produced the value
+    already touched the route that minted it."""
+    return _RUNTIME_PATH.match(url) is None
+
+
 def touched_surfaces(script: dict) -> list[Surface]:
-    """Every surface an exposure's steps address, in step order, deduplicated."""
+    """Every surface an exposure's own steps address, in step order,
+    deduplicated. Steps a backdrop contributed are left out: their
+    surfaces belong to the scenario that owns the backdrop."""
+    from darkroom.backdrops import BACKDROP_MARK
+
     seen: list[Surface] = []
 
     def _add(surface: Surface) -> None:
@@ -228,10 +242,12 @@ def touched_surfaces(script: dict) -> list[Surface]:
             seen.append(surface)
 
     for step in script.get("step", []):
+        if BACKDROP_MARK in step:
+            continue
         kind = step.get("kind", "http")
-        if kind == "http" and step.get("url"):
+        if kind == "http" and step.get("url") and _addressable(step["url"]):
             _add(route(step.get("method", "GET"), step["url"]))
-        elif kind == "goto" and step.get("url"):
+        elif kind == "goto" and step.get("url") and _addressable(step["url"]):
             _add(page(step["url"]))
         elif kind == "click" and step.get("selector"):
             _add(selector(step["selector"]))
@@ -256,27 +272,63 @@ def _paths_match(published: str, touched: str) -> bool:
 _SELECTOR_BOUNDARY = ("[", ":", " ", ">")
 
 
+_ATTR_VALUE = re.compile(r"\[([^\]=~|^$*]+)[~|^$*]?=[^\]]*\]")
+
+
+def _attr_shape(selector: str) -> str:
+    """``[data-x="y"]`` → ``[data-x]``: a publication names the attribute,
+    an exposure narrows to its value — the same surface."""
+    return _ATTR_VALUE.sub(r"[\1]", selector)
+
+
 def _selectors_match(published: str, touched: str) -> bool:
     """The same element, named at different specificity: ``#circle-door``
     published and ``#circle-door[data-starts-from="circle"]`` touched (the
     exposure narrowing to a state), or the reverse (the publication naming
     the state, the exposure the element). One must be the other extended
-    at a selector boundary — never ``#a`` against ``#ab``."""
+    at a selector boundary — never ``#a`` against ``#ab``. Attribute
+    values never decide it."""
+    published, touched = _attr_shape(published), _attr_shape(touched)
     if published == touched:
         return True
     short, long = sorted((published, touched), key=len)
     return long.startswith(short) and long[len(short)] in _SELECTOR_BOUNDARY
 
 
+def _words(command: str) -> list[str]:
+    """A command's words, quote-aware: ``NAME='Acme Bank'`` is one word."""
+    import shlex
+
+    try:
+        return shlex.split(command)
+    except ValueError:
+        return command.split()
+
+
+def _word_eq(a: str, b: str) -> bool:
+    """One command word against another: equal, a wildcard, or the same
+    ``KEY=`` with a wildcard value on either side (``ID=…`` published,
+    ``ID=acme`` run)."""
+    a, b = a.replace("…", "*").replace("...", "*"), b.replace("…", "*").replace("...", "*")
+    if a == b or a == "*" or b == "*":
+        return True
+    if "=" in a and "=" in b:
+        ka, va = a.split("=", 1)
+        kb, vb = b.split("=", 1)
+        return ka == kb and ("*" in va or "*" in vb)
+    return False
+
+
 def _words_match(published: str, touched: str) -> bool:
     """The published words occur in the touched command, contiguously, in
-    order; a ``*`` on either side matches any one word."""
-    want, have = published.split(), touched.split()
+    order; a ``*`` or ``…`` on either side matches any one word, and a
+    ``KEY=…`` any value for that key."""
+    want, have = _words(published), _words(touched)
     if not want:
         return False
     for start in range(len(have) - len(want) + 1):
         window = have[start : start + len(want)]
-        if all(a == b or a == "*" or b == "*" for a, b in zip(want, window, strict=True)):
+        if all(_word_eq(a, b) for a, b in zip(want, window, strict=True)):
             return True
     return False
 
