@@ -632,6 +632,92 @@ def _wait_http(url: str, timeout: float = 90.0) -> None:
     raise DriveError(f"service at {url} never answered an HTTP request")
 
 
+def _listeners(port: int) -> list[int]:
+    """PIDs listening on a TCP port (lsof; an absent lsof lists nothing)."""
+    try:
+        result = subprocess.run(
+            ["lsof", "-ti", f"tcp:{port}", "-sTCP:LISTEN"],
+            capture_output=True, text=True, timeout=10,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return []
+    pids = []
+    for line in result.stdout.split():
+        try:
+            pid = int(line)
+        except ValueError:
+            continue
+        if pid != os.getpid():
+            pids.append(pid)
+    return pids
+
+
+def _sweep_port(port: int) -> list[int]:
+    """Kill whatever still listens on a scenario's port after its server
+    tree was signalled, and return the PIDs swept. The port was handed
+    out by the engine for this scenario alone, so a listener on it is
+    this scenario's leftover — typically an app an exposure restarted
+    outside the engine's process group."""
+    # the common case — the group stop freed the port — must cost nothing;
+    # lsof scans every process on the host and takes seconds on macOS
+    with socket.socket() as probe:
+        probe.settimeout(0.5)
+        if probe.connect_ex(("127.0.0.1", port)) != 0:
+            return []
+    swept = []
+    for pid in _listeners(port):
+        try:
+            os.kill(pid, signal.SIGKILL)
+            swept.append(pid)
+        except (ProcessLookupError, PermissionError):
+            pass
+    return swept
+
+
+COLIMA_SOCKET_MARK = "/.colima/"
+RYUK_SOCKET_OVERRIDE = "TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE"
+VM_DOCKER_SOCKET = "/var/run/docker.sock"
+
+
+def docker_host_setting() -> str:
+    """The docker host testcontainers will use: ``DOCKER_HOST``, else
+    ``docker.host`` from ``~/.testcontainers.properties``, else empty."""
+    host = os.environ.get("DOCKER_HOST", "")
+    if host:
+        return host
+    properties = Path.home() / ".testcontainers.properties"
+    try:
+        for line in properties.read_text().splitlines():
+            key, sep, value = line.partition("=")
+            if sep and key.strip() == "docker.host":
+                return value.strip()
+    except OSError:
+        pass
+    return ""
+
+
+def colima_socket_override_needed() -> bool:
+    """Under colima the host's docker socket lives at ``~/.colima/…``, a
+    path that does not exist inside the VM — so Ryuk, which mounts the
+    socket by that path, fails to start (``mkdir …/docker.sock: operation
+    not supported``) and takes every service boot down with it. The fix
+    is one environment variable naming the socket as the VM sees it."""
+    if os.environ.get(RYUK_SOCKET_OVERRIDE):
+        return False
+    if os.environ.get("TESTCONTAINERS_RYUK_DISABLED", "").lower() in ("1", "true", "yes"):
+        return False
+    return COLIMA_SOCKET_MARK in docker_host_setting()
+
+
+def prepare_container_runtime() -> bool:
+    """Set the colima socket override when it is needed and unset. Called
+    before the first container of a run; returns whether it acted."""
+    if not colima_socket_override_needed():
+        return False
+    os.environ[RYUK_SOCKET_OVERRIDE] = VM_DOCKER_SOCKET
+    return True
+
+
 class _Services:
     """The adapter's declared services beside a process-mode app: a fresh
     Postgres per scenario while ``make serve`` still boots the app itself.
@@ -651,6 +737,7 @@ class _Services:
                     "declared [[environment.services]] need the containers "
                     "extra: pip install 'darkroom-ai[containers]'"
                 ) from None
+            prepare_container_runtime()
         self.adapter = adapter
         self.containers: dict[str, object] = {}
         self.namespaces: dict[str, SimpleNamespace] = {}
@@ -762,6 +849,10 @@ class _Server:
                 self.process.wait(timeout=5)
             except subprocess.TimeoutExpired:
                 pass
+        # whatever still listens on the scenario's port is this scenario's
+        # — a server an exposure restarted itself (a restart scenario's
+        # `nohup uvicorn …`) lives outside the group the engine signalled
+        _sweep_port(self.port)
         if self.services is not None:
             self.services.stop()
 
@@ -813,6 +904,7 @@ class _ContainerEnvironment:
         from testcontainers.core.container import DockerContainer
         from testcontainers.core.network import Network
 
+        prepare_container_runtime()
         self.adapter = adapter
         self.network = Network().create()
         self.containers: dict[str, object] = {}
@@ -1123,12 +1215,44 @@ def drive(
     finally:
         _write_harness_log(run, report)
         end_run()
+        prune_runs(adapter)
         for key, value in saved_env.items():
             if value is None:
                 os.environ.pop(key, None)
             else:
                 os.environ[key] = value
     return report
+
+
+def prune_runs(adapter: ProjectAdapter) -> list[Path]:
+    """Keep the newest ``[evidence] keep_runs`` run directories plus every
+    run a gate cites; remove the rest. Nothing is pruned unless the
+    adapter sets ``keep_runs``. Returns the directories removed."""
+    keep = adapter.keep_runs
+    if keep is None:
+        return []
+    runs_dir = adapter.resolve(adapter.evidence_dir) / "runs"
+    if not runs_dir.is_dir():
+        return []
+    cited: set[str] = set()
+    from darkroom.homedir import gates_file
+
+    gates = gates_file(adapter)
+    try:
+        data = json.loads(gates.read_text())
+        cited = {str(p.get("run_id")) for p in data.get("peaks", []) if p.get("run_id")}
+    except (OSError, ValueError):
+        pass
+    runs = sorted((p for p in runs_dir.iterdir() if p.is_dir()), key=lambda p: p.name)
+    removed = []
+    for path in runs[: max(0, len(runs) - keep)]:
+        if path.name in cited:
+            continue
+        import shutil
+
+        shutil.rmtree(path, ignore_errors=True)
+        removed.append(path)
+    return removed
 
 
 def _write_harness_log(run, report: DriveReport) -> None:

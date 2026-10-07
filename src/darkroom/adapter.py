@@ -73,6 +73,9 @@ class ProjectAdapter:
     # whether the tenant declared [evidence] gates itself; undeclared, the
     # ratchet lives in the operator home's state, not beside the code
     gates_declared: bool = True
+    # [evidence] keep_runs: prune the evidence run directories to the newest
+    # N after each drive, keeping any run a gate cites; unset keeps everything
+    keep_runs: int | None = None
 
     def serve_vars(self, overrides: dict | None = None) -> dict:
         merged = dict(self.serve_defaults)
@@ -105,6 +108,14 @@ class ProjectAdapter:
 
     def rubric_files(self) -> list[Path]:
         return sorted(self.root.glob(self.rubric_glob)) if self.rubric_glob else []
+
+
+def _keep_runs(value) -> int | None:
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, int) or value < 1:
+        raise ValueError("[evidence] keep_runs must be a positive integer")
+    return value
 
 
 def loads_adapter(text: str, root: Path) -> ProjectAdapter:
@@ -178,6 +189,7 @@ def loads_adapter(text: str, root: Path) -> ProjectAdapter:
         contract_path=Path(contract) if contract else None,
         gates_path=Path(evidence.get("gates", "evidence-gates.json")),
         gates_declared="gates" in evidence,
+        keep_runs=_keep_runs(evidence.get("keep_runs")),
         spec_glob=scenarios.get("spec_glob", ""),
         rubric_glob=scenarios.get("rubric_glob", ""),
         defaults=dict(data.get("defaults", {})),

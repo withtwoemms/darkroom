@@ -340,16 +340,28 @@ def _cmd_audit(args) -> int:
         print(f"error: {exc}")
         return 2
     findings = audit(vault, drives, backdrops, adapter.spec_files())
+    from collections import Counter
+
+    by_scenario: dict[str, list] = {}
     for f in findings:
-        print(f"{f.severity} [{f.scenario}]: {f.message}")
+        by_scenario.setdefault(f.scenario, []).append(f)
+    for scenario in sorted(by_scenario):
+        print(f"{scenario}:")
+        for f in by_scenario[scenario]:
+            code = f" ({f.code})" if f.code else ""
+            print(f"  {f.severity}{code}: {f.message}")
     errors = sum(1 for f in findings if f.severity == "error")
     warnings = sum(1 for f in findings if f.severity == "warning")
     infos = len(findings) - errors - warnings
-    print(
-        f"audit: {errors} error(s), {warnings} warning(s), {infos} note(s) across the vault"
-        if findings
-        else "audit: every criterion is witnessable, every step addresses a published surface"
-    )
+    if findings:
+        print(
+            f"audit: {errors} error(s), {warnings} warning(s), {infos} note(s) "
+            f"across {len(by_scenario)} scenario(s)"
+        )
+        by_code = Counter(f.code or f"{f.severity} (uncoded)" for f in findings)
+        print("  by code: " + ", ".join(f"{code} {n}" for code, n in by_code.most_common()))
+    else:
+        print("audit: every criterion is witnessable, every step addresses a published surface")
     return 1 if has_errors(findings) else 0
 
 
@@ -601,12 +613,12 @@ def _cmd_vault(args) -> int:
             print("commit the tenant-side removal; the vault is now the authority")
             return 0
 
-        if args.vault_command == "migrate":
+        if args.vault_command in ("move", "migrate"):
             from darkroom.homedir import default_vault
 
             source_vault = FilesystemVault(args.vault or default_vault(adapter.name))
             if isinstance(vault, FilesystemVault):
-                print("error: migrate needs an operator config with a non-filesystem backend")
+                print("error: vault move needs an operator config with a non-filesystem backend")
                 return 2
             archive = source_vault.root / "archive"
             archive.mkdir(exist_ok=True)
@@ -794,6 +806,73 @@ def _cmd_migrate(args) -> int:
     return 0 if plan.ok else 1
 
 
+def _cmd_surfaces(args) -> int:
+    """Publish a baseline ``.surfaces`` for scenarios whose builder has not:
+    drafted from the exposure's addresses, or merged into a file that lacks
+    them. The tenant gains only files beside its specs."""
+    from darkroom.adapter import load_adapter
+    from darkroom.audit import _drive_scripts
+    from darkroom.backdrops import BackdropError, load_backdrops
+    from darkroom.homedir import default_backdrops, exams_dir
+    from darkroom.surfaces import (
+        SurfacesError,
+        draft_from_exposure,
+        merge_addresses,
+        surfaces_path,
+    )
+
+    adapter_path = _find_adapter_or_error(args.project)
+    if adapter_path is None:
+        return 2
+    adapter = load_adapter(adapter_path)
+    drives = Path(args.drives) if args.drives else exams_dir(adapter.name)
+    try:
+        scripts = _drive_scripts(drives, load_backdrops(default_backdrops(adapter.name)))
+    except BackdropError as exc:
+        print(f"error: {exc}")
+        return 2
+    drafted = merged = untouched = 0
+    for spec in adapter.spec_files():
+        stem = spec.name.split(".", 1)[0]
+        if args.scenario and stem != args.scenario:
+            continue
+        script = scripts.get(stem)
+        if script is None:
+            continue
+        target = surfaces_path(spec)
+        if not target.exists():
+            text = draft_from_exposure(script)
+            if not args.check:
+                target.write_text(text)
+            drafted += 1
+            print(f"  {target.relative_to(adapter.root)} drafted")
+        elif args.merge:
+            try:
+                text, added = merge_addresses(target.read_text(), script)
+            except SurfacesError as exc:
+                print(f"error [{stem}]: {target.name}: {exc}")
+                continue
+            if added:
+                if not args.check:
+                    target.write_text(text)
+                merged += 1
+                print(f"  {target.relative_to(adapter.root)} +{len(added)}: {', '.join(added)}")
+            else:
+                untouched += 1
+        else:
+            untouched += 1
+    print(
+        f"surfaces: {drafted} drafted, {merged} merged, {untouched} left as published"
+        + (" (check only)" if args.check else "")
+    )
+    if drafted or merged:
+        print(
+            "drafts carry addresses only — engineering describes each and prunes "
+            "what the build does not expose"
+        )
+    return 0
+
+
 def _cmd_home(args) -> int:
     from darkroom.homedir import ensure_project_home, project_home
 
@@ -966,12 +1045,17 @@ def main(argv=None) -> int:
 
     vault_parser = sub.add_parser("vault", help="sealed rubric storage")
     vault_sub = vault_parser.add_subparsers(dest="vault_command", required=True)
-    for name, help_text in (
-        ("seal", "move the tenant's rubrics into the vault"),
-        ("derive-contract", "regenerate the evidence contract from vaulted rubrics"),
-        ("migrate", "move a filesystem vault's rubrics to the configured backend"),
+    for name, help_text, aliases in (
+        ("seal", "move the tenant's rubrics into the vault", []),
+        ("derive-contract", "regenerate the evidence contract from vaulted rubrics", []),
+        (
+            "move",
+            "move a filesystem vault's rubrics to the configured backend "
+            "(formerly `vault migrate`; that name still works)",
+            ["migrate"],
+        ),
     ):
-        p = vault_sub.add_parser(name, help=help_text)
+        p = vault_sub.add_parser(name, help=help_text, aliases=aliases)
         p.add_argument(
             "--vault", type=Path, default=None,
             help="vault directory (default: the project's darkroom home vault)",
@@ -1025,6 +1109,23 @@ def main(argv=None) -> int:
     audit_parser.add_argument("--drives", type=Path, default=None)
     audit_parser.add_argument("--project", type=Path, default=None)
     audit_parser.set_defaults(func=_cmd_audit)
+
+    surfaces_parser = sub.add_parser(
+        "surfaces",
+        help=(
+            "publish a baseline .surfaces beside each spec from what its exposure "
+            "reaches — a draft for engineering to make true"
+        ),
+    )
+    surfaces_parser.add_argument("--scenario", default=None)
+    surfaces_parser.add_argument(
+        "--merge", action="store_true",
+        help="also add unpublished addresses to existing .surfaces files",
+    )
+    surfaces_parser.add_argument("--check", action="store_true", help="report; write nothing")
+    surfaces_parser.add_argument("--drives", type=Path, default=None)
+    surfaces_parser.add_argument("--project", type=Path, default=None)
+    surfaces_parser.set_defaults(func=_cmd_surfaces)
 
     migrate_parser = sub.add_parser(
         "migrate",

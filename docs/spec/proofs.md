@@ -72,7 +72,7 @@ exposure produces records, it does not score them.
 
 | Field | Type | Required | Meaning |
 |-------|------|----------|---------|
-| `version` | string (default `"1"`) | no | the rubric's version: bump when the standard changes, not the mechanics — scores across a version change re-baseline, never read as regression |
+| `version` | string (default `"1"`) | no | the rubric's version: bump when its **schema** changes — a criterion added or removed, an `id`, `points`, `witnesses`, `trials`, or a threshold a description states — never for a rewording of the same standard. Scores across a version change re-baseline and are never read as regression; a copy edit keeps the version so the gate's history stays one series |
 | `trials` | integer (default 1) | no | how many runs each criterion's evidence must appear in |
 | `scenario` | string | no | may restate the exposure's; must match if present |
 | `[[criterion]]` | array of tables | yes (≥ 1) | the rubric |
@@ -207,6 +207,15 @@ browser opens and a `GET` the exposure makes are one surface; files
 and notes are never cross-checked. A scenario with no `.surfaces`
 gets no findings; a malformed one is `surfaces-malformed` (error).
 
+A scenario the builder has not touched since the file was introduced
+has no publication to be held to. `darkroom surfaces` drafts one from
+the addresses the scenario's exposure reaches on the current build —
+descriptions blank, the notes saying it is a draft — and `--merge`
+adds unpublished addresses to a file that already exists, its lines
+kept verbatim. It is a baseline, not engineering's word: the builder
+describes each surface and prunes what the build does not expose the
+next time it works the scenario.
+
 ## The adapter's share
 
 Three `darkroom.toml` tables let an exposure carry only what differs
@@ -230,6 +239,10 @@ webauthn = true
 declared service's `{name.host}` / `{name.port}`; a template with no
 value for a placeholder fails the scenario's boot by name. The
 `serve` command's own `{...}` substitution is unchanged.
+
+`[evidence] keep_runs = N` prunes the evidence run directories to the
+newest N after each drive, keeping any run a gate cites; unset keeps
+everything.
 
 ## What is derived, and from where
 

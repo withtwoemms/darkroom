@@ -14,6 +14,7 @@ quiet run is finished.
 
 from __future__ import annotations
 
+import os
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -258,6 +259,7 @@ def assemble_status(
             else {"scenario": blocked_scenario, "text": blocker_text}
         ),
         "queue": _queue(state_dir),
+        "metering": metering_info(),
         "spend": usage_all["totals"],
     }
 
@@ -283,6 +285,53 @@ def _money(value: float | None) -> str:
     return "—" if value is None else f"${value:.2f}"
 
 
+_metering_cache: dict | None = None
+
+
+def metering_info(timeout: float = 5.0) -> dict:
+    """Once per process (the CLI is asked, which costs a second)."""
+    global _metering_cache
+    if _metering_cache is None:
+        _metering_cache = _metering_info(timeout)
+    return dict(_metering_cache)
+
+
+def _metering_info(timeout: float) -> dict:
+    """How the agent CLI is billed, so the metered figure can be read
+    correctly: the ``claude`` CLI's ``total_cost_usd`` is the API list price
+    of the tokens used, which is a charge only under an API key — under a
+    claude.ai login it is a reference equivalent drawn against the plan's
+    usage. Fail-soft: an unknown auth method is reported as unknown."""
+    import json
+    import subprocess
+
+    info: dict = {
+        "auth_method": None,
+        "subscription": None,
+        "api_key_in_env": bool(os.environ.get("ANTHROPIC_API_KEY")),
+        "note": (
+            "cost_usd is the CLI's API-equivalent figure for the tokens used; "
+            "a charge only when the CLI runs on an API key"
+        ),
+    }
+    try:
+        out = subprocess.run(
+            ["claude", "auth", "status"], capture_output=True, text=True, timeout=timeout
+        ).stdout
+        data = json.loads(out[out.index("{"):])
+        info["auth_method"] = data.get("authMethod")
+        info["subscription"] = data.get("subscriptionType")
+    except (OSError, ValueError, subprocess.TimeoutExpired):
+        pass
+    if info["api_key_in_env"] or info["auth_method"] == "api_key":
+        info["billing"] = "metered"
+    elif info["auth_method"]:
+        info["billing"] = "subscription"
+    else:
+        info["billing"] = "unknown"
+    return info
+
+
 def dumps_status_markdown(bundle: dict) -> str:
     counts = bundle["counts"]
     total = len(bundle["scenarios"])
@@ -294,7 +343,7 @@ def dumps_status_markdown(bundle: dict) -> str:
         lines.append(f"{total} campaign(s): " + " · ".join(parts))
     lines += ["", "## convergence", ""]
     if bundle["scenarios"]:
-        lines.append("| scenario | state | iters | trajectory | best | gate | spend |")
+        lines.append("| scenario | state | iters | trajectory | best | gate | metered |")
         lines.append("|---|---|---|---|---|---|---|")
         for s in bundle["scenarios"]:
             gate = s["gate"]
@@ -331,7 +380,20 @@ def dumps_status_markdown(bundle: dict) -> str:
             lines.append(f"- {t['role']}/{t['id']} — {t['title']}{priority}")
     else:
         lines.append("empty")
-    lines += ["", "## spend", ""]
+    lines += ["", "## metered equivalent", ""]
+    metering = bundle.get("metering") or {}
+    billing = metering.get("billing", "unknown")
+    if billing == "subscription":
+        who = metering.get("subscription") or metering.get("auth_method")
+        lines.append(
+            f"agents run on a claude.ai login ({who}): the figures below are the "
+            "API-equivalent of the tokens used, drawn against the plan — not a charge"
+        )
+    elif billing == "metered":
+        lines.append("agents run on an API key: the figures below are charges")
+    else:
+        lines.append("agent billing method unknown (`claude auth status` did not answer)")
+    lines.append("")
     spend = bundle["spend"]
     by_role = ", ".join(
         f"{role} {_money(v['cost_usd'])}" for role, v in spend.get("by_role", {}).items()

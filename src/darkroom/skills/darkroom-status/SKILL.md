@@ -27,7 +27,7 @@ never fill the gap with something plausible.
    would ask for first.
 
 2. **Convergence** — from the command, per scenario with a campaign:
-   state, iterations, score trajectory, best, gate, spend. States are
+   state, iterations, score trajectory, best, gate, metered figure. States are
    exactly the engine's: `converged`, `running`, `blocked`, `stopped`,
    `exhausted`. A run in progress is *running* with its last score;
    never predict where it will land. A `stopped` campaign is one with
@@ -55,8 +55,13 @@ never fill the gap with something plausible.
    then what is waiting on the user (rulings, pushes, manual
    walkthroughs), stated as items they can act on.
 
-5. **Spend** — from the command: metered cost for the campaigns in
-   this report and the project total, judge and builder separately.
+5. **Metered equivalent** — from the command: the metered figure for
+   the campaigns in this report and the project total, judge and
+   builder separately, *with how the agents are billed* (the bundle's
+   `metering`). The CLI's `cost_usd` is the API list price of the
+   tokens used; under a claude.ai login it is a reference equivalent
+   drawn against the plan, not a charge — say which, every time, and
+   never call it "spend" unless `metering.billing` is `metered`.
 
 ## Rules of the report
 

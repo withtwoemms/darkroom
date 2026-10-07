@@ -318,6 +318,77 @@ def cross_check(published: Surfaces, script: dict) -> list[tuple[str, str]]:
     return findings
 
 
+DRAFT_NOTE = (
+    "draft: these addresses are what the scenario's exposure reaches on the current "
+    "build; engineering describes each and removes what the build does not expose"
+)
+
+_SECTION_FOR_KIND = {"route": "routes", "command": "commands", "page": "pages", "selector": "pages"}
+
+
+def _section_lines(surfaces_by_section: dict[str, list[str]], notes: list[str]) -> str:
+    lines: list[str] = []
+    for section in SECTIONS[:-1]:
+        lines.append(f"[{section}]")
+        lines.extend(surfaces_by_section.get(section, []))
+        lines.append("")
+    lines.append("[notes]")
+    lines.extend(notes)
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def draft_from_exposure(script: dict) -> str:
+    """A ``.surfaces`` drafted from the addresses an exposure touches —
+    the baseline for a scenario whose builder has not yet published, so
+    the audit holds the exposure to something real. Descriptions are left
+    for engineering; the notes say the file is a draft."""
+    by_section: dict[str, list[str]] = {}
+    for surface in touched_surfaces(script):
+        by_section.setdefault(_SECTION_FOR_KIND[surface.kind], []).append(str(surface))
+    return _section_lines(by_section, [DRAFT_NOTE])
+
+
+def merge_addresses(text: str, script: dict) -> tuple[str, list[str]]:
+    """The file with every address the exposure touches and the file does
+    not yet publish appended to its section (created when absent);
+    existing lines are kept verbatim. Returns the new text and the
+    addresses added."""
+    published = parse_surfaces(text)
+    checkable = published.of("route", "page", "selector", "command")
+    missing: dict[str, list[str]] = {}
+    for surface in touched_surfaces(script):
+        if not any(matches(p, surface) for p in checkable):
+            missing.setdefault(_SECTION_FOR_KIND[surface.kind], []).append(str(surface))
+    if not missing:
+        return text, []
+    lines = text.splitlines()
+    sections: dict[str, int] = {}  # section -> index of the line after its last entry
+    current = None
+    for index, raw in enumerate(lines):
+        header = _SECTION.match(raw)
+        if header:
+            current = header.group(1).lower()
+            sections[current] = index + 1
+        elif current is not None and raw.strip():
+            sections[current] = index + 1
+    added: list[str] = []
+    for section in reversed(SECTIONS[:-1]):  # insert bottom-up so indexes hold
+        entries = missing.get(section)
+        if not entries:
+            continue
+        if section in sections:
+            at = sections[section]
+            lines[at:at] = entries
+        else:
+            notes_at = next(
+                (i for i, raw in enumerate(lines) if raw.strip().lower() == "[notes]"),
+                len(lines),
+            )
+            lines[notes_at:notes_at] = [f"[{section}]", *entries, ""]
+        added.extend(entries)
+    return "\n".join(lines).rstrip() + "\n", added
+
+
 def build_notes(spec_text: str) -> list[str]:
     """Every ``Build:`` paragraph in a spec, as one string each — the
     place engineering's half used to be written, in product's file."""

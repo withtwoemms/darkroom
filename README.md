@@ -16,9 +16,9 @@ diff, and gate on.
 This is proven live, not aspirational. A greenfield example app was
 delivered by agents under darkroom: its API, its security behaviors,
 its full UI and design language, even its Makefile, every behavior
-converging to a gated 100 on captured evidence, for single-digit
-dollars of metered spend per campaign, with the exams' screencasts as
-the receipts.
+converging to a gated 100 on captured evidence, at a metered
+equivalent of single-digit dollars per campaign, with the exams'
+screencasts as the receipts.
 
 The name references the [*dark factory* pattern](https://withtwoemms.github.io/blog/2026/03/a-dark-factory-pattern/)
 (lights-off autonomous production) and the *clean room* pattern

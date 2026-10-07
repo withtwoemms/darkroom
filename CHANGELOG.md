@@ -6,6 +6,53 @@ project follows [semantic versioning](https://semver.org/) (pre-1.0: minor
 releases may break API, patch releases never do). The manifest schema is
 versioned independently of the package — see `ROADMAP.md`.
 
+## [Unreleased]
+
+### Added
+
+- **`darkroom surfaces [--merge] [--check] [--scenario]`**: a baseline
+  publication for scenarios the builder has not touched — a
+  `.surfaces` drafted from the addresses the scenario's exposure
+  reaches on the current build (descriptions blank, the notes saying
+  it is a draft), or with `--merge` the unpublished addresses added to
+  an existing file, its lines kept verbatim. The audit then holds every
+  exposure to something real instead of warning about the whole corpus;
+  engineering describes and prunes as it goes.
+- **`[evidence] keep_runs = N`**: after each drive the evidence run
+  directories are pruned to the newest N, keeping any run a gate cites.
+  Unset keeps everything, as before.
+- **`darkroom status` names how the agents are billed.** The bundle
+  carries `metering` (auth method, subscription, whether an API key is
+  in the environment) and the report's last section is now *metered
+  equivalent*: the CLI's `cost_usd` is the API list price of the tokens
+  used, which is a charge only when the CLI runs on an API key; under a
+  claude.ai login it is a reference figure drawn against the plan.
+- **Preflight `container-runtime`** (info): names the colima docker
+  host and the Ryuk socket override the engine will set.
+
+### Changed
+
+- **`darkroom audit` output has a shape**: findings grouped by scenario,
+  each with its code, and a per-code tally after the totals.
+- **`darkroom vault move`** is the name for moving a filesystem vault's
+  rubrics to the configured backend; `vault migrate` still works.
+- A rubric's `version` bumps for a change to its schema — criteria,
+  ids, points, witnesses, trials, stated thresholds — never for a
+  rewording (docs/spec/proofs.md).
+
+### Fixed
+
+- **Servers an exposure restarts itself no longer outlive the run.**
+  After the process-group stop, whatever still listens on the
+  scenario's port is swept — a `nohup uvicorn …` from a restart step
+  lives outside the group the engine signals and left one pair behind
+  every full run.
+- **colima needs no incantation.** When the docker host is a colima
+  socket and nothing has set `TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE`,
+  the engine sets it to `/var/run/docker.sock` before the first
+  container; without it Ryuk fails in seconds (`mkdir …/docker.sock:
+  operation not supported`) and every service boot with it.
+
 ## [0.20.1] - 2026-10-06
 
 ### Fixed
