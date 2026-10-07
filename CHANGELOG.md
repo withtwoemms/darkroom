@@ -6,6 +6,28 @@ project follows [semantic versioning](https://semver.org/) (pre-1.0: minor
 releases may break API, patch releases never do). The manifest schema is
 versioned independently of the package — see `ROADMAP.md`.
 
+## [Unreleased]
+
+### Fixed
+
+- **The builder was never told to publish its surfaces.** The judge
+  read them and the audit checked them, but the builder's prompt said
+  nothing — so the first 0.20 slice converged with no `.surfaces`
+  written. The builder's ground rules now say what the file is, its
+  five sections and columns, when to create and amend it, and that
+  its prose is for the people writing and judging the exam, never an
+  argument for a score.
+- **A selector narrowed to a state is the same surface.** The audit
+  matched selectors by exact string, so `#circle-door` published and
+  `#circle-door[data-starts-from="circle"]` touched read as two
+  surfaces. One extending the other at a selector boundary (`[`, `:`,
+  a space, `>`) now matches in either direction; `#a` never matches
+  `#ab`.
+- **A command that probes the served app is not a command surface.**
+  A `command` step whose `cmd` interpolates `{base_url}` (a `curl` of
+  the landing, say) is QA reaching a route with a host tool; it is no
+  longer cross-checked against `[commands]`.
+
 ## [0.20.0] - 2026-10-06
 
 ### Fixed

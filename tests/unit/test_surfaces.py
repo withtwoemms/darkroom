@@ -185,6 +185,22 @@ class TestCrossCheck:
             assert prose not in listed
         assert inventory(parse_surfaces("[notes]\nonly prose\n")) == ""
 
+    def test_a_selector_narrowed_to_a_state_is_the_same_surface(self):
+        published = parse_surfaces("[pages]\n#circle-door   the one action\n")
+        narrowed = {"step": [{"kind": "click", "selector": '#circle-door[data-starts-from="circle"]'}]}
+        assert cross_check(published, narrowed) == []
+        published = parse_surfaces('[pages]\n#sealed-items li[data-escrow-id]   one per item\n')
+        broader = {"step": [{"kind": "click", "selector": "#sealed-items li"}]}
+        assert cross_check(published, broader) == []
+        other = {"step": [{"kind": "click", "selector": "#circle-doorbell"}]}
+        codes = [c for c, _ in cross_check(parse_surfaces("[pages]\n#circle-door   x\n"), other)]
+        assert codes == ["surface-unpublished", "surface-untouched"]
+
+    def test_a_command_probing_the_app_is_not_a_command_surface(self):
+        probe = {"step": [{"kind": "command", "cmd": "curl -s {base_url}/ | grep -c 'name=\"handle\"'"}]}
+        assert touched_surfaces(probe) == []
+        assert cross_check(parse_surfaces(""), probe) == []
+
     def test_files_are_for_the_reader_never_checked(self):
         assert cross_check(parse_surfaces("[files]\nout.json   the export\n"), {"step": []}) == []
 
