@@ -71,7 +71,7 @@ Usage:
 | `records` | array | usage records as written by the metering layer (role, iteration, model, tokens, cost, duration, `partial`, `scenario`) |
 | `totals.calls` | integer | all agent calls |
 | `totals.metered_calls` | integer | calls with parsed cost |
-| `totals.cost_usd` | number or null | summed metered cost (null when nothing was metered) |
+| `totals.cost_usd` | number or null | summed metered figure (null when nothing was metered) — the agent CLI's API-equivalent price for the tokens used, a charge only when the CLI runs on an API key; under a subscription login it is a reference equivalent |
 | `totals.input_tokens` / `output_tokens` | integer or null | summed where known |
 | `totals.by_role` | object | per role: `calls`, `cost_usd`, `models` (in order of first use — an escalation appears as a second model) |
 

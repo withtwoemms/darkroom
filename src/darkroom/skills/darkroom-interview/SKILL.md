@@ -144,8 +144,11 @@ the two next steps, briefly:
 - **Tier 3 (autonomous loop):** `darkroom vault seal --vault <path
   outside the repo>` then `darkroom vault derive-contract`, an
   `operator.toml` kept outside the repo, and `darkroom auto --operator`.
-  Only after sealing is the rubric a secret; remind them revisions bump
-  `version` and re-baseline gates.
+  Only after sealing is the rubric a secret; remind them a schema
+  revision bumps `version` and re-baselines gates.
 
 Rubric revisions later follow the same discipline: annotate, revise,
-bump `version`, re-derive the contract.
+and bump `version` only when the schema changed — a criterion added
+or removed, an `id`, `points`, `witnesses`, `trials`, or a stated
+threshold. A rewording of the same standard keeps the version, so the
+gate's history stays one series.

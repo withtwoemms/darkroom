@@ -71,9 +71,13 @@ across the record:
   change as improvement or regression (mirror the gates rule:
   stale-peak, not regression).
 
-## Step 4 — Account for the spend
+## Step 4 — Account for the metered equivalent
 
-From `usage.totals`: total cost, calls, metered vs. partial. Attribute
+From `usage.totals`: total metered figure, calls, metered vs. partial.
+Say how the agents were billed (`darkroom status` carries `metering`):
+under a claude.ai login the figure is the API-equivalent of the tokens
+used, drawn against the plan — not money spent; it is a charge only
+when the CLI ran on an API key. Attribute
 per role and per scenario when scoped. If `partial` records dominate,
 say the ledger is incomplete and why that might be (custom invoke
 template without `--output-format json`). Cost per converged scenario

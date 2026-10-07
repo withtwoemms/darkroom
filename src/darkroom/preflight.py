@@ -192,6 +192,34 @@ def _check_drives_location(adapter: ProjectAdapter, findings: list[Finding]) -> 
         )
 
 
+def _check_container_runtime(adapter: ProjectAdapter, findings: list[Finding]) -> None:
+    """A tenant that boots services or an app image runs through
+    testcontainers; under colima the Ryuk reaper needs the socket named as
+    the VM sees it, or every service boot fails in seconds. The engine sets
+    it when it can; preflight says so when it will have to."""
+    if not (adapter.services or adapter.app_image):
+        return
+    from darkroom.drive import (
+        RYUK_SOCKET_OVERRIDE,
+        VM_DOCKER_SOCKET,
+        colima_socket_override_needed,
+        docker_host_setting,
+    )
+
+    if colima_socket_override_needed():
+        findings.append(
+            Finding(
+                severity="info",
+                code="container-runtime",
+                message=(
+                    f"docker host is colima ({docker_host_setting()}); the engine will set "
+                    f"{RYUK_SOCKET_OVERRIDE}={VM_DOCKER_SOCKET} for Ryuk — export it yourself "
+                    "for anything else that starts containers in this shell"
+                ),
+            )
+        )
+
+
 def preflight(adapter_path: Path) -> PreflightResult:
     """Validate a project's darkroom wiring from its adapter file."""
     adapter_path = Path(adapter_path)
@@ -212,4 +240,5 @@ def preflight(adapter_path: Path) -> PreflightResult:
     _check_scenarios(adapter, findings)
     _check_contract(adapter, findings)
     _check_drives_location(adapter, findings)
+    _check_container_runtime(adapter, findings)
     return PreflightResult(adapter_path=adapter_path, findings=findings)

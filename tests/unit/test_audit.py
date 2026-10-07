@@ -106,7 +106,8 @@ class TestAuditCli:
 
         assert main(["audit"]) == 1
         out = capsys.readouterr().out
-        assert "error [expiry]" in out and "audit: 1 error(s)" in out
+        assert "expiry:" in out and "  error:" in out
+        assert "audit: 1 error(s)" in out and "by code:" in out
 
     def test_cli_clean_vault_exits_zero(self, tmp_path, capsys, monkeypatch):
         root = tmp_path / "tenant"

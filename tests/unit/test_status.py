@@ -193,7 +193,7 @@ class TestReport:
         adapter, state = project
         text = dumps_status_markdown(assemble_status(adapter, state, now=NOW))
         headings = [line for line in text.splitlines() if line.startswith("## ")]
-        assert headings == ["## convergence", "## blocker", "## queue", "## spend"]
+        assert headings == ["## convergence", "## blocker", "## queue", "## metered equivalent"]
         assert "3 campaign(s): 1 converged · 1 running · 1 exhausted" in text
         assert "| gate_closes | converged | 2 | 0 → 100 | 100 | 100 | $1.00 |" in text
         assert "failing: clock_is_real" in text

@@ -84,7 +84,12 @@ declared evidence kinds no step can produce, and holds the exposure to
 the builder's `.surfaces` both ways (`surface-unpublished`,
 `surface-untouched`). Fix until clean — an unpublished surface on an
 existing feature is your defect; on a new feature it is the builder's
-next job. This catches the *unproducible-kind* and *wrong-address*
+next job. One exception: a scenario the builder has not touched since
+`.surfaces` existed has no publication to be held to, and its warnings
+are baseline noise, not findings — `darkroom surfaces --merge` drafts
+the publication from what the exposure reaches (descriptions blank,
+marked draft), and the builder makes it true when it next works the
+scenario. This catches the *unproducible-kind* and *wrong-address*
 defects — but not an exposure that runs and fails. That is the next
 gate, and it is the one operators skip.
 
