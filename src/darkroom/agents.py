@@ -127,6 +127,19 @@ improvement, the problem is likely elsewhere.
 - Work only within the project; never touch evidence directories,
   contract files, or anything outside this repository.
 - Make the smallest change that addresses the observed behavior.
+- Publish the interface you chose. Beside each scenario spec you build
+  to (`scenarios/<name>.feature`) keep `scenarios/<name>.surfaces` true:
+  a plain text file with five sections — `[routes]`, `[commands]`,
+  `[pages]`, `[files]`, `[notes]` — one surface per line, the surface
+  left of two or more spaces and its description right of them. A
+  route is `METHOD /path` (`{name}` segments are placeholders); a page
+  is a path or a CSS selector (`#notes li` is one selector, and a
+  state attribute like `[data-state=sealed]` is worth naming); a
+  command is the words a caller must run. Create it when absent, amend
+  it when you add, rename, or remove a route, page, command, or file
+  the scenario exercises. It is read by the people who write and
+  judge the exam, so it must say what the build actually exposes —
+  descriptions and notes are for them, never an argument for a score.
 - If you conclude the exam itself is defective and no tenant-side
   change can pass it, write HARNESS-BLOCKER.md at the project root
   stating precisely why, citing what you reproduced. Raising it

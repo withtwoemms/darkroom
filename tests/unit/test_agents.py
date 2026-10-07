@@ -207,6 +207,9 @@ class TestAgentBuilder:
         assert "Harness diagnostics" in content
         assert "(no run yet" in content
         assert str(ctx.adapter.root) in content  # add-dir covers tenant
+        # the builder is told to publish its interface beside the spec
+        assert "scenarios/<name>.surfaces" in content
+        assert "[routes]" in content and "[notes]" in content
 
     def test_escalation_switches_model_and_tools(self, tmp_path):
         record = tmp_path / "record.txt"

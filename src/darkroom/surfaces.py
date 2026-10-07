@@ -224,7 +224,10 @@ def touched_surfaces(script: dict) -> list[Surface]:
         elif kind == "fill":
             for sel in step.get("fields", {}):
                 _add(selector(sel))
-        elif kind == "command" and step.get("cmd"):
+        elif kind == "command" and step.get("cmd") and "{base_url}" not in step["cmd"]:
+            # a command that addresses the served app (curl {base_url}/…)
+            # is QA probing a route with a host tool, not a command the
+            # build exposes; it is never a command surface
             _add(command(step["cmd"]))
         visible = step.get("expect", {}).get("selector_visible")
         if visible:
@@ -237,6 +240,21 @@ def _paths_match(published: str, touched: str) -> bool:
     return len(left) == len(right) and all(
         a == b or a == "*" or b == "*" for a, b in zip(left, right, strict=True)
     )
+
+
+_SELECTOR_BOUNDARY = ("[", ":", " ", ">")
+
+
+def _selectors_match(published: str, touched: str) -> bool:
+    """The same element, named at different specificity: ``#circle-door``
+    published and ``#circle-door[data-starts-from="circle"]`` touched (the
+    exposure narrowing to a state), or the reverse (the publication naming
+    the state, the exposure the element). One must be the other extended
+    at a selector boundary — never ``#a`` against ``#ab``."""
+    if published == touched:
+        return True
+    short, long = sorted((published, touched), key=len)
+    return long.startswith(short) and long[len(short)] in _SELECTOR_BOUNDARY
 
 
 def _words_match(published: str, touched: str) -> bool:
@@ -265,7 +283,7 @@ def matches(published: Surface, touched: Surface) -> bool:
     if published.kind == "route" and touched.kind == "page" and published.method == "GET":
         return _paths_match(published.target, touched.target)
     if published.kind == "selector" and touched.kind == "selector":
-        return published.target == touched.target
+        return _selectors_match(published.target, touched.target)
     if published.kind == "command" and touched.kind == "command":
         return _words_match(published.target, touched.target)
     return False
