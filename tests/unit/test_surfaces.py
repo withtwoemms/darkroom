@@ -292,3 +292,43 @@ class TestDraft:
 
     def test_no_build_note_means_no_draft(self):
         assert draft_surfaces("Feature: x\n  Scenario: y\n    Given z\n") is None
+
+
+class TestFirstSliceFindings:
+    """Four precision defects the first backdrop-posed scenario surfaced."""
+
+    def test_backdrop_steps_are_the_owning_scenarios_surfaces(self):
+        from darkroom.backdrops import expand, loads_backdrops
+
+        backdrops = loads_backdrops(
+            '[[backdrop]]\nname = "founded"\n[[backdrop.step]]\nname = "found"\nkind = "goto"\n'
+            'url = "{base_url}/setup"\n'
+        )
+        script = expand(
+            {"scenario": "s", "backdrop": ["founded"], "step": [{"kind": "goto", "url": "{base_url}/me"}]},
+            backdrops,
+        )
+        assert [str(s) for s in touched_surfaces(script)] == ["/me"]
+
+    def test_a_runtime_path_is_not_addressable(self):
+        steps = [
+            {"kind": "goto", "url": "{base_url}{request_link}"},
+            {"kind": "http", "url": "{base_url}{link}?x=1"},
+            {"kind": "goto", "url": "{base_url}/agent-requests/{request_id}"},
+        ]
+        assert [str(s) for s in touched_surfaces({"step": steps})] == ["/agent-requests/*"]
+
+    def test_attribute_values_never_decide_a_selector_match(self):
+        published = parse_surfaces("[pages]\n#admit-agent[data-institution]   the gesture\n")
+        touched = {"step": [{"kind": "click", "selector": '#admit-agent[data-institution="acme"]'}]}
+        assert cross_check(published, touched) == []
+        published = parse_surfaces('[pages]\nmain[data-agent-status="pending"]   x\n')
+        touched = {"step": [{"kind": "click", "selector": 'main[data-agent-status="admitted"]', "expect": {}}]}
+        assert cross_check(published, touched) == []
+
+    def test_a_published_command_with_placeholders_matches_the_words_run(self):
+        published = parse_surfaces("[commands]\nmake register-institution ID=… NAME=… KEY=…   operator-only\n")
+        run = {"step": [{"kind": "command", "cmd": "make register-institution ID=acme NAME='Acme Bank' KEY='*' DATABASE_URL=postgresql://x"}]}
+        assert cross_check(published, run) == []
+        other = {"step": [{"kind": "command", "cmd": "make deploy ID=acme"}]}
+        assert [c for c, _ in cross_check(published, other)] == ["surface-unpublished", "surface-untouched"]

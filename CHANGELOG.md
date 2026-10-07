@@ -6,6 +6,32 @@ project follows [semantic versioning](https://semver.org/) (pre-1.0: minor
 releases may break API, patch releases never do). The manifest schema is
 versioned independently of the package — see `ROADMAP.md`.
 
+## [Unreleased]
+
+### Fixed
+
+The converge skill now says what a first campaign on a new feature is
+for: a publication to align to, not a gate — read exhaustion at zero
+for the `.surfaces` it produced, realign, relaunch.
+
+Four audit-precision defects, all surfaced by the first scenario posed
+against a backdrop:
+
+- **A backdrop's surfaces belong to the scenario that owns it.** Steps
+  a backdrop contributes are marked on expansion and left out of the
+  posing scenario's cross-check; the founding's `/setup` no longer
+  shows as unpublished on every scenario founded by Dad.
+- **A run-time path is not addressable.** A `goto`/`http` whose whole
+  path is a saved value (`{base_url}{request_link}`) names nothing the
+  audit can check and is skipped; the route that minted the value was
+  already touched.
+- **Attribute values never decide a selector match.** The publication
+  names the attribute (`#admit-agent[data-institution]`); the exposure
+  narrows to its value; they are one surface.
+- **A published command's placeholders match the words run.** `ID=…`
+  matches `ID=acme`, `…`/`*` match any word, and quoted words
+  (`NAME='Acme Bank'`) are one word.
+
 ## [0.20.3] - 2026-10-06
 
 ### Added
