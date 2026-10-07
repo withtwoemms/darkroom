@@ -8,6 +8,17 @@ versioned independently of the package — see `ROADMAP.md`.
 
 ## [Unreleased]
 
+### Added
+
+- **The `darkroom-author` skill**: authoring or repairing a proof in
+  the 0.20 shape — the rubric under product's hat, the exposure under
+  QA's, posed against backdrops, bound to the published surfaces — and
+  the discipline for bringing a migrated corpus up to style: backdrop
+  extraction (name for the state left, lift verbatim, no witness in a
+  backdrop, prove nothing moved) and rubric rewrites in product's
+  words (keep thresholds, drop step names and codes, `version` stays
+  unless the schema moved). Five skills ship with the engine.
+
 ### Fixed
 
 - **A shell-script command step is not a command surface.** A `command`
