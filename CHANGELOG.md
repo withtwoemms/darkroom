@@ -10,6 +10,10 @@ versioned independently of the package — see `ROADMAP.md`.
 
 ### Fixed
 
+The converge skill now says what a first campaign on a new feature is
+for: a publication to align to, not a gate — read exhaustion at zero
+for the `.surfaces` it produced, realign, relaunch.
+
 Four audit-precision defects, all surfaced by the first scenario posed
 against a backdrop:
 

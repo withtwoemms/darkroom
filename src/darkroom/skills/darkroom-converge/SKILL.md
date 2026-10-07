@@ -161,6 +161,16 @@ background. While it runs, watch three things:
   Read it in full — see Stage 6.
 - **Never fabricate a result.** If asked before a run completes, say
   it is still running. Report scores from the output, not from hope.
+- **On a new feature, the first campaign's success is a publication,
+  not a gate.** The exposure was written to the spec's intent before
+  any surface existed, so it will die at the first address the builder
+  chose differently — and every iteration after that is the builder
+  pushing the exposure's guess one step further along the build. Read
+  an exhausted-at-zero first campaign for what it produced: a
+  `.surfaces` detailed enough to align the exposure to in one pass.
+  Realign (QA's hat), dry-run, relaunch; the second campaign converges
+  in a few. (Field: the agent-admission ceremony — six iterations at 0
+  that built the whole ceremony and published it; two more to 100.)
 
 ## Stage 6 — Triage a blocker
 
