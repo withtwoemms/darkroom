@@ -6,6 +6,30 @@ project follows [semantic versioning](https://semver.org/) (pre-1.0: minor
 releases may break API, patch releases never do). The manifest schema is
 versioned independently of the package — see `ROADMAP.md`.
 
+## [Unreleased]
+
+### Added
+
+- **The `darkroom-author` skill**: authoring or repairing a proof in
+  the 0.20 shape — the rubric under product's hat, the exposure under
+  QA's, posed against backdrops, bound to the published surfaces — and
+  the discipline for bringing a migrated corpus up to style: backdrop
+  extraction (name for the state left, lift verbatim, no witness in a
+  backdrop, prove nothing moved) and rubric rewrites in product's
+  words (keep thresholds, drop step names and codes, `version` stays
+  unless the schema moved). Five skills ship with the engine.
+
+### Fixed
+
+- **A shell-script command step is not a command surface.** A `command`
+  whose `cmd` carries pipes, heredocs, `;`, `&&`, `nohup`, `pkill`, or
+  a newline is QA's harness (a stub server, a restart), not something
+  the build exposes; `darkroom surfaces --merge` had published one
+  tenant's 40-line Stripe stub as a command.
+- **Preflight knows the proofs derive the contract.** `no-contract`
+  fired on every tenant that had retired its declared file; it now
+  fires only when there are no proofs in the home either.
+
 ## [0.20.2] - 2026-10-06
 
 ### Added

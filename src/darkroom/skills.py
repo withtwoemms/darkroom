@@ -1,6 +1,6 @@
 """The packaged skills and the check that keeps installed copies honest.
 
-The three darkroom skills ship inside the wheel (``darkroom/skills/``)
+The darkroom skills ship inside the wheel (``darkroom/skills/``)
 and are version-locked to the engine by construction. Anyone who
 installs them by hand — a copy into ``~/.claude/skills`` — can drift as
 the engine moves; ``darkroom skills check`` compares every installed
