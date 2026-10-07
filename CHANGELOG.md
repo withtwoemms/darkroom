@@ -6,6 +6,19 @@ project follows [semantic versioning](https://semver.org/) (pre-1.0: minor
 releases may break API, patch releases never do). The manifest schema is
 versioned independently of the package — see `ROADMAP.md`.
 
+## [Unreleased]
+
+### Fixed
+
+- **A shell-script command step is not a command surface.** A `command`
+  whose `cmd` carries pipes, heredocs, `;`, `&&`, `nohup`, `pkill`, or
+  a newline is QA's harness (a stub server, a restart), not something
+  the build exposes; `darkroom surfaces --merge` had published one
+  tenant's 40-line Stripe stub as a command.
+- **Preflight knows the proofs derive the contract.** `no-contract`
+  fired on every tenant that had retired its declared file; it now
+  fires only when there are no proofs in the home either.
+
 ## [0.20.2] - 2026-10-06
 
 ### Added

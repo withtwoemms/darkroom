@@ -112,11 +112,19 @@ def _check_scenarios(adapter: ProjectAdapter, findings: list[Finding]) -> None:
 
 def _check_contract(adapter: ProjectAdapter, findings: list[Finding]) -> None:
     if adapter.contract_path is None:
+        from darkroom.homedir import default_proofs
+        from darkroom.proof import proof_dirs
+
+        if adapter.name and proof_dirs(default_proofs(adapter.name)):
+            return  # derived from the proofs every run; nothing to declare
         findings.append(
             Finding(
                 severity="warning",
                 code="no-contract",
-                message="no evidence contract declared; verify will be structural only",
+                message=(
+                    "no evidence contract declared and no proofs in the home to "
+                    "derive one from; verify will be structural only"
+                ),
             )
         )
         return

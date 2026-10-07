@@ -201,6 +201,18 @@ class TestCrossCheck:
         assert touched_surfaces(probe) == []
         assert cross_check(parse_surfaces(""), probe) == []
 
+    def test_a_shell_script_step_is_harness_not_a_surface(self):
+        scripts = [
+            "cat > /tmp/stub.py <<'PY'\nprint(1)\nPY\nnohup python /tmp/stub.py &",
+            "pkill -f stub.py || true; echo tidy",
+            "port=$(echo x); kill $port",
+            "relay export | tee out.json",
+        ]
+        for cmd in scripts:
+            assert touched_surfaces({"step": [{"kind": "command", "cmd": cmd}]}) == [], cmd
+        plain = {"step": [{"kind": "command", "cmd": "relay export --out {dir}"}]}
+        assert [str(s) for s in touched_surfaces(plain)] == ["relay export --out *"]
+
     def test_files_are_for_the_reader_never_checked(self):
         assert cross_check(parse_surfaces("[files]\nout.json   the export\n"), {"step": []}) == []
 

@@ -205,6 +205,20 @@ def inventory(surfaces: Surfaces) -> str:
     return "\n".join(lines).rstrip()
 
 
+_SHELL_CONTROL = re.compile(r"\n|<<|\|\||&&|;|\||`|\$\(|\bnohup\b|\bpkill\b|\bkill\b")
+
+
+def _is_command_surface(cmd: str) -> bool:
+    """A command surface is the words a caller runs against the build's
+    own CLI. A command step that addresses the served app with a host
+    tool (``curl {base_url}/…``) is QA probing a route, and one that is
+    a shell script — pipes, heredocs, ``nohup``, ``pkill`` — is QA's
+    harness. Neither is something the build exposes."""
+    if not cmd or "{base_url}" in cmd:
+        return False
+    return _SHELL_CONTROL.search(cmd) is None
+
+
 def touched_surfaces(script: dict) -> list[Surface]:
     """Every surface an exposure's steps address, in step order, deduplicated."""
     seen: list[Surface] = []
@@ -224,10 +238,7 @@ def touched_surfaces(script: dict) -> list[Surface]:
         elif kind == "fill":
             for sel in step.get("fields", {}):
                 _add(selector(sel))
-        elif kind == "command" and step.get("cmd") and "{base_url}" not in step["cmd"]:
-            # a command that addresses the served app (curl {base_url}/…)
-            # is QA probing a route with a host tool, not a command the
-            # build exposes; it is never a command surface
+        elif kind == "command" and _is_command_surface(step.get("cmd", "")):
             _add(command(step["cmd"]))
         visible = step.get("expect", {}).get("selector_visible")
         if visible:
