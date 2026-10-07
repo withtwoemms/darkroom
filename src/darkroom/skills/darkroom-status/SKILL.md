@@ -1,6 +1,6 @@
 ---
 name: darkroom-status
-description: Report where a darkroom project stands right now - convergence per scenario, blockers, what is shipped versus merely gated, the ticket queue, and spend - in one fixed shape, from the engine's own status command. Use when a user asks for a status, a convergence update, "where are we", what's running, what's blocked, or what's next.
+description: Report where a darkroom project stands right now - convergence per scenario, blockers, what is shipped versus merely gated, the ticket queue, and the metered equivalent with how the agents are billed - in one fixed shape, from the engine's own status command. Use when a user asks for a status, a convergence update, "where are we", what's running, what's blocked, what it cost, or what's next.
 ---
 
 # The darkroom status report
