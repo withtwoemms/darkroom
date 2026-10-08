@@ -41,8 +41,8 @@ build exposes.
    witnesses list carries the binding; the prose carries the standard.
    Test: could the PM have written this sentence before the exposure
    existed? If not, it is QA's sentence in product's file.
-   - before: `"the member's missed list held exactly two items (missed_list; two_missed_not_three resolved 2) … (newest_is_the_key_change, key_change_named)"`
-   - after: `"the member is told of exactly the items that shredded unopened — the key change first, with who sent it, then the expiry — and never of one they had opened"`
+   - before: `"the member's unread list held exactly two notes (unread_list; two_unread_not_three resolved 2) … (newest_is_the_retraction, retraction_named)"`
+   - after: `"the member is told of exactly the notes that were withdrawn unread — the retraction first, with who sent it, then the expiry — and never of one they had read"`
 3. **Every witness leaves a record.** Cite an `assert`, an `http` or
    `command` step, a `screenshot`, or any step with an `expect` table.
    A bare `goto`/`click`/`fill` gates the run but gives the judge
