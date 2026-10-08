@@ -49,7 +49,7 @@ build exposes.
    nothing; `darkroom audit` refuses it.
 4. **Witness absence with a positive.** "The handle field is gone" is
    not a selector that fails to appear — it is a state attribute that
-   *does* (`#circle-door[data-starts-from="circle"]`), or a count that
+   *does* (`#start-door[data-starts-from="home"]`), or a count that
    resolves to zero (`curl … | grep -c` expecting exit 1), or an
    `http` read whose body an `assert` inspects. A once-shown surface
    (a notice dismissed on view) is witnessed on the render that shows
@@ -154,7 +154,7 @@ billing_bridge = 0
 name = "open_landing"
 kind = "goto"
 url = "{base_url}/"
-expect = { status = 200, title_contains = "zikora", selector_visible = '#circle-door[data-starts-from="circle"]' }
+expect = { status = 200, title_contains = "relay", selector_visible = '#start-door[data-starts-from="home"]' }
 
 [[step]]
 name = "no_handle_field"   # absence, witnessed positively
@@ -165,7 +165,7 @@ expect = { exit_code = 1 }
 [[step]]
 name = "through_the_door"  # a link is proven by following it
 kind = "click"
-selector = "#circle-door"
+selector = "#start-door"
 expect = { url_contains = "/signin" }
 ```
 
@@ -174,9 +174,9 @@ expect = { url_contains = "/signin" }
 version = "6"
 
 [[criterion]]
-id = "the_way_in_is_the_circle"
+id = "the_way_in_is_the_home"
 points = 15
-description = "the page's one action tells the visitor that verification starts from their circle, and nothing on the page asks for a handle"
+description = "the page's one action tells the visitor that verification starts from home, and nothing on the page asks for a handle"
 witnesses = ["open_landing", "no_handle_field", "landing_page"]
 ```
 
