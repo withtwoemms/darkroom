@@ -1,0 +1,13 @@
+version = "1"
+
+[[criterion]]
+id = "the_list_carries_the_state"
+points = 15
+description = "the note's own item reads not archived until the note is archived, and archived afterwards"
+witnesses = ["listed_as_draft", "listed_as_archived", "archived_state"]
+
+[[criterion]]
+id = "the_page_names_the_latest_state"
+points = 5
+description = "the page itself names the state of the latest note, draft then archived"
+witnesses = ["page_says_draft", "page_says_archived", "draft_state"]

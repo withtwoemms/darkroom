@@ -228,8 +228,8 @@ def runtime_contract(
         declared = adapter.resolve(adapter.contract_path)
         if declared.exists():
             return load_contract(declared)
-    from darkroom.backdrops import BackdropError, load_backdrops
-    from darkroom.homedir import default_backdrops, default_proofs
+    from darkroom.backdrops import BackdropError, backdrops_for, load_backdrops
+    from darkroom.homedir import default_proofs
     from darkroom.proof import ProofError, load_proofs, proof_dirs
     from darkroom.proof import derive_contract as derive_from_proofs
 
@@ -245,7 +245,7 @@ def runtime_contract(
         proofs = load_proofs(proofs_dir)
         if not any(has_rubric(p) for p in proofs.values()):
             return None  # exposures alone hold a run to nothing
-        backdrops = load_backdrops(default_backdrops(adapter.name)) if adapter.name else {}
+        backdrops = load_backdrops(backdrops_for(adapter.name, Path(proofs_dir)))
         return derive_from_proofs(list(proofs.values()), adapter.name, backdrops)
     except (ProofError, BackdropError, OSError, ValueError) as exc:
         raise VaultError(str(exc)) from None

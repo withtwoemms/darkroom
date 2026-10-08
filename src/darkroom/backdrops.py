@@ -32,6 +32,21 @@ else:  # pragma: no cover - exercised only on 3.10
     import tomli as tomllib
 
 BACKDROPS_FILE = "backdrops.toml"
+
+def backdrops_for(project_name: str | None, drives_dir: Path | None) -> Path | None:
+    """Where a run's backdrops come from: a ``backdrops.toml`` beside the
+    proofs it poses (an in-tree example, a slice carried in a directory)
+    wins; otherwise the project's operator home; nothing without a name."""
+    if drives_dir is not None:
+        beside = Path(drives_dir) / BACKDROPS_FILE
+        if beside.is_file():
+            return beside
+    if project_name:
+        from darkroom.homedir import default_backdrops
+
+        return default_backdrops(project_name)
+    return None
+
 BACKDROP_MARK = "_backdrop"  # set on expanded steps: the backdrop they came from
 
 

@@ -128,7 +128,9 @@ feature id and renders the same half on read.
 ## Backdrops
 
 `~/.darkroom/projects/<name>/backdrops.toml` names step sequences many
-exposures are posed against — saving a note, archiving it. A backdrop is set before the sitting, reused across many,
+exposures are posed against (a `backdrops.toml` beside the proofs a
+`--drives` directory holds wins over it, so an in-tree example or a
+slice carried in a directory brings its own) — saving a note, archiving it. A backdrop is set before the sitting, reused across many,
 and never the subject:
 
 ```toml

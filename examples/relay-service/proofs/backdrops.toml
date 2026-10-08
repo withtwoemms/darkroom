@@ -1,0 +1,13 @@
+# Backdrops: setup many exposures are posed against, never the subject.
+# In a real project this file lives in the operator's darkroom home; it
+# sits beside the proofs here so the example is self-contained.
+
+[[backdrop]]
+name = "token_in_hand"
+
+[[backdrop.step]]
+name = "create"
+method = "POST"
+url = "{base_url}/notes"
+json = { text = "guarded" }
+save = { note_id = "$.id", token = "$.token" }

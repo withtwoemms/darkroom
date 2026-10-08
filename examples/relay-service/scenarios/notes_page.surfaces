@@ -4,10 +4,13 @@
 
 [pages]
 /                             the notes page: the form, and the list once a note is saved
+main[data-note-state]         "empty" before the first note
 #note-form                    the form
 #note-text                    the note field
 #save                         submits the form
+#save[data-state]             "ready" — the control's state
 #notes li                     one item per saved note, in save order
+#notes li[data-archived]      "false" on a note just saved
 
 [files]
 

@@ -1,0 +1,50 @@
+scenario = "archived_note_shows_its_state"
+record = true
+
+[[step]]
+name = "create"
+method = "POST"
+url = "{base_url}/notes"
+json = { text = "stop bath" }
+expect = { status = 201 }
+save = { note_id = "$.id" }
+
+[[step]]
+name = "listed_as_draft"
+kind = "goto"
+url = "{base_url}/"
+expect = { status = 200, selector_visible = '#notes li[data-note-id="{note_id}"][data-archived="false"]' }
+
+[[step]]
+name = "page_says_draft"
+kind = "goto"
+url = "{base_url}/"
+expect = { selector_visible = 'main[data-note-state="draft"]' }
+
+[[step]]
+name = "draft_state"
+kind = "screenshot"
+full_page = true
+
+[[step]]
+name = "archive"
+method = "POST"
+url = "{base_url}/notes/{note_id}/archive"
+expect = { status = 200 }
+
+[[step]]
+name = "listed_as_archived"
+kind = "goto"
+url = "{base_url}/"
+expect = { selector_visible = '#notes li[data-note-id="{note_id}"][data-archived="true"]' }
+
+[[step]]
+name = "page_says_archived"
+kind = "goto"
+url = "{base_url}/"
+expect = { selector_visible = 'main[data-note-state="archived"]' }
+
+[[step]]
+name = "archived_state"
+kind = "screenshot"
+full_page = true

@@ -11,4 +11,7 @@ DELETE /notes/{id}            X-Note-Token header → 204; a wrong token → 403
 [files]
 
 [notes]
-the token is compared in constant time; there is no "forgot my token"
+the token is compared in constant time; there is no "forgot my token".
+RELAY_OPEN_DELETE=1 is an exam-only bridge that waives the token; the
+project's [serve.defaults] keeps it at 0, so this scenario runs at
+production posture

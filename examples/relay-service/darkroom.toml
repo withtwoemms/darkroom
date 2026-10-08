@@ -7,6 +7,15 @@ name = "relay-service"
 serve = "python3 app.py {port}"
 test = "darkroom expose --drives proofs"
 
+# An exam-only bridge, at its production value unless an exposure is
+# about it: the engine sets the served process's environment from
+# [serve.env], resolved from [serve.defaults] and the exposure's [serve].
+[serve.defaults]
+open_delete = 0
+
+[serve.env]
+RELAY_OPEN_DELETE = "{open_delete}"
+
 [evidence]
 dir = "evidence"
 
