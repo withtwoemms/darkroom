@@ -23,8 +23,9 @@ class TestDriveCLI:
         assert main(["drive", "--drives", "proofs"]) == 0
         out = capsys.readouterr().out
         assert "note_lifecycle:" in out and "deletion_guarded:" in out
+        assert "read_once_note:" in out
         assert "verify: ok (contract)" in out
-        assert "2/2 scenario(s) green" in out
+        assert "3/3 scenario(s) green" in out
 
         harness_logs = list(project.glob("evidence/runs/*/harness.log"))
         assert len(harness_logs) == 1

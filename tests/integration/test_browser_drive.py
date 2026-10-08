@@ -206,7 +206,7 @@ class TestBrowserDrive:
 
         manifest = next(project.glob("evidence/runs/*/manifest.json"))
         bundle = load_manifest(manifest).scenarios[0]
-        assert bundle.provenance["rubric_version"] == "1"
+        assert bundle.provenance["rubric_version"] == "2"
         items = bundle.items
         assert [i.step for i in items if i.kind == "screenshot"] == [
             "empty_state", "saved_state",
