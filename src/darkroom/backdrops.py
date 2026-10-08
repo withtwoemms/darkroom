@@ -7,13 +7,13 @@ before the sitting, reused across many, and never the subject. A
 project's operator home may hold ``backdrops.toml``::
 
     [[backdrop]]
-    name = "founded_by_owner"
+    name = "note_saved"
     [[backdrop.step]]
-    name = "create_workspace"
+    name = "save_note"
     kind = "goto"
     ...
 
-and an exposure says ``backdrop = ["founded_by_owner", "guest_joins"]``:
+and an exposure says ``backdrop = ["note_saved", "note_archived"]``:
 the engine expands them, in order, ahead of the exposure's own steps.
 Step names survive expansion, so a criterion's witnesses still
 resolve; a name that would collide is refused rather than silently

@@ -126,7 +126,7 @@ class TestParse:
 
     def test_paths_normalize(self):
         assert normalize_path("{base_url}/notes/{note_id}?x=1") == "/notes/*"
-        assert normalize_path("http://localhost:8000/home/") == "/home"
+        assert normalize_path("http://localhost:8000/notes/") == "/notes"
         assert normalize_path("/") == "/"
         assert normalize_path("{base_url}") == "/"
 
@@ -157,10 +157,10 @@ class TestCrossCheck:
         assert "DELETE /notes/*/purge" in codes[0][1] and "DELETE /notes/*" in codes[1][1]
 
     def test_a_page_opened_and_a_page_fetched_are_one_surface(self):
-        published = parse_surfaces("[pages]\n/me   the home page\n")
-        assert cross_check(published, {"step": [{"kind": "http", "url": "{base_url}/me"}]}) == []
-        published = parse_surfaces("[routes]\nGET /me   the home page\n")
-        assert cross_check(published, {"step": [{"kind": "goto", "url": "{base_url}/me"}]}) == []
+        published = parse_surfaces("[pages]\n/   the notes page\n")
+        assert cross_check(published, {"step": [{"kind": "http", "url": "{base_url}/"}]}) == []
+        published = parse_surfaces("[routes]\nGET /notes/{id}   one note\n")
+        assert cross_check(published, {"step": [{"kind": "goto", "url": "{base_url}/notes/1"}]}) == []
 
     def test_a_command_matches_by_its_words_in_order(self):
         published = parse_surfaces("[commands]\nrelay.py export   the export\n")
@@ -186,14 +186,14 @@ class TestCrossCheck:
         assert inventory(parse_surfaces("[notes]\nonly prose\n")) == ""
 
     def test_a_selector_narrowed_to_a_state_is_the_same_surface(self):
-        published = parse_surfaces("[pages]\n#start-door   the one action\n")
-        narrowed = {"step": [{"kind": "click", "selector": '#start-door[data-starts-from="home"]'}]}
+        published = parse_surfaces("[pages]\n#save   the one action\n")
+        narrowed = {"step": [{"kind": "click", "selector": '#save[data-state="ready"]'}]}
         assert cross_check(published, narrowed) == []
         published = parse_surfaces('[pages]\n#notes li[data-note-id]   one per item\n')
         broader = {"step": [{"kind": "click", "selector": "#notes li"}]}
         assert cross_check(published, broader) == []
-        other = {"step": [{"kind": "click", "selector": "#start-doorbell"}]}
-        codes = [c for c, _ in cross_check(parse_surfaces("[pages]\n#start-door   x\n"), other)]
+        other = {"step": [{"kind": "click", "selector": "#save-all"}]}
+        codes = [c for c, _ in cross_check(parse_surfaces("[pages]\n#save   x\n"), other)]
         assert codes == ["surface-unpublished", "surface-untouched"]
 
     def test_a_command_probing_the_app_is_not_a_command_surface(self):
@@ -261,13 +261,13 @@ Feature: a note marked "read once" is gone after the first read
   Scenario: gone once the reader has it
     A member posts a read-once note on the default clock.
 
-  Build: `POST /workspaces/{slug}/notes/{id}/ack` (recipient session)
+  Build: `POST /notes/{id}/archive` (the holder's token)
   is the device's confirmation; it answers `{state}`. The browser calls it
-  right after rendering `#opened-note`. Any read of a gone note → 410
-  `gone`. The author's `#sent-notes` entry shows `data-gone-reason="read"`;
-  the home page is `/me`.
+  right after rendering `#note-text`. Any read of a gone note → 410
+  `gone`. The author's `#notes li` entry shows `data-gone-reason="read"`;
+  the notes page is `/`.
 
-  Build: a second note, `GET /me/unread` lists them.
+  Build: a second note, `GET /notes/{id}` fetches it.
 """
 
 
@@ -275,17 +275,17 @@ class TestDraft:
     def test_build_notes_are_paragraphs(self):
         notes = build_notes(SPEC_WITH_BUILD)
         assert len(notes) == 2
-        assert notes[0].startswith("`POST /workspaces/{slug}/notes/{id}/ack` (recipient session)")
-        assert notes[1] == "a second note, `GET /me/unread` lists them."
+        assert notes[0].startswith("`POST /notes/{id}/archive` (the holder's token)")
+        assert notes[1] == "a second note, `GET /notes/{id}` fetches it."
 
     def test_draft_lifts_routes_and_pages_and_keeps_the_prose(self):
         draft = draft_surfaces(SPEC_WITH_BUILD)
         surfaces = parse_surfaces(draft)
         assert [str(s) for s in surfaces.of("route")] == [
-            "POST /workspaces/*/notes/*/ack", "GET /me/unread",
+            "POST /notes/*/archive", "GET /notes/*",
         ]
         assert [str(s) for s in surfaces.of("page", "selector")] == [
-            "#opened-note", "#sent-notes", "/me",
+            "#note-text", "#notes li", "/",
         ]
         assert "device's confirmation" in surfaces.notes and "second note" in surfaces.notes
         assert all(s.description == "" for s in surfaces.entries)  # engineering's to add
@@ -314,16 +314,16 @@ class TestFirstSliceFindings:
         steps = [
             {"kind": "goto", "url": "{base_url}{request_link}"},
             {"kind": "http", "url": "{base_url}{link}?x=1"},
-            {"kind": "goto", "url": "{base_url}/agent-requests/{request_id}"},
+            {"kind": "goto", "url": "{base_url}/notes/{request_id}"},
         ]
-        assert [str(s) for s in touched_surfaces({"step": steps})] == ["/agent-requests/*"]
+        assert [str(s) for s in touched_surfaces({"step": steps})] == ["/notes/*"]
 
     def test_attribute_values_never_decide_a_selector_match(self):
-        published = parse_surfaces("[pages]\n#approve[data-partner]   the gesture\n")
-        touched = {"step": [{"kind": "click", "selector": '#approve[data-partner="acme"]'}]}
+        published = parse_surfaces("[pages]\n#save[data-state]   the control\n")
+        touched = {"step": [{"kind": "click", "selector": '#save[data-state="ready"]'}]}
         assert cross_check(published, touched) == []
-        published = parse_surfaces('[pages]\nmain[data-agent-status="pending"]   x\n')
-        touched = {"step": [{"kind": "click", "selector": 'main[data-agent-status="admitted"]', "expect": {}}]}
+        published = parse_surfaces('[pages]\nmain[data-note-state="draft"]   x\n')
+        touched = {"step": [{"kind": "click", "selector": 'main[data-note-state="archived"]', "expect": {}}]}
         assert cross_check(published, touched) == []
 
     def test_a_published_command_with_placeholders_matches_the_words_run(self):

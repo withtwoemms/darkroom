@@ -81,16 +81,16 @@ witnesses = ["id_present"]
 
 BACKDROPS = """
 [[backdrop]]
-name = "founded"
+name = "note_saved"
 [[backdrop.step]]
-name = "found"
+name = "save_note"
 method = "POST"
-url = "{base_url}/workspaces"
+url = "{base_url}/notes"
 """
 
 POSED_EXPOSURE = """
-scenario = "member_joins"
-backdrop = ["founded"]
+scenario = "note_archived"
+backdrop = ["note_saved"]
 
 [[step]]
 name = "join"
@@ -102,7 +102,7 @@ POSED_RUBRIC = """
 [[criterion]]
 id = "joined"
 points = 1
-witnesses = ["found", "join"]
+witnesses = ["save_note", "join"]
 """
 
 
@@ -237,14 +237,14 @@ class TestExposureAndBackdrops:
 
     def test_backdrops_expand_ahead_of_own_steps(self):
         backdrops = loads_backdrops(BACKDROPS)
-        posed = loads_proof(POSED_EXPOSURE, POSED_RUBRIC, "member_joins")
+        posed = loads_proof(POSED_EXPOSURE, POSED_RUBRIC, "note_archived")
         script = exposure(posed, backdrops)
-        assert [s["name"] for s in script["step"]] == ["found", "join"]
+        assert [s["name"] for s in script["step"]] == ["save_note", "join"]
         assert "backdrop" not in script
         assert rubric(posed, backdrops)["criterion"][0]["evidence"] == ["http_transcript"]
 
     def test_witness_in_an_unexpanded_backdrop_is_an_error(self):
-        posed = loads_proof(POSED_EXPOSURE, POSED_RUBRIC, "member_joins")
+        posed = loads_proof(POSED_EXPOSURE, POSED_RUBRIC, "note_archived")
         with pytest.raises(ProofError, match="unknown backdrop|cites witness 'found'"):
             rubric(posed, {})
 
@@ -277,7 +277,7 @@ def _home_with_proofs(tmp_path, monkeypatch, proofs: dict, backdrops: str | None
 
 
 ONE = {"note_created": (EXPOSURE, RUBRIC)}
-TWO = {"note_created": (EXPOSURE, RUBRIC), "member_joins": (POSED_EXPOSURE, POSED_RUBRIC)}
+TWO = {"note_created": (EXPOSURE, RUBRIC), "note_archived": (POSED_EXPOSURE, POSED_RUBRIC)}
 
 
 class TestProofsVault:
@@ -311,7 +311,7 @@ class TestProofsVault:
         proofs_dir = _home_with_proofs(tmp_path, monkeypatch, TWO, BACKDROPS)
         adapter = loads_adapter('[project]\nname = "press"', root=tmp_path / "tenant")
         vault = FilesystemVault(proofs_dir.parent / "vault")
-        assert seal(adapter, vault) == ["member_joins", "note_created"]
+        assert seal(adapter, vault) == ["note_archived", "note_created"]
         assert (proofs_dir / "note_created" / EXPOSURE_FILE).exists()  # nothing moved
         assert proofs_dir.stat().st_mode & 0o777 == 0o700
         assert (proofs_dir / "note_created").stat().st_mode & 0o777 == 0o700
@@ -465,4 +465,4 @@ class TestDriveOnProofs:
 class TestLoadProofs:
     def test_keyed_by_scenario(self, tmp_path, monkeypatch):
         proofs_dir = _home_with_proofs(tmp_path, monkeypatch, TWO)
-        assert sorted(load_proofs(proofs_dir)) == ["member_joins", "note_created"]
+        assert sorted(load_proofs(proofs_dir)) == ["note_archived", "note_created"]

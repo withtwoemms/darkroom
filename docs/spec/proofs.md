@@ -128,23 +128,23 @@ feature id and renders the same half on read.
 ## Backdrops
 
 `~/.darkroom/projects/<name>/backdrops.toml` names step sequences many
-exposures are posed against — creating a workspace, registering two
-members. A backdrop is set before the sitting, reused across many,
+exposures are posed against — saving a note, archiving it. A backdrop is set before the sitting, reused across many,
 and never the subject:
 
 ```toml
 [[backdrop]]
-name = "founded"
+name = "note_saved"
 
 [[backdrop.step]]
-name = "found"
+name = "save_note"
 method = "POST"
-url = "{base_url}/workspaces"
-save = { slug = "$.slug" }
+url = "{base_url}/notes"
+json = { text = "milk" }
+save = { id = "$.id", token = "$.token" }
 ```
 
-An exposure with `backdrop = ["founded"]` runs those steps first,
-names intact, so its own steps can use `{slug}`. Backdrops expand in
+An exposure with `backdrop = ["note_saved"]` runs those steps first,
+names intact, so its own steps can use `{id}` and `{token}`. Backdrops expand in
 order; a step name that collides with the exposure's own, or a
 backdrop that does not exist, is a load error. The authoring rule: a
 witness is never in the backdrop — what the scenario proves is in its

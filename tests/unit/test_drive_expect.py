@@ -69,12 +69,12 @@ class _Page:
 
 class TestBrowserExpectWitness:
     def test_records_title_url_body_and_selector(self):
-        page = _Page(title="relay", url="http://x/me", content='<div data-member="guest">')
+        page = _Page(title="relay", url="http://x/me", content='<div data-note-id="1">')
         detail, found = _evaluate_browser_expect(
             {
                 "title_contains": "rel",
                 "url_contains": "/me",
-                "body_contains": 'data-member="guest"',
+                "body_contains": 'data-note-id="1"',
                 "selector_visible": "#x",
             },
             page,
@@ -108,7 +108,7 @@ class TestBrowserExpectWitness:
         # destination settles and the expectation is met
         class _Navigating(_Page):
             def __init__(self):
-                super().__init__(title="home", content="try again")
+                super().__init__(title="Relay Notes", content="try again")
                 self.polls = 0
 
             def _mid_navigation(self):
@@ -135,8 +135,8 @@ class TestBrowserExpectWitness:
         assert found == {"body_contains": True, "selector_visible": True}
 
         page = _Navigating()
-        detail, found = _evaluate_browser_expect({"title_contains": "home"}, page, None)
-        assert detail is None and found == {"title": "home"}
+        detail, found = _evaluate_browser_expect({"title_contains": "Relay"}, page, None)
+        assert detail is None and found == {"title": "Relay Notes"}
 
 
 class _Ctx:

@@ -26,8 +26,8 @@ class TestInterpolationEscapes:
             Context().interpolate("{missing}")
 
     def test_json_values_interpolate_with_escapes(self):
-        ctx = Context({"who": "guest"})
+        ctx = Context({"who": "holder"})
         assert ctx.interpolate_json({"a": "{who}", "b": "{{who}}"}) == {
-            "a": "guest",
+            "a": "holder",
             "b": "{who}",
         }

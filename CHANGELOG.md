@@ -115,8 +115,8 @@ against a backdrop:
   its prose is for the people writing and judging the exam, never an
   argument for a score.
 - **A selector narrowed to a state is the same surface.** The audit
-  matched selectors by exact string, so `#start-door` published and
-  `#start-door[data-starts-from="home"]` touched read as two
+  matched selectors by exact string, so `#notes li` published and
+  `#notes li[data-archived="true"]` touched read as two
   surfaces. One extending the other at a selector boundary (`[`, `:`,
   a space, `>`) now matches in either direction; `#a` never matches
   `#ab`.
