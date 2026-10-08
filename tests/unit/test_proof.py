@@ -85,7 +85,7 @@ name = "founded"
 [[backdrop.step]]
 name = "found"
 method = "POST"
-url = "{base_url}/circles"
+url = "{base_url}/workspaces"
 """
 
 POSED_EXPOSURE = """

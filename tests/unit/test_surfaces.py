@@ -126,7 +126,7 @@ class TestParse:
 
     def test_paths_normalize(self):
         assert normalize_path("{base_url}/notes/{note_id}?x=1") == "/notes/*"
-        assert normalize_path("http://localhost:8000/hearth/") == "/hearth"
+        assert normalize_path("http://localhost:8000/home/") == "/home"
         assert normalize_path("/") == "/"
         assert normalize_path("{base_url}") == "/"
 
@@ -157,9 +157,9 @@ class TestCrossCheck:
         assert "DELETE /notes/*/purge" in codes[0][1] and "DELETE /notes/*" in codes[1][1]
 
     def test_a_page_opened_and_a_page_fetched_are_one_surface(self):
-        published = parse_surfaces("[pages]\n/me   the hearth\n")
+        published = parse_surfaces("[pages]\n/me   the home page\n")
         assert cross_check(published, {"step": [{"kind": "http", "url": "{base_url}/me"}]}) == []
-        published = parse_surfaces("[routes]\nGET /me   the hearth\n")
+        published = parse_surfaces("[routes]\nGET /me   the home page\n")
         assert cross_check(published, {"step": [{"kind": "goto", "url": "{base_url}/me"}]}) == []
 
     def test_a_command_matches_by_its_words_in_order(self):
@@ -186,14 +186,14 @@ class TestCrossCheck:
         assert inventory(parse_surfaces("[notes]\nonly prose\n")) == ""
 
     def test_a_selector_narrowed_to_a_state_is_the_same_surface(self):
-        published = parse_surfaces("[pages]\n#circle-door   the one action\n")
-        narrowed = {"step": [{"kind": "click", "selector": '#circle-door[data-starts-from="circle"]'}]}
+        published = parse_surfaces("[pages]\n#start-door   the one action\n")
+        narrowed = {"step": [{"kind": "click", "selector": '#start-door[data-starts-from="home"]'}]}
         assert cross_check(published, narrowed) == []
-        published = parse_surfaces('[pages]\n#sealed-items li[data-escrow-id]   one per item\n')
-        broader = {"step": [{"kind": "click", "selector": "#sealed-items li"}]}
+        published = parse_surfaces('[pages]\n#notes li[data-note-id]   one per item\n')
+        broader = {"step": [{"kind": "click", "selector": "#notes li"}]}
         assert cross_check(published, broader) == []
-        other = {"step": [{"kind": "click", "selector": "#circle-doorbell"}]}
-        codes = [c for c, _ in cross_check(parse_surfaces("[pages]\n#circle-door   x\n"), other)]
+        other = {"step": [{"kind": "click", "selector": "#start-doorbell"}]}
+        codes = [c for c, _ in cross_check(parse_surfaces("[pages]\n#start-door   x\n"), other)]
         assert codes == ["surface-unpublished", "surface-untouched"]
 
     def test_a_command_probing_the_app_is_not_a_command_surface(self):
@@ -261,13 +261,13 @@ Feature: an item sealed for "when they open it" shreds after the first open
   Scenario: gone once the recipient has it
     A member seals a note on the default clock.
 
-  Build: `POST /circles/{slug}/escrow/{id}/ack` (recipient session)
+  Build: `POST /workspaces/{slug}/notes/{id}/ack` (recipient session)
   is the device's confirmation; it answers `{state}`. The browser calls it
   right after rendering `#opened-note`. Any open of a shredded item → 410
   `gone`. The sender's `#sealed-items` entry shows `data-shred-reason="opened"`;
-  the hearth is `/me`.
+  the home page is `/me`.
 
-  Build: a second note, `GET /me/missed` lists them.
+  Build: a second note, `GET /me/unread` lists them.
 """
 
 
@@ -275,14 +275,14 @@ class TestDraft:
     def test_build_notes_are_paragraphs(self):
         notes = build_notes(SPEC_WITH_BUILD)
         assert len(notes) == 2
-        assert notes[0].startswith("`POST /circles/{slug}/escrow/{id}/ack` (recipient session)")
-        assert notes[1] == "a second note, `GET /me/missed` lists them."
+        assert notes[0].startswith("`POST /workspaces/{slug}/notes/{id}/ack` (recipient session)")
+        assert notes[1] == "a second note, `GET /me/unread` lists them."
 
     def test_draft_lifts_routes_and_pages_and_keeps_the_prose(self):
         draft = draft_surfaces(SPEC_WITH_BUILD)
         surfaces = parse_surfaces(draft)
         assert [str(s) for s in surfaces.of("route")] == [
-            "POST /circles/*/escrow/*/ack", "GET /me/missed",
+            "POST /workspaces/*/notes/*/ack", "GET /me/unread",
         ]
         assert [str(s) for s in surfaces.of("page", "selector")] == [
             "#opened-note", "#sealed-items", "/me",
@@ -319,16 +319,16 @@ class TestFirstSliceFindings:
         assert [str(s) for s in touched_surfaces({"step": steps})] == ["/agent-requests/*"]
 
     def test_attribute_values_never_decide_a_selector_match(self):
-        published = parse_surfaces("[pages]\n#admit-agent[data-institution]   the gesture\n")
-        touched = {"step": [{"kind": "click", "selector": '#admit-agent[data-institution="acme"]'}]}
+        published = parse_surfaces("[pages]\n#approve[data-partner]   the gesture\n")
+        touched = {"step": [{"kind": "click", "selector": '#approve[data-partner="acme"]'}]}
         assert cross_check(published, touched) == []
         published = parse_surfaces('[pages]\nmain[data-agent-status="pending"]   x\n')
         touched = {"step": [{"kind": "click", "selector": 'main[data-agent-status="admitted"]', "expect": {}}]}
         assert cross_check(published, touched) == []
 
     def test_a_published_command_with_placeholders_matches_the_words_run(self):
-        published = parse_surfaces("[commands]\nmake register-institution ID=… NAME=… KEY=…   operator-only\n")
-        run = {"step": [{"kind": "command", "cmd": "make register-institution ID=acme NAME='Acme Bank' KEY='*' DATABASE_URL=postgresql://x"}]}
+        published = parse_surfaces("[commands]\nmake register-partner ID=… NAME=… KEY=…   operator-only\n")
+        run = {"step": [{"kind": "command", "cmd": "make register-partner ID=acme NAME='Acme Bank' KEY='*' DATABASE_URL=postgresql://x"}]}
         assert cross_check(published, run) == []
         other = {"step": [{"kind": "command", "cmd": "make deploy ID=acme"}]}
         assert [c for c, _ in cross_check(published, other)] == ["surface-unpublished", "surface-untouched"]

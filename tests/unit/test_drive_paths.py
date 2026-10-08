@@ -7,7 +7,7 @@ from darkroom.drive import DriveError, _dot_path
 
 BODY = {
     "items": [
-        {"id": "newest", "receipts": [{"who": "dad", "assurance": "presence"}]},
+        {"id": "newest", "receipts": [{"who": "owner", "assurance": "presence"}]},
         {"id": "older", "receipts": []},
     ],
     "count": 2,
@@ -23,7 +23,7 @@ class TestDotPath:
         assert _dot_path(BODY, "$.items[1].id") == "older"
 
     def test_nested_index(self):
-        assert _dot_path(BODY, "$.items[0].receipts[0].who") == "dad"
+        assert _dot_path(BODY, "$.items[0].receipts[0].who") == "owner"
 
     def test_negative_index_counts_from_the_end(self):
         assert _dot_path(BODY, "$.items[-1].id") == "older"

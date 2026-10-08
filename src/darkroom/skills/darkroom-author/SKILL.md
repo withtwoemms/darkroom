@@ -29,12 +29,12 @@ build exposes.
 ## The rules, in the order they bite
 
 1. **A witness is never in the backdrop.** What a scenario proves is
-   in its own steps. Shared setup (found the circle, invite and join,
+   in its own steps. Shared setup (create the workspace, invite and join,
    sign in) goes in `backdrops.toml`; the moment a rubric cites a
    backdrop step, forty rubrics depend on shared setup and one edit
    silently re-scores them all. If a criterion needs a setup fact
-   ("the circle exists"), witness it with the scenario's own step
-   (an `http` read of the circle), not the backdrop's founding click.
+   ("the workspace exists"), witness it with the scenario's own step
+   (an `http` read of the workspace), not the backdrop's founding click.
 2. **A rubric speaks product's language.** A description says what a
    good record *shows*, never which step showed it: no step names, no
    status codes, no selectors, no `(log)`, no "resolved 2". The
@@ -62,16 +62,16 @@ build exposes.
    `data-*` and ids; typography is the judge's business from
    screenshots and must never be able to break a gate.
 7. **Production posture by default.** An exposure runs with every
-   exam-only bridge off (`key_approval = 0`, `billing_bridge = 0`)
-   unless the scenario is *about* that bridge. The landing-verify
-   defect hid for a month because every landing exposure registered a
-   flat member through a bridge production does not have.
+   exam-only bridge off (`strict_mode = 1`, `billing_stub = 0`)
+   unless the scenario is *about* that bridge. A defect on the
+   first tenant hid for a month because every landing exposure
+   registered a member through a bridge production does not have.
 8. **Address only what is published.** Read the scenario's
    `.surfaces`; an exposure touches those addresses. On a new feature
    the surfaces do not exist yet — write to the spec's intent and let
    the audit flag `surface-unpublished` until the builder publishes.
 9. **Scaled clocks, array paths, reuse.** A TTL scenario sets the
-   clock seam (`[serve] escrow_day_seconds = 5`), never sleeps a day;
+   clock seam (`[serve] day_seconds = 5`), never sleeps a day;
    a list is addressed by index (`$.items[0].id`, `#list li[-1]`);
    the closest proven exposure is the template, never an invented
    shape.
@@ -93,11 +93,11 @@ for f in proofs/*/exposure.toml; do awk 'BEGIN{RS="\\[\\[step\\]\\]"} NR>1 {n=k=
 Then, per backdrop:
 
 - **Name it for the state it leaves**, not the steps it takes:
-  `founded_by_dad`, `mom_joined`, `dad_signed_in_with_key` — the
-  exposure reads "posed against a circle Dad founded".
+  `founded_by_owner`, `guest_joined`, `owner_signed_in_with_key` — the
+  exposure reads "posed against a workspace the owner founded".
 - **Lift the steps verbatim** into `[[backdrop]]` / `[[backdrop.step]]`,
   names intact; an exposure that used them replaces those steps with
-  `backdrop = ["founded_by_dad"]`. Step names must not collide with the
+  `backdrop = ["founded_by_owner"]`. Step names must not collide with the
   exposure's own; the engine refuses a collision at load.
 - **Keep variants apart.** A founding with PRF off and one with PRF on
   are two backdrops, not one with a flag. If two exposures' "same"
@@ -139,16 +139,16 @@ backdrops that exist) → `darkroom audit` → `darkroom expose` dry run
 → hand to the converge skill. Write the rubric first so the exposure
 is built to produce named witnesses, not the other way round.
 
-A finished pair, for reference — `landing_starts_verification`, the
+A finished pair, for reference — `landing_starts_from_home`, the
 first proof written in this shape:
 
 ```toml
 # exposure.toml (QA)
-scenario = "landing_starts_verification"
+scenario = "landing_starts_from_home"
 record = true
 [serve]
-key_approval = 0          # production posture
-billing_bridge = 0
+strict_mode = 1           # production posture
+billing_stub = 0
 
 [[step]]
 name = "open_landing"
@@ -176,7 +176,7 @@ version = "6"
 [[criterion]]
 id = "the_way_in_is_the_home"
 points = 15
-description = "the page's one action tells the visitor that verification starts from home, and nothing on the page asks for a handle"
+description = "the page's one action tells the visitor that the work starts from home, and nothing on the page asks for a handle"
 witnesses = ["open_landing", "no_handle_field", "landing_page"]
 ```
 

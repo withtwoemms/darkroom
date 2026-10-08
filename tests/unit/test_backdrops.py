@@ -9,18 +9,18 @@ BACKDROPS = """
 [[backdrop]]
 name = "founded"
 [[backdrop.step]]
-name = "found_circle"
+name = "create_workspace"
 kind = "goto"
 url = "{base_url}/setup"
 [[backdrop.step]]
 name = "create"
 kind = "click"
-selector = "#create-circle"
+selector = "#create-workspace"
 
 [[backdrop]]
-name = "mom_joins"
+name = "guest_joins"
 [[backdrop.step]]
-name = "invite_mom"
+name = "invite_guest"
 method = "POST"
 url = "{base_url}/invites"
 """
@@ -29,8 +29,8 @@ url = "{base_url}/invites"
 class TestLoad:
     def test_loads_named_sequences(self):
         backdrops = loads_backdrops(BACKDROPS)
-        assert list(backdrops) == ["founded", "mom_joins"]
-        assert [s["name"] for s in backdrops["founded"]] == ["found_circle", "create"]
+        assert list(backdrops) == ["founded", "guest_joins"]
+        assert [s["name"] for s in backdrops["founded"]] == ["create_workspace", "create"]
 
     def test_absent_file_means_no_backdrops(self, tmp_path):
         assert load_backdrops(tmp_path / "backdrops.toml") == {}
@@ -47,12 +47,12 @@ class TestExpand:
     def test_backdrops_lead_the_exposures_own_steps_in_order(self):
         script = {
             "scenario": "s",
-            "backdrop": ["founded", "mom_joins"],
+            "backdrop": ["founded", "guest_joins"],
             "step": [{"name": "seal", "kind": "http", "url": "x"}],
         }
         expanded = expand(script, loads_backdrops(BACKDROPS))
         assert [s["name"] for s in expanded["step"]] == [
-            "found_circle", "create", "invite_mom", "seal",
+            "create_workspace", "create", "invite_guest", "seal",
         ]
         assert "backdrop" not in expanded
         assert script["step"] == [{"name": "seal", "kind": "http", "url": "x"}]  # untouched

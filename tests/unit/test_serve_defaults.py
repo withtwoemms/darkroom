@@ -18,12 +18,12 @@ ADAPTER = """
 name = "press"
 
 [commands]
-serve = "echo {port} {ttl} {key_approval}"
+serve = "echo {port} {ttl} {strict_mode}"
 
 [serve.defaults]
 ttl = 120
-key_approval = 0
-billing_bridge = 1
+strict_mode = 0
+billing_stub = 1
 
 [serve.env]
 APP_TTL_SECONDS = "{ttl}"
@@ -40,7 +40,7 @@ class TestAdapterDefaults:
     def test_serve_defaults_merge_under_the_exam(self, tmp_path):
         adapter = loads_adapter(ADAPTER, root=tmp_path)
         assert adapter.serve_vars({"ttl": 20}) == {
-            "ttl": 20, "key_approval": 0, "billing_bridge": 1,
+            "ttl": 20, "strict_mode": 0, "billing_stub": 1,
         }
         assert adapter.serve_vars(None) == adapter.serve_defaults
 

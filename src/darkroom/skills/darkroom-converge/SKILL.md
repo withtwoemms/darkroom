@@ -208,7 +208,7 @@ On convergence (score 100):
    **If the slice touched the schema, the green suite is not enough.**
    Exams run on fresh databases, so a migration that a long-lived
    production database needs is invisible to every scenario (a
-   payments deploy once 500'd the hearth on `no such column`). Before
+   payments deploy once 500'd the home page on `no such column`). Before
    deploying: fetch a copy of production's database, boot the built
    app against that copy, and probe the routes the change touches —
    then confirm the columns arrived by ALTER TABLE, never by
