@@ -16,8 +16,26 @@ sentence, the converge skill's one aside, the backdrops and surfaces
 docstrings, the proofs spec's backdrop example and three earlier
 changelog lines spoke in the first tenant's words; every example now
 speaks in the relay example's vocabulary — notes, tokens, archive, the
-notes page and its form. No behaviour change. The skills ship in the
-wheel, which is why this is a release rather than a note.
+notes page and its form. The skills ship in the wheel, which is why
+this is a release rather than a note.
+
+The relay example grows to publish every surface those examples cite
+(#106): state attributes on the page (`main[data-note-state]`), the
+list items (`#notes li[data-archived]`, `data-gone-reason`) and the
+Save control (`#save[data-state]`); read-once notes that answer `410`
+with a reason at every door; a `token_in_hand` backdrop that
+`deletion_guarded` is posed against; and an exam-only bridge
+(`RELAY_OPEN_DELETE`) held at its production value by
+`[serve.defaults]`. Two scenarios join the slate (`read_once_note`,
+`archived_note_shows_its_state`); `notes_page` witnesses the empty
+state and the ready control (rubric v2).
+
+### Added
+
+A `backdrops.toml` beside the proofs a `--drives` directory holds wins
+over the operator home's — for the run, the derived contract and the
+expose command alike — so an in-tree example or a slice carried in a
+directory brings its own setup.
 
 ## [0.20.4] - 2026-10-07
 
