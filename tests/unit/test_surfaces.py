@@ -257,14 +257,14 @@ class TestAuditIntegration:
 
 
 SPEC_WITH_BUILD = """\
-Feature: an item sealed for "when they open it" shreds after the first open
-  Scenario: gone once the recipient has it
-    A member seals a note on the default clock.
+Feature: a note marked "read once" is gone after the first read
+  Scenario: gone once the reader has it
+    A member posts a read-once note on the default clock.
 
   Build: `POST /workspaces/{slug}/notes/{id}/ack` (recipient session)
   is the device's confirmation; it answers `{state}`. The browser calls it
-  right after rendering `#opened-note`. Any open of a shredded item → 410
-  `gone`. The sender's `#sealed-items` entry shows `data-shred-reason="opened"`;
+  right after rendering `#opened-note`. Any read of a gone note → 410
+  `gone`. The author's `#sent-notes` entry shows `data-gone-reason="read"`;
   the home page is `/me`.
 
   Build: a second note, `GET /me/unread` lists them.
@@ -285,7 +285,7 @@ class TestDraft:
             "POST /workspaces/*/notes/*/ack", "GET /me/unread",
         ]
         assert [str(s) for s in surfaces.of("page", "selector")] == [
-            "#opened-note", "#sealed-items", "/me",
+            "#opened-note", "#sent-notes", "/me",
         ]
         assert "device's confirmation" in surfaces.notes and "second note" in surfaces.notes
         assert all(s.description == "" for s in surfaces.entries)  # engineering's to add
