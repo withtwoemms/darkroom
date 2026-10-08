@@ -6,6 +6,19 @@ project follows [semantic versioning](https://semver.org/) (pre-1.0: minor
 releases may break API, patch releases never do). The manifest schema is
 versioned independently of the package — see `ROADMAP.md`.
 
+## [0.20.5] - 2026-10-08
+
+### Changed
+
+darkroom never uses a tenant's name or domain language. The author
+skill's example proof, its backdrop naming and before/after rubric
+sentence, the converge skill's one aside, the backdrops and surfaces
+docstrings, the proofs spec's backdrop example and three earlier
+changelog lines spoke in the first tenant's words; every example now
+speaks in the relay example's vocabulary — notes, tokens, archive, the
+notes page and its form. No behaviour change. The skills ship in the
+wheel, which is why this is a release rather than a note.
+
 ## [0.20.4] - 2026-10-07
 
 ### Fixed
