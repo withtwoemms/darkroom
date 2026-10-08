@@ -98,14 +98,14 @@ class TestDriveEngine:
             [[step]]
             name = "keys"
             kind = "keygen"
-            names = ["mom", "impostor"]
+            names = ["holder", "impostor"]
 
             [[step]]
             name = "create"
             kind = "http"
             method = "POST"
             url = "{base_url}/items"
-            json = { name = "{keys.mom.public}" }
+            json = { name = "{keys.holder.public}" }
             expect = { status = 201 }
             save = { item_id = "$.id", nonce_a = "$.nonce" }
 
@@ -133,7 +133,7 @@ class TestDriveEngine:
             kind = "http"
             method = "POST"
             url = "{base_url}/verify"
-            json = { pub = "{keys.mom.public}", msg = "{nonce_a}", sig = "{sign(keys.mom, nonce_a)}" }
+            json = { pub = "{keys.holder.public}", msg = "{nonce_a}", sig = "{sign(keys.holder, nonce_a)}" }
             expect = { status = 200, body_contains = "true" }
 
             [[step]]
@@ -141,7 +141,7 @@ class TestDriveEngine:
             kind = "http"
             method = "POST"
             url = "{base_url}/verify"
-            json = { pub = "{keys.mom.public}", msg = "{nonce_a}", sig = "{sign(keys.impostor, nonce_a)}" }
+            json = { pub = "{keys.holder.public}", msg = "{nonce_a}", sig = "{sign(keys.impostor, nonce_a)}" }
             expect = { status_in = [400] }
 
             [[step]]

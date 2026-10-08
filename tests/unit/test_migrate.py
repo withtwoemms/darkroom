@@ -28,12 +28,12 @@ scenario = "{name}"
 
 [serve]
 ttl = {ttl}
-key_approval = 0
+strict_mode = 0
 
 [[step]]
 name = "keys"
 kind = "keygen"
-names = ["mom"]
+names = ["guest"]
 
 [[step]]
 name = "create"
@@ -164,12 +164,12 @@ class TestServeDefaults:
     def test_applying_defaults_drops_only_matching_keys(self, tmp_path):
         drives, vault = _project(tmp_path, ttls=(120, 120, 20))
         plan = plan_migration(drives, vault)
-        assert plan.serve_defaults == {"key_approval": 0}
+        assert plan.serve_defaults == {"strict_mode": 0}
         apply_serve_defaults(plan)
         assert plan.proofs["alpha"]["serve"] == {"ttl": 120}
         assert plan.proofs["gamma"]["serve"] == {"ttl": 20}
-        assert defaults_block({"ttl": 120, "key_approval": 0}) == (
-            "[serve.defaults]\nttl = 120\nkey_approval = 0\n"
+        assert defaults_block({"ttl": 120, "strict_mode": 0}) == (
+            "[serve.defaults]\nttl = 120\nstrict_mode = 0\n"
         )
 
 
@@ -196,11 +196,11 @@ class TestCli:
         ])
         out = capsys.readouterr().out
         assert code == 0 and not (tmp_path / "proofs").exists()
-        assert "[serve.defaults]\nttl = 120\nkey_approval = 0" in out
+        assert "[serve.defaults]\nttl = 120\nstrict_mode = 0" in out
         assert "3 proof(s)" in out and "(check only)" in out
 
     def test_writes_into_the_home_and_drops_declared_defaults(self, tmp_path, monkeypatch, capsys):
-        root = self._tenant(tmp_path, monkeypatch, "[serve.defaults]\nttl = 120\nkey_approval = 0")
+        root = self._tenant(tmp_path, monkeypatch, "[serve.defaults]\nttl = 120\nstrict_mode = 0")
         drives, vault = _project(tmp_path)
         code = main([
             "migrate", "--project", str(root), "--drives", str(drives), "--vault", str(vault),

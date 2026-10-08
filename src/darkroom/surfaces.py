@@ -282,8 +282,8 @@ def _attr_shape(selector: str) -> str:
 
 
 def _selectors_match(published: str, touched: str) -> bool:
-    """The same element, named at different specificity: ``#circle-door``
-    published and ``#circle-door[data-starts-from="circle"]`` touched (the
+    """The same element, named at different specificity: ``#notes li``
+    published and ``#notes li[data-archived="true"]`` touched (the
     exposure narrowing to a state), or the reverse (the publication naming
     the state, the exposure the element). One must be the other extended
     at a selector boundary — never ``#a`` against ``#ab``. Attribute

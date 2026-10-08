@@ -69,12 +69,12 @@ class _Page:
 
 class TestBrowserExpectWitness:
     def test_records_title_url_body_and_selector(self):
-        page = _Page(title="zikora", url="http://x/me", content='<div data-member="mom">')
+        page = _Page(title="relay", url="http://x/me", content='<div data-note-id="1">')
         detail, found = _evaluate_browser_expect(
             {
-                "title_contains": "zik",
+                "title_contains": "rel",
                 "url_contains": "/me",
-                "body_contains": 'data-member="mom"',
+                "body_contains": 'data-note-id="1"',
                 "selector_visible": "#x",
             },
             page,
@@ -82,7 +82,7 @@ class TestBrowserExpectWitness:
         )
         assert detail is None
         assert found == {
-            "title": "zikora",
+            "title": "relay",
             "url": "http://x/me",
             "body_contains": True,
             "selector_visible": True,
@@ -108,7 +108,7 @@ class TestBrowserExpectWitness:
         # destination settles and the expectation is met
         class _Navigating(_Page):
             def __init__(self):
-                super().__init__(title="hearth", content="seal it again")
+                super().__init__(title="Relay Notes", content="try again")
                 self.polls = 0
 
             def _mid_navigation(self):
@@ -129,14 +129,14 @@ class TestBrowserExpectWitness:
 
         page = _Navigating()
         detail, found = _evaluate_browser_expect(
-            {"body_contains": "seal it again", "selector_visible": "#x"}, page, None
+            {"body_contains": "try again", "selector_visible": "#x"}, page, None
         )
         assert detail is None
         assert found == {"body_contains": True, "selector_visible": True}
 
         page = _Navigating()
-        detail, found = _evaluate_browser_expect({"title_contains": "hearth"}, page, None)
-        assert detail is None and found == {"title": "hearth"}
+        detail, found = _evaluate_browser_expect({"title_contains": "Relay"}, page, None)
+        assert detail is None and found == {"title": "Relay Notes"}
 
 
 class _Ctx:

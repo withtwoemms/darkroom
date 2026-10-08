@@ -20,13 +20,13 @@ against a backdrop:
 - **A backdrop's surfaces belong to the scenario that owns it.** Steps
   a backdrop contributes are marked on expansion and left out of the
   posing scenario's cross-check; the founding's `/setup` no longer
-  shows as unpublished on every scenario founded by Dad.
+  shows as unpublished on every scenario posed against the founding backdrop.
 - **A run-time path is not addressable.** A `goto`/`http` whose whole
   path is a saved value (`{base_url}{request_link}`) names nothing the
   audit can check and is skipped; the route that minted the value was
   already touched.
 - **Attribute values never decide a selector match.** The publication
-  names the attribute (`#admit-agent[data-institution]`); the exposure
+  names the attribute (`#approve[data-partner]`); the exposure
   narrows to its value; they are one surface.
 - **A published command's placeholders match the words run.** `ID=…`
   matches `ID=acme`, `…`/`*` match any word, and quoted words
@@ -115,8 +115,8 @@ against a backdrop:
   its prose is for the people writing and judging the exam, never an
   argument for a score.
 - **A selector narrowed to a state is the same surface.** The audit
-  matched selectors by exact string, so `#circle-door` published and
-  `#circle-door[data-starts-from="circle"]` touched read as two
+  matched selectors by exact string, so `#notes li` published and
+  `#notes li[data-archived="true"]` touched read as two
   surfaces. One extending the other at a selector boundary (`[`, `:`,
   a space, `>`) now matches in either direction; `#a` never matches
   `#ab`.

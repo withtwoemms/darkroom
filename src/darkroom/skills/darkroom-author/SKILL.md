@@ -29,27 +29,26 @@ build exposes.
 ## The rules, in the order they bite
 
 1. **A witness is never in the backdrop.** What a scenario proves is
-   in its own steps. Shared setup (found the circle, invite and join,
-   sign in) goes in `backdrops.toml`; the moment a rubric cites a
+   in its own steps. Shared setup (saving a note, holding its token) goes in `backdrops.toml`; the moment a rubric cites a
    backdrop step, forty rubrics depend on shared setup and one edit
    silently re-scores them all. If a criterion needs a setup fact
-   ("the circle exists"), witness it with the scenario's own step
-   (an `http` read of the circle), not the backdrop's founding click.
+   ("the note exists"), witness it with the scenario's own step
+   (an `http` read of the note), not the backdrop's founding click.
 2. **A rubric speaks product's language.** A description says what a
    good record *shows*, never which step showed it: no step names, no
    status codes, no selectors, no `(log)`, no "resolved 2". The
    witnesses list carries the binding; the prose carries the standard.
    Test: could the PM have written this sentence before the exposure
    existed? If not, it is QA's sentence in product's file.
-   - before: `"the member's missed list held exactly two items (missed_list; two_missed_not_three resolved 2) … (newest_is_the_key_change, key_change_named)"`
-   - after: `"the member is told of exactly the items that shredded unopened — the key change first, with who sent it, then the expiry — and never of one they had opened"`
+   - before: `"the member's unread list held exactly two notes (unread_list; two_unread_not_three resolved 2) … (newest_is_the_retraction, retraction_named)"`
+   - after: `"the member is told of exactly the notes that were withdrawn unread — the retraction first, with who sent it, then the expiry — and never of one they had read"`
 3. **Every witness leaves a record.** Cite an `assert`, an `http` or
    `command` step, a `screenshot`, or any step with an `expect` table.
    A bare `goto`/`click`/`fill` gates the run but gives the judge
    nothing; `darkroom audit` refuses it.
 4. **Witness absence with a positive.** "The handle field is gone" is
    not a selector that fails to appear — it is a state attribute that
-   *does* (`#circle-door[data-starts-from="circle"]`), or a count that
+   *does* (`#notes li[data-archived="true"]`), or a count that
    resolves to zero (`curl … | grep -c` expecting exit 1), or an
    `http` read whose body an `assert` inspects. A once-shown surface
    (a notice dismissed on view) is witnessed on the render that shows
@@ -62,16 +61,16 @@ build exposes.
    `data-*` and ids; typography is the judge's business from
    screenshots and must never be able to break a gate.
 7. **Production posture by default.** An exposure runs with every
-   exam-only bridge off (`key_approval = 0`, `billing_bridge = 0`)
-   unless the scenario is *about* that bridge. The landing-verify
-   defect hid for a month because every landing exposure registered a
-   flat member through a bridge production does not have.
+   exam-only bridge off (every `[serve]` bridge at its production value)
+   unless the scenario is *about* that bridge. A defect on the
+   first tenant hid for a month because every landing exposure
+   registered a member through a bridge production does not have.
 8. **Address only what is published.** Read the scenario's
    `.surfaces`; an exposure touches those addresses. On a new feature
    the surfaces do not exist yet — write to the spec's intent and let
    the audit flag `surface-unpublished` until the builder publishes.
 9. **Scaled clocks, array paths, reuse.** A TTL scenario sets the
-   clock seam (`[serve] escrow_day_seconds = 5`), never sleeps a day;
+   clock seam (`[serve] day_seconds = 5`), never sleeps a day;
    a list is addressed by index (`$.items[0].id`, `#list li[-1]`);
    the closest proven exposure is the template, never an invented
    shape.
@@ -93,11 +92,11 @@ for f in proofs/*/exposure.toml; do awk 'BEGIN{RS="\\[\\[step\\]\\]"} NR>1 {n=k=
 Then, per backdrop:
 
 - **Name it for the state it leaves**, not the steps it takes:
-  `founded_by_dad`, `mom_joined`, `dad_signed_in_with_key` — the
-  exposure reads "posed against a circle Dad founded".
+  `note_saved`, `note_archived`, `token_in_hand` — the
+  exposure reads "posed against a saved note".
 - **Lift the steps verbatim** into `[[backdrop]]` / `[[backdrop.step]]`,
   names intact; an exposure that used them replaces those steps with
-  `backdrop = ["founded_by_dad"]`. Step names must not collide with the
+  `backdrop = ["note_saved"]`. Step names must not collide with the
   exposure's own; the engine refuses a collision at load.
 - **Keep variants apart.** A founding with PRF off and one with PRF on
   are two backdrops, not one with a flag. If two exposures' "same"
@@ -139,45 +138,48 @@ backdrops that exist) → `darkroom audit` → `darkroom expose` dry run
 → hand to the converge skill. Write the rubric first so the exposure
 is built to produce named witnesses, not the other way round.
 
-A finished pair, for reference — `landing_starts_verification`, the
-first proof written in this shape:
+A finished pair, for reference — `notes_page_offers_the_form`, in
+the relay example's vocabulary:
 
 ```toml
 # exposure.toml (QA)
-scenario = "landing_starts_verification"
+scenario = "notes_page_offers_the_form"
 record = true
-[serve]
-key_approval = 0          # production posture
-billing_bridge = 0
 
 [[step]]
-name = "open_landing"
+name = "open_page"
 kind = "goto"
 url = "{base_url}/"
-expect = { status = 200, title_contains = "zikora", selector_visible = '#circle-door[data-starts-from="circle"]' }
+expect = { status = 200, title_contains = "Relay Notes", selector_visible = "#note-form" }
 
 [[step]]
-name = "no_handle_field"   # absence, witnessed positively
+name = "no_token_on_page"   # absence, witnessed positively
 kind = "command"
-cmd = "curl -s {base_url}/ | grep -c 'name=\"handle\"'"
+cmd = "curl -s {base_url}/ | grep -c 'name=\"token\"'"
 expect = { exit_code = 1 }
 
 [[step]]
-name = "through_the_door"  # a link is proven by following it
+name = "type_a_note"
+kind = "fill"
+selector = "#note-text"
+value = "milk"
+
+[[step]]
+name = "saved_note"         # a control is proven by what it does
 kind = "click"
-selector = "#circle-door"
-expect = { url_contains = "/signin" }
+selector = "#save"
+expect = { selector_visible = "#notes li" }
 ```
 
 ```toml
 # rubric.toml (product)
-version = "6"
+version = "1"
 
 [[criterion]]
-id = "the_way_in_is_the_circle"
+id = "the_page_offers_the_form"
 points = 15
-description = "the page's one action tells the visitor that verification starts from their circle, and nothing on the page asks for a handle"
-witnesses = ["open_landing", "no_handle_field", "landing_page"]
+description = "the page offers one form to save a note, the saved note shows in the list, and the note's token never appears on the page"
+witnesses = ["open_page", "no_token_on_page", "saved_note"]
 ```
 
 ## Hand-off
