@@ -65,22 +65,24 @@ class EvidenceContract:
 
 
 def scoped_contract(
-    contract: EvidenceContract | None, scenario: str | None
+    contract: EvidenceContract | None, scenario: str | list[str] | None
 ) -> EvidenceContract | None:
-    """The contract narrowed to one scenario, for scenario-scoped runs.
+    """The contract narrowed to one scenario — or to the scenarios a
+    selection chose — for runs that deliberately exercised a subset.
 
-    A run that deliberately exercised one scenario must not fail
-    verification for the scenarios it never attempted. A scenario absent
-    from the contract scopes to an empty contract (structural checks
-    plus an uncontracted-scenario warning), never to the full one.
+    A run that exercised a subset must not fail verification for the
+    scenarios it never attempted. A scenario absent from the contract
+    scopes to nothing (structural checks plus an uncontracted-scenario
+    warning), never to the full contract.
     """
     if contract is None or scenario is None:
         return contract
-    selected = contract.for_scenario(scenario)
+    names = [scenario] if isinstance(scenario, str) else list(scenario)
+    selected = [s for s in (contract.for_scenario(n) for n in names) if s]
     return EvidenceContract(
         schema_version=contract.schema_version,
         project=contract.project,
-        scenarios=[selected] if selected else [],
+        scenarios=selected,
     )
 
 

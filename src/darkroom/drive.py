@@ -87,6 +87,7 @@ class ScenarioResult:
 @dataclass
 class DriveReport:
     results: list[ScenarioResult] = field(default_factory=list)
+    selection: str = "all"  # how the scenarios were chosen, named in the harness log
 
     @property
     def ok(self) -> bool:
@@ -1493,12 +1494,59 @@ def _any_draws_from_pool(scripts, load) -> bool:
     return False
 
 
+def select_proofs(
+    scripts: list[Path],
+    load,
+    scenario: str | None = None,
+    tags: list[str] | None = None,
+    touching: list[str] | None = None,
+) -> tuple[list[Path], str]:
+    """Narrow the proofs a run will expose, and name the narrowing.
+
+    ``scenario`` keeps the one proof of that name; ``tags`` keeps proofs
+    carrying any of the tags (the union); ``touching`` keeps proofs whose
+    own steps reach any of the addresses, by the audit's matching rules.
+    Given together they intersect: a named scenario must also carry the
+    tag and touch the address. ``load`` turns a proof folder into its
+    expanded exposure (backdrop steps marked, so they never count as
+    touching). Returns the kept folders in their original order and the
+    selection as the flags that made it (``all`` when nothing narrowed).
+    """
+    from darkroom.surfaces import SurfacesError, parse_address, touches
+
+    parts: list[str] = []
+    kept = list(scripts)
+    if scenario is not None:
+        kept = [p for p in kept if p.name == scenario]
+        parts.append(f"--scenario {scenario}")
+    if tags:
+        wanted = {t.strip() for t in tags if t.strip()}
+        kept = [p for p in kept if wanted & set(load(p).get("tags", []))]
+        parts.extend(f"--tag {t}" for t in tags)
+    if touching:
+        try:
+            addresses = [parse_address(a) for a in touching]
+        except SurfacesError as exc:
+            raise DriveError(str(exc)) from None
+        kept = [p for p in kept if touches(load(p), addresses)]
+        parts.extend(f"--touching {_quote(a)}" for a in touching)
+    return kept, (" ".join(parts) if parts else "all")
+
+
+def _quote(address: str) -> str:
+    import shlex
+
+    return shlex.quote(address)
+
+
 def drive(
     adapter: ProjectAdapter,
     drives_dir: Path,
     scenario: str | None = None,
     containers_mode: str = "auto",
     workers: int = 1,
+    tags: list[str] | None = None,
+    touching: list[str] | None = None,
 ) -> DriveReport:
     """Run every proof's exposure under an evidence run; returns the report.
 
@@ -1506,6 +1554,10 @@ def drive(
     mode, starts a run, executes each exposure (fresh server per
     scenario) — serially, or in a pool of ``workers`` processes — and
     ends the run so the manifest is written.
+
+    ``scenario``, ``tags`` and ``touching`` narrow the run (see
+    :func:`select_proofs`); the report's ``selection`` names how, and the
+    harness log opens with it, so a partial run is never read as the gate.
     """
     from darkroom.backdrops import BackdropError, load_backdrops
     from darkroom.proof import ProofError, exposure, load_proof, proof_dirs
@@ -1532,12 +1584,15 @@ def drive(
             f"{drives_dir} holds pre-0.20 drive scripts and no proofs; "
             "run `darkroom migrate` to carry them into proofs/"
         )
-    if scenario is not None:
-        scripts = [p for p in scripts if p.name == scenario]
     if not scripts:
-        raise DriveError(
-            f"no proofs{f' for scenario {scenario!r}' if scenario else ''} in {drives_dir}"
-        )
+        raise DriveError(f"no proofs in {drives_dir}")
+    scripts, selection = select_proofs(
+        scripts, lambda p: _load(p)[0], scenario=scenario, tags=tags, touching=touching
+    )
+    if not scripts:
+        if selection == f"--scenario {scenario}":
+            raise DriveError(f"no proofs for scenario {scenario!r} in {drives_dir}")
+        raise DriveError(f"no proofs in {drives_dir} match {selection}")
 
     containers = resolve_container_mode(containers_mode, adapter)
     if containers and adapter.environment_build:
@@ -1559,7 +1614,7 @@ def drive(
         "EVIDENCE_DIR", str(adapter.resolve(adapter.evidence_dir))
     )
     run = start_run(project=adapter.name)
-    report = DriveReport()
+    report = DriveReport(selection=selection)
     owner: _Services | None = None
     pool: ServicePool | None = None
     try:
@@ -1647,7 +1702,7 @@ def _write_harness_log(run, report: DriveReport) -> None:
     """
     if run is None or not getattr(run, "evidence_mode", False):
         return
-    lines = []
+    lines = [f"selection: {report.selection}"]
     for result in report.results:
         lines.append(f"scenario {result.scenario}: {'ok' if result.ok else 'FAILED'}")
         for step in result.steps:

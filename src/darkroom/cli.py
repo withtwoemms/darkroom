@@ -342,7 +342,22 @@ def _cmd_audit(args) -> int:
     except BackdropError as exc:
         print(f"error: {exc}")
         return 2
-    findings = audit(vault, drives, backdrops, adapter.spec_files())
+    only = None
+    if args.tag or args.touching:
+        from darkroom.drive import DriveError, select_proofs
+        from darkroom.proof import ProofError, exposure, load_proof, proof_dirs
+
+        try:
+            kept, selection = select_proofs(
+                proof_dirs(drives), lambda p: exposure(load_proof(p), backdrops),
+                tags=args.tag, touching=args.touching,
+            )
+        except (DriveError, ProofError) as exc:
+            print(f"error: {exc}")
+            return 2
+        only = {p.name for p in kept}
+        print(f"selection: {selection}")
+    findings = audit(vault, drives, backdrops, adapter.spec_files(), only=only)
     from collections import Counter
 
     by_scenario: dict[str, list] = {}
@@ -672,12 +687,14 @@ def _cmd_drive(args) -> int:
             return 2
         report = drive(
             adapter, drives_dir, scenario=args.scenario, containers_mode=mode,
-            workers=workers,
+            workers=workers, tags=args.tag, touching=args.touching,
         )
     except DriveError as exc:
         print(f"error: {exc}")
         return 2
 
+    if report.selection != "all":
+        print(f"selection: {report.selection}")
     for result in report.results:
         marks = " · ".join(
             f"{s.name} {'✓' if s.ok else 'FAIL'}" for s in result.steps
@@ -694,8 +711,11 @@ def _cmd_drive(args) -> int:
         from darkroom.vault import VaultError, runtime_contract
 
         try:
+            scope = (
+                [r.scenario for r in report.results] if report.selection != "all" else None
+            )
             contract = scoped_contract(
-                runtime_contract(adapter, proofs_dir=Path(drives_dir)), args.scenario
+                runtime_contract(adapter, proofs_dir=Path(drives_dir)), scope
             )
         except VaultError as exc:
             print(f"error: {exc}")
@@ -920,6 +940,18 @@ def _cmd_skills(args) -> int:
     return 1 if drift else 0
 
 
+def _add_selection_flags(parser) -> None:
+    parser.add_argument(
+        "--tag", action="append", default=None, metavar="TAG",
+        help="only proofs carrying this tag (repeatable: the union)",
+    )
+    parser.add_argument(
+        "--touching", action="append", default=None, metavar="ADDRESS",
+        help="only proofs whose own steps reach this surface, written as a .surfaces "
+             "entry is (repeatable: any of them; 'kind:' prefix settles an ambiguous one)",
+    )
+
+
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(
         prog="darkroom",
@@ -1029,6 +1061,7 @@ def main(argv=None) -> int:
         "--workers", type=int, default=None,
         help="run scenarios in this many worker processes (default: [evidence] workers, or 1)",
     )
+    _add_selection_flags(drive_parser)
     drive_parser.set_defaults(func=_cmd_drive)
 
     home_parser = sub.add_parser(
@@ -1101,6 +1134,7 @@ def main(argv=None) -> int:
     )
     audit_parser.add_argument("--operator", type=Path, default=None)
     audit_parser.add_argument("--drives", type=Path, default=None)
+    _add_selection_flags(audit_parser)
     audit_parser.add_argument("--project", type=Path, default=None)
     audit_parser.set_defaults(func=_cmd_audit)
 

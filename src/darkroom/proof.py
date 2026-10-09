@@ -57,7 +57,7 @@ RUBRIC_FILE = "rubric.toml"
 
 # the exposure's keys; everything else in a merged proof is the rubric's
 EXPOSURE_KEYS = frozenset(
-    {"scenario", "backdrop", "serve", "browser", "environment", "record", "step"}
+    {"scenario", "backdrop", "serve", "browser", "environment", "record", "tags", "step"}
 )
 
 # what a step kind records, hence what a criterion citing it rests on
@@ -111,6 +111,9 @@ def validate_proof(proof: dict, name: str = "proof", rubric_required: bool = Tru
                 f"{name}: criterion '{cid}' cites no witnesses — name the steps "
                 "whose records prove it (or declare the evidence kinds it rests on)"
             )
+    tags = proof.get("tags", [])
+    if not isinstance(tags, list) or not all(isinstance(t, str) and t.strip() for t in tags):
+        raise ProofError(f"{name}: tags is a list of non-empty strings")
     for step in proof.get("step", []):
         step.setdefault("kind", "http")
     return proof
