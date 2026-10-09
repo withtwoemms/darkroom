@@ -1,4 +1,5 @@
 scenario = "archived_note_shows_its_state"
+tags = ["page"]
 record = true
 
 [[step]]

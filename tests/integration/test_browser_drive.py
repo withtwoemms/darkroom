@@ -197,6 +197,20 @@ class TestBrowserDrive:
         assert videos[0].step == "screencast"
         assert (manifest_path.parent / videos[0].path).stat().st_size > 0
 
+    def test_touching_a_selector_selects_the_pages_that_reach_it(self, tmp_path, capsys, monkeypatch):
+        project = tmp_path / "relay-service"
+        shutil.copytree(EXAMPLE, project, ignore=shutil.ignore_patterns("evidence"))
+        monkeypatch.chdir(project)
+        monkeypatch.delenv("EVIDENCE_MODE", raising=False)
+        monkeypatch.delenv("EVIDENCE_DIR", raising=False)
+
+        code = main(["expose", "--drives", "proofs-ui", "--touching", "#notes li"])
+        out = capsys.readouterr().out
+        assert code == 0, out
+        assert "selection: --touching '#notes li'" in out
+        assert "notes_page:" in out and "archived_note_shows_its_state:" in out
+        assert "2/2 scenario(s) green" in out
+
     def test_shipped_ui_example_runs_green(self, tmp_path, capsys, monkeypatch):
         project = tmp_path / "relay-service"
         shutil.copytree(EXAMPLE, project, ignore=shutil.ignore_patterns("evidence"))
