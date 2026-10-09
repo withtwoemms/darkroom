@@ -247,7 +247,7 @@ static contact sheet.
 ## The formats are a spec
 
 Every artifact (manifest, contract, evaluation, gates, tickets,
-drive scripts, role hooks, dossier) is a written, versioned format
+exposures, role hooks, dossier) is a written, versioned format
 with conformance rules and a trust-boundary map: see
 [docs/spec/](https://github.com/withtwoemms/darkroom/tree/main/docs/spec). Any harness in any language can emit a
 darkroom manifest; any judge infrastructure can consume one.

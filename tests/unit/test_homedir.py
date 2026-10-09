@@ -7,7 +7,6 @@ import pytest
 from darkroom.cli import main
 from darkroom.homedir import (
     darkroom_home,
-    default_drives,
     default_state,
     default_vault,
     ensure_project_home,
@@ -34,7 +33,6 @@ class TestResolution:
         monkeypatch.setenv("DARKROOM_HOME", str(tmp_path))
         assert default_vault("a") != default_vault("b")
         assert default_state("a").parts[-2:] == ("a", "state")
-        assert default_drives("a").parts[-1] == "drives"
 
 
 class TestEnsure:
@@ -73,21 +71,37 @@ class TestHomeDefaultsInCommands:
     def test_vault_seal_defaults_to_home(self, tmp_path, capsys, monkeypatch):
         monkeypatch.setenv("DARKROOM_HOME", str(tmp_path / "home"))
         root = tmp_path / "tenant"
-        (root / "scenarios").mkdir(parents=True)
-        (root / "scenarios" / "a.rubric.toml").write_text(
-            'feature_id = "a"\nversion = "1"\n[[criterion]]\nid = "c"\n'
-            'points = 1\ndescription = "d"\nevidence = ["log"]'
+        root.mkdir()
+        (root / "darkroom.toml").write_text('[project]\nname = "press"')
+        proof = tmp_path / "home" / "projects" / "press" / "proofs" / "a"
+        proof.mkdir(parents=True)
+        (proof / "exposure.toml").write_text(
+            'scenario = "a"\n[[step]]\nname = "hit"\nurl = "{base_url}/"\n'
+            'expect = { status = 200 }\n'
         )
-        (root / "darkroom.toml").write_text(
-            '[project]\nname = "press"\n[scenarios]\n'
-            'rubric_glob = "scenarios/*.rubric.toml"'
+        (proof / "rubric.toml").write_text(
+            'version = "1"\n[[criterion]]\nid = "c"\npoints = 1\n'
+            'description = "d"\nwitnesses = ["hit"]\n'
         )
         monkeypatch.chdir(root)
         assert main(["vault", "seal"]) == 0
-        capsys.readouterr()
-        assert (
-            tmp_path / "home" / "projects" / "press" / "vault" / "a.rubric.toml"
-        ).exists()
+        assert "sealed 1 proof(s)" in capsys.readouterr().out
+        assert "sealed 1 proof(s)" in (
+            tmp_path / "home" / "projects" / "press" / "vault" / "audit.log"
+        ).read_text()
+
+    def test_old_layout_is_refused_by_name(self, tmp_path, capsys, monkeypatch):
+        monkeypatch.setenv("DARKROOM_HOME", str(tmp_path / "home"))
+        root = tmp_path / "tenant"
+        root.mkdir()
+        (root / "darkroom.toml").write_text('[project]\nname = "press"')
+        home = tmp_path / "home" / "projects" / "press"
+        (home / "drives").mkdir(parents=True)
+        (home / "drives" / "a.drive.toml").write_text('scenario = "a"\n')
+        monkeypatch.chdir(root)
+        for argv in (["vault", "seal"], ["expose"], ["surfaces"]):
+            assert main(argv) == 2, argv
+            assert "darkroom migrate" in capsys.readouterr().out
 
     def test_ticket_store_defaults_to_home(self, tmp_path, capsys, monkeypatch):
         monkeypatch.setenv("DARKROOM_HOME", str(tmp_path / "home"))

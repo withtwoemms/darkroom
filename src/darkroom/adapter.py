@@ -56,7 +56,6 @@ class ProjectAdapter:
     contract_path: Path | None = None
     gates_path: Path = Path("evidence-gates.json")
     spec_glob: str = ""
-    rubric_glob: str = ""
     defaults: dict = field(default_factory=dict)
     app_image: str = ""
     app_port: int = 8000
@@ -105,9 +104,6 @@ class ProjectAdapter:
 
     def spec_files(self) -> list[Path]:
         return sorted(self.root.glob(self.spec_glob)) if self.spec_glob else []
-
-    def rubric_files(self) -> list[Path]:
-        return sorted(self.root.glob(self.rubric_glob)) if self.rubric_glob else []
 
 
 def _keep_runs(value) -> int | None:
@@ -191,7 +187,6 @@ def loads_adapter(text: str, root: Path) -> ProjectAdapter:
         gates_declared="gates" in evidence,
         keep_runs=_keep_runs(evidence.get("keep_runs")),
         spec_glob=scenarios.get("spec_glob", ""),
-        rubric_glob=scenarios.get("rubric_glob", ""),
         defaults=dict(data.get("defaults", {})),
     )
 

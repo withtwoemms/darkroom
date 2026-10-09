@@ -6,6 +6,25 @@ project follows [semantic versioning](https://semver.org/) (pre-1.0: minor
 releases may break API, patch releases never do). The manifest schema is
 versioned independently of the package — see `ROADMAP.md`.
 
+## [Unreleased]
+
+### Removed
+
+The pre-0.20 exam layout — `drives/<scenario>.drive.toml` beside
+rubrics sealed from the tenant into `vault/*.rubric.toml` — is no
+longer read. Proofs are the only exam: `proofs/<scenario>/` holding
+`exposure.toml` and `rubric.toml`, backdrops beside them, the contract
+derived at run time. Gone with it: `drives/` discovery, the `.drive.toml`
+branch in the engine and the audit, `[scenarios] rubric_glob` and the
+vault's seal-from-tenant path (`darkroom vault seal` validates proofs
+in place; a secret-manager backend receives each proof's rubric half),
+the `vault move` alias, preflight's older-layout pairing, and the loop's
+drives-in-tenant check. A home still on the old pair is refused by name
+— every command but `darkroom migrate` answers "run `darkroom migrate`"
+— and `migrate` remains the one door in, reading the pair and writing
+proof folders. An explicit `--vault` now reads the project's proofs and
+backdrops from the home, the same as the configured backend does.
+
 ## [0.20.5] - 2026-10-08
 
 ### Added

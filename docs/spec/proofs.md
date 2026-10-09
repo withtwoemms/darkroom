@@ -256,7 +256,7 @@ everything.
 | `kind = "http"` on most steps | the default |
 | `evidence = [...]` on most criteria | the cited steps' kinds |
 | `Build:` prose in the spec | `scenarios/<name>.surfaces`, engineering's file |
-| `drives/` + `vault/*.rubric.toml` | `proofs/<scenario>/` — the two layouts never mix: a home holding proofs is read as proofs, and `drives/` and vault rubrics are then ignored |
+| `drives/` + `vault/*.rubric.toml` (pre-0.20) | `proofs/<scenario>/` — the only layout since 0.21; a home still on the pair is refused by every command but `darkroom migrate`, which reads it |
 
 ## What a run records
 
@@ -269,7 +269,8 @@ made after.
 
 ## Migration
 
-`darkroom migrate` pairs each `drives/<scenario>.drive.toml` with the
+`darkroom migrate` is the one command that still reads the pre-0.20
+pair: it pairs each `drives/<scenario>.drive.toml` with the
 vault rubric whose `scenario` names it and writes
 `proofs/<scenario>/exposure.toml` and `rubric.toml`, dropping `kind =
 "http"`, `feature_id`, and any `evidence` the witnesses imply,
@@ -357,8 +358,9 @@ witnesses = ["right_token_deletes", "gone"]
   step in the expanded exposure.
 - A consumer handing a proof to a judge MUST render the rubric half
   only; the steps MUST NOT reach the judge.
-- A consumer MUST treat a home holding proofs as the exam and MUST NOT
-  mix proofs with drive scripts and vault rubrics in one run.
+- A consumer MUST read proofs only; a home holding the pre-0.20 pair
+  (drive scripts, vault rubrics) and no proofs MUST be refused by name,
+  pointing at `darkroom migrate`.
 - Derived evidence MUST follow the table above; declared `evidence`
   MUST be passed through unchanged.
 - A run of a proof MUST record the exposure's digest and the rubric's

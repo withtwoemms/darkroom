@@ -7,8 +7,7 @@ precedent — partitioned per project by the adapter's declared name:
     ├── operator.toml     auto-discovered by agent mode
     ├── backdrops.toml    shared step sequences exposures are posed against
     ├── proofs/           one folder per scenario: exposure.toml + rubric.toml
-    ├── vault/            the audit log; on the older layout, sealed rubrics
-    ├── drives/           the older layout's drive scripts
+    ├── vault/            the audit log
     └── state/            loop state: evaluations, feedback, builder-log,
                           tickets, gates — outside every builder-addressable path
 
@@ -70,20 +69,13 @@ def exam_is_operator_side(project_name: str) -> bool:
     home = project_home(project_name)
     if (home / "operator.toml").is_file():
         return True
-    if _holds_proofs(home / "proofs"):
-        return True
-    vault = home / "vault"
-    return vault.is_dir() and any(vault.glob("*.rubric.toml"))
+    return _holds_proofs(home / "proofs")
 
 
 def _holds_proofs(proofs: Path) -> bool:
     from darkroom.proof import proof_dirs
 
     return bool(proof_dirs(proofs))
-
-
-def default_drives(project_name: str) -> Path:
-    return project_home(project_name) / "drives"
 
 
 def default_proofs(project_name: str) -> Path:
@@ -96,13 +88,27 @@ def default_backdrops(project_name: str) -> Path:
     return project_home(project_name) / BACKDROPS_FILE
 
 
-def exams_dir(project_name: str) -> Path:
-    """Where the project's exams live: ``proofs/`` once it holds proofs,
-    else ``drives/`` — the two layouts never mix."""
-    proofs = default_proofs(project_name)
-    if _holds_proofs(proofs):
-        return proofs
-    return default_drives(project_name)
+OLD_LAYOUT_HINT = (
+    "the home holds the pre-0.20 pair (drives/*.drive.toml and vault/*.rubric.toml) "
+    "and no proofs; run `darkroom migrate` to carry it into proofs/"
+)
+
+
+def old_layout_present(project_name: str) -> bool:
+    """A home still on the pre-0.20 pair — drive scripts or vaulted rubrics
+    and no proofs. Every command but ``migrate`` refuses it by name."""
+    if not project_name:
+        return False
+    home = project_home(project_name)
+    if _holds_proofs(home / "proofs"):
+        return False
+    return any((home / "drives").glob("*.drive.toml")) or any(
+        (home / "vault").glob("*.rubric.toml")
+    )
+
+
+def old_layout_message(project_name: str) -> str | None:
+    return OLD_LAYOUT_HINT if old_layout_present(project_name) else None
 
 
 def default_state(project_name: str) -> Path:

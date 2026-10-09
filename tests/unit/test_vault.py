@@ -2,7 +2,6 @@
 
 import pytest
 
-from darkroom.adapter import loads_adapter
 from darkroom.cli import main
 from darkroom.contract import loads_contract
 from darkroom.vault import (
@@ -11,7 +10,7 @@ from darkroom.vault import (
     VaultError,
     derive_contract,
     dumps_contract,
-    seal,
+    seal_proofs,
 )
 
 RUBRIC = """
@@ -33,38 +32,60 @@ evidence = ["screenshot", "log"]
 """
 
 
+EXPOSURE = """
+scenario = "{scenario}"
+
+[[step]]
+name = "settle"
+method = "POST"
+url = "{{base_url}}/invoices"
+expect = {{ status = 200 }}
+
+[[step]]
+name = "receipt"
+kind = "screenshot"
+"""
+
+
 def _vault_with(tmp_path, rubrics: dict) -> FilesystemVault:
-    vault = FilesystemVault(tmp_path / "vault")
+    """``rubrics`` maps scenario -> rubric text; each becomes a proof folder
+    beside the vault, with an exposure whose steps the criteria may cite."""
+    proofs = tmp_path / "proofs"
+    proofs.mkdir(exist_ok=True)
+    for scenario, text in rubrics.items():
+        folder = proofs / scenario
+        folder.mkdir(exist_ok=True)
+        (folder / "exposure.toml").write_text(EXPOSURE.format(scenario=scenario))
+        (folder / "rubric.toml").write_text(text)
+    vault = FilesystemVault(tmp_path / "vault", proofs=proofs)
     vault.initialize()
-    for feature_id, text in rubrics.items():
-        (vault.root / f"{feature_id}.rubric.toml").write_text(text)
     return vault
 
 
 class TestFilesystemVault:
     def test_list_and_read(self, tmp_path):
-        vault = _vault_with(tmp_path, {"pay-invoices": RUBRIC})
+        vault = _vault_with(tmp_path, {"pay_invoices": RUBRIC})
         assert isinstance(vault, RubricVault)
-        assert vault.list() == ["pay-invoices"]
-        assert "invoice_settles" in vault.read("pay-invoices")
+        assert vault.list() == ["pay_invoices"]
+        assert "invoice_settles" in vault.read("pay_invoices")
 
     def test_reads_are_audited(self, tmp_path):
-        vault = _vault_with(tmp_path, {"pay-invoices": RUBRIC})
-        vault.read("pay-invoices")
-        vault.read("pay-invoices", version="2")
+        vault = _vault_with(tmp_path, {"pay_invoices": RUBRIC})
+        vault.read("pay_invoices")
+        vault.read("pay_invoices", version="2")
         audit = (vault.root / "audit.log").read_text()
-        assert audit.count("read pay-invoices") == 2
+        assert audit.count("read proof pay_invoices") == 2
         assert "version=current" in audit and "version=2" in audit
 
     def test_missing_rubric(self, tmp_path):
         vault = _vault_with(tmp_path, {})
-        with pytest.raises(VaultError, match="no rubric"):
+        with pytest.raises(VaultError, match="no proof"):
             vault.read("ghost")
 
     def test_version_mismatch_refused(self, tmp_path):
-        vault = _vault_with(tmp_path, {"pay-invoices": RUBRIC})
+        vault = _vault_with(tmp_path, {"pay_invoices": RUBRIC})
         with pytest.raises(VaultError, match="version '2', not '1'"):
-            vault.read("pay-invoices", version="1")
+            vault.read("pay_invoices", version="1")
 
     def test_permissions_tightened(self, tmp_path):
         vault = FilesystemVault(tmp_path / "vault")
@@ -73,42 +94,21 @@ class TestFilesystemVault:
 
 
 class TestSeal:
-    def _tenant(self, tmp_path):
-        root = tmp_path / "tenant"
-        (root / "scenarios").mkdir(parents=True)
-        (root / "scenarios" / "pay-invoices.rubric.toml").write_text(RUBRIC)
-        (root / "scenarios" / "pay_invoices.feature").write_text("Feature: x")
-        return loads_adapter(
-            '[project]\nname = "p"\n[scenarios]\n'
-            'spec_glob = "scenarios/*.feature"\n'
-            'rubric_glob = "scenarios/*.rubric.toml"',
-            root=root,
-        )
-
-    def test_moves_rubrics_out_of_tenant(self, tmp_path):
-        adapter = self._tenant(tmp_path)
-        vault = FilesystemVault(tmp_path / "vault")
-        sealed = seal(adapter, vault)
-        assert sealed == ["pay-invoices"]
-        assert not list((adapter.root / "scenarios").glob("*.rubric.toml"))
-        assert vault.list() == ["pay-invoices"]
-        assert "sealed 1 rubric(s)" in (vault.root / "audit.log").read_text()
-
-    def test_specs_stay(self, tmp_path):
-        adapter = self._tenant(tmp_path)
-        seal(adapter, FilesystemVault(tmp_path / "vault"))
-        assert (adapter.root / "scenarios" / "pay_invoices.feature").exists()
+    def test_seal_validates_proofs_in_place(self, tmp_path):
+        vault = _vault_with(tmp_path, {"pay_invoices": RUBRIC})
+        assert seal_proofs(vault) == ["pay_invoices"]
+        assert (vault.proofs / "pay_invoices" / "rubric.toml").exists()  # nothing moved
+        assert "sealed 1 proof(s)" in (vault.root / "audit.log").read_text()
 
     def test_nothing_to_seal(self, tmp_path):
-        adapter = self._tenant(tmp_path)
-        seal(adapter, FilesystemVault(tmp_path / "vault"))
+        vault = _vault_with(tmp_path, {})
         with pytest.raises(VaultError, match="nothing to seal"):
-            seal(adapter, FilesystemVault(tmp_path / "vault2"))
+            seal_proofs(vault)
 
 
 class TestDeriveContract:
     def test_rubric_as_root(self, tmp_path):
-        vault = _vault_with(tmp_path, {"pay-invoices": RUBRIC})
+        vault = _vault_with(tmp_path, {"pay_invoices": RUBRIC})
         contract = derive_contract(vault, project="press")
         assert contract.project == "press"
         scenario = contract.for_scenario("pay_invoices")  # from rubric's field
@@ -117,7 +117,7 @@ class TestDeriveContract:
 
     def test_scenario_name_fallback_from_feature_id(self, tmp_path):
         rubric = RUBRIC.replace('scenario = "pay_invoices"\n', "")
-        vault = _vault_with(tmp_path, {"pay-invoices": rubric})
+        vault = _vault_with(tmp_path, {"pay_invoices": rubric})
         contract = derive_contract(vault)
         assert contract.for_scenario("pay_invoices") is not None
 
@@ -125,7 +125,7 @@ class TestDeriveContract:
         rubric = RUBRIC + "\ntrials = 5\n"
         # top-level key must come before tables; prepend instead
         rubric = "trials = 5\n" + RUBRIC
-        vault = _vault_with(tmp_path, {"pay-invoices": rubric})
+        vault = _vault_with(tmp_path, {"pay_invoices": rubric})
         contract = derive_contract(vault)
         assert all(
             r.trials == 5
@@ -133,7 +133,7 @@ class TestDeriveContract:
         )
 
     def test_dumps_round_trips(self, tmp_path):
-        vault = _vault_with(tmp_path, {"pay-invoices": RUBRIC})
+        vault = _vault_with(tmp_path, {"pay_invoices": RUBRIC})
         contract = derive_contract(vault, project="press")
         assert loads_contract(dumps_contract(contract)) == contract
 
@@ -141,11 +141,13 @@ class TestDeriveContract:
 class TestVaultCLI:
     def _project(self, tmp_path, monkeypatch):
         root = tmp_path / "tenant"
-        (root / "scenarios").mkdir(parents=True)
-        (root / "scenarios" / "pay-invoices.rubric.toml").write_text(RUBRIC)
+        root.mkdir()
+        proof = tmp_path / "home" / "projects" / "press" / "proofs" / "pay_invoices"
+        proof.mkdir(parents=True)
+        (proof / "exposure.toml").write_text(EXPOSURE.format(scenario="pay_invoices"))
+        (proof / "rubric.toml").write_text(RUBRIC)
         (root / "darkroom.toml").write_text(
-            '[project]\nname = "press"\n[scenarios]\n'
-            'rubric_glob = "scenarios/*.rubric.toml"\n'
+            '[project]\nname = "press"\n'
             '[evidence]\ncontract = "evidence-contract.toml"'
         )
         monkeypatch.chdir(root)
@@ -156,7 +158,7 @@ class TestVaultCLI:
         vault_dir = tmp_path / "vault"
 
         assert main(["vault", "seal", "--vault", str(vault_dir)]) == 0
-        assert "sealed 1 rubric(s)" in capsys.readouterr().out
+        assert "sealed 1 proof(s)" in capsys.readouterr().out
 
         assert main(["vault", "derive-contract", "--vault", str(vault_dir)]) == 0
         capsys.readouterr()

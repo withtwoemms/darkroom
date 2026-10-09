@@ -17,8 +17,8 @@ from darkroom.homedir import (
     default_proofs,
     default_state,
     exam_is_operator_side,
-    exams_dir,
     gates_file,
+    old_layout_present,
 )
 from darkroom.proof import (
     EXPOSURE_FILE,
@@ -35,7 +35,7 @@ from darkroom.proof import (
     rubric_source,
     rubric_text,
 )
-from darkroom.vault import FilesystemVault, VaultError, runtime_contract, seal
+from darkroom.vault import FilesystemVault, VaultError, runtime_contract, seal_proofs
 from darkroom.vault_openbao import _rubric_half
 
 if sys.version_info >= (3, 11):
@@ -299,19 +299,10 @@ class TestProofsVault:
         with pytest.raises(VaultError, match="no proof 'other'"):
             vault.read("other")
 
-    def test_rubric_layout_untouched_without_proofs(self, tmp_path):
-        vault = FilesystemVault(tmp_path / "vault")
-        vault.initialize()
-        (vault.root / "pay.rubric.toml").write_text('scenario = "pay"\n')
-        assert not vault.uses_proofs()
-        assert vault.list() == ["pay"]
-        assert vault.read("pay") == 'scenario = "pay"\n'
-
     def test_seal_validates_proofs_in_place(self, tmp_path, monkeypatch):
         proofs_dir = _home_with_proofs(tmp_path, monkeypatch, TWO, BACKDROPS)
-        adapter = loads_adapter('[project]\nname = "press"', root=tmp_path / "tenant")
         vault = FilesystemVault(proofs_dir.parent / "vault")
-        assert seal(adapter, vault) == ["note_archived", "note_created"]
+        assert seal_proofs(vault) == ["note_archived", "note_created"]
         assert (proofs_dir / "note_created" / EXPOSURE_FILE).exists()  # nothing moved
         assert proofs_dir.stat().st_mode & 0o777 == 0o700
         assert (proofs_dir / "note_created").stat().st_mode & 0o777 == 0o700
@@ -325,7 +316,7 @@ class TestProofsVault:
         adapter = loads_adapter('[project]\nname = "press"', root=tmp_path / "tenant")
         vault = FilesystemVault(proofs_dir.parent / "vault")
         with pytest.raises(VaultError, match="bare: no rubric.toml"):
-            seal(adapter, vault)
+            seal_proofs(vault)
         [finding] = [f for f in audit(vault, proofs_dir) if f.code == "no-rubric"]
         assert finding.severity == "error" and finding.scenario == "bare"
         # the contract still derives from the proof that has one
@@ -334,9 +325,8 @@ class TestProofsVault:
     def test_seal_refuses_a_broken_proof(self, tmp_path, monkeypatch):
         bad = RUBRIC.replace('witnesses = ["create"]', 'witnesses = ["nope"]')
         proofs_dir = _home_with_proofs(tmp_path, monkeypatch, {"note_created": (EXPOSURE, bad)})
-        adapter = loads_adapter('[project]\nname = "press"', root=tmp_path / "tenant")
         with pytest.raises(VaultError, match="cites witness 'nope'"):
-            seal(adapter, FilesystemVault(proofs_dir.parent / "vault"))
+            seal_proofs(FilesystemVault(proofs_dir.parent / "vault"))
 
 
 class TestRuntimeContract:
@@ -380,18 +370,22 @@ class TestRuntimeContract:
 
 
 class TestHomeLayout:
-    def test_exams_dir_prefers_proofs(self, tmp_path, monkeypatch):
+    def test_proofs_are_the_exam_and_the_old_pair_is_named(self, tmp_path, monkeypatch):
         monkeypatch.setenv("DARKROOM_HOME", str(tmp_path / "home"))
-        assert exams_dir("press").name == "drives"
         assert not exam_is_operator_side("press")
+        assert not old_layout_present("press")
         default_proofs("press").mkdir(parents=True)
         (default_proofs("press") / "stray.txt").write_text("")
-        assert exams_dir("press").name == "drives"  # an empty proofs/ is no signal
+        assert not exam_is_operator_side("press")  # an empty proofs/ is no signal
+        old = default_proofs("press").parent / "drives"
+        old.mkdir()
+        (old / "flow.drive.toml").write_text('scenario = "flow"\n')
+        assert old_layout_present("press")  # the pre-0.20 pair, and no proofs
         folder = default_proofs("press") / "note_created"
         folder.mkdir()
         (folder / EXPOSURE_FILE).write_text(EXPOSURE)
-        assert exams_dir("press") == default_proofs("press")
         assert exam_is_operator_side("press")
+        assert not old_layout_present("press")  # proofs win; migrate has run
 
     def test_gates_live_in_home_state_unless_declared(self, tmp_path, monkeypatch):
         monkeypatch.setenv("DARKROOM_HOME", str(tmp_path / "home"))
@@ -458,7 +452,7 @@ class TestDriveOnProofs:
     def test_scenario_filter_and_empty_dir(self, tmp_path, monkeypatch):
         proofs_dir = _home_with_proofs(tmp_path, monkeypatch, ONE)
         adapter = loads_adapter('[project]\nname = "press"', root=tmp_path / "tenant")
-        with pytest.raises(DriveError, match="no exams for scenario 'other'"):
+        with pytest.raises(DriveError, match="no proofs for scenario 'other'"):
             drive(adapter, proofs_dir, scenario="other", containers_mode="off")
 
 

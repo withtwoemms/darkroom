@@ -265,4 +265,4 @@ class TestCli:
         empty = tmp_path / "empty"
         empty.mkdir()
         code = main(["expose", "--project", str(root), "--drives", str(empty)])
-        assert code == 2 and "no exams" in capsys.readouterr().out
+        assert code == 2 and "no proofs" in capsys.readouterr().out

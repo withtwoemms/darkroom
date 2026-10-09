@@ -35,43 +35,32 @@ that = "{a} == {a}"
 """
 
 
-def _vault(tmp_path, rubric_text):
-    root = tmp_path / "vault"
-    vault = FilesystemVault(root)
+def _proof(where, rubric_text, exposure_text, scenario="expiry"):
+    folder = where / scenario
+    folder.mkdir(parents=True, exist_ok=True)
+    (folder / "exposure.toml").write_text(textwrap.dedent(exposure_text))
+    (folder / "rubric.toml").write_text(textwrap.dedent(rubric_text))
+    return folder
+
+
+def _vault(tmp_path, rubric_text, exposure_text):
+    """A vault whose proofs hold one scenario; returns (vault, proofs dir)."""
+    proofs = tmp_path / "proofs"
+    _proof(proofs, rubric_text, exposure_text)
+    vault = FilesystemVault(tmp_path / "vault", proofs=proofs)
     vault.initialize()
-    (root / "expiry.rubric.toml").write_text(textwrap.dedent(rubric_text))
-    return vault
-
-
-def _drives(tmp_path, drive_text):
-    d = tmp_path / "drives"
-    d.mkdir(exist_ok=True)
-    (d / "expiry.drive.toml").write_text(textwrap.dedent(drive_text))
-    return d
+    return vault, proofs
 
 
 class TestAudit:
     def test_unproducible_kind_is_an_error(self, tmp_path):
-        findings = audit(
-            _vault(tmp_path, RUBRIC_NEEDS_LOG),
-            _drives(tmp_path, DRIVE_HTTP_ONLY),
-        )
+        findings = audit(*_vault(tmp_path, RUBRIC_NEEDS_LOG, DRIVE_HTTP_ONLY))
         assert has_errors(findings)
         assert "['log']" in findings[0].message
 
     def test_assert_step_makes_log_witnessable(self, tmp_path):
-        findings = audit(
-            _vault(tmp_path, RUBRIC_NEEDS_LOG),
-            _drives(tmp_path, DRIVE_WITH_ASSERT),
-        )
+        findings = audit(*_vault(tmp_path, RUBRIC_NEEDS_LOG, DRIVE_WITH_ASSERT))
         assert findings == []
-
-    def test_missing_drive_is_a_warning(self, tmp_path):
-        drives = tmp_path / "drives"
-        drives.mkdir()
-        findings = audit(_vault(tmp_path, RUBRIC_NEEDS_LOG), drives)
-        assert [f.severity for f in findings] == ["warning"]
-        assert "no drive script" in findings[0].message
 
     def test_record_flag_produces_video(self):
         assert "video" in producible_kinds({"record": True, "step": []})
@@ -92,15 +81,7 @@ class TestAuditCli:
         home = tmp_path / "home"
         monkeypatch.setenv("DARKROOM_HOME", str(home))
         project = home / "projects" / "press"
-        (project / "drives").mkdir(parents=True)
-        (project / "drives" / "expiry.drive.toml").write_text(
-            textwrap.dedent(DRIVE_HTTP_ONLY)
-        )
-        vault = FilesystemVault(project / "vault")
-        vault.initialize()
-        (project / "vault" / "expiry.rubric.toml").write_text(
-            textwrap.dedent(RUBRIC_NEEDS_LOG)
-        )
+        _proof(project / "proofs", RUBRIC_NEEDS_LOG, DRIVE_HTTP_ONLY)
         (project / "operator.toml").write_text('[judge]\nmodel = "m"\n')
         monkeypatch.chdir(root)
 
@@ -116,15 +97,7 @@ class TestAuditCli:
         home = tmp_path / "home"
         monkeypatch.setenv("DARKROOM_HOME", str(home))
         project = home / "projects" / "press"
-        (project / "drives").mkdir(parents=True)
-        (project / "drives" / "expiry.drive.toml").write_text(
-            textwrap.dedent(DRIVE_WITH_ASSERT)
-        )
-        vault = FilesystemVault(project / "vault")
-        vault.initialize()
-        (project / "vault" / "expiry.rubric.toml").write_text(
-            textwrap.dedent(RUBRIC_NEEDS_LOG)
-        )
+        _proof(project / "proofs", RUBRIC_NEEDS_LOG, DRIVE_WITH_ASSERT)
         (project / "operator.toml").write_text('[judge]\nmodel = "m"\n')
         monkeypatch.chdir(root)
 
@@ -160,29 +133,21 @@ DRIVE_GOTO_EXPECT = DRIVE_GOTO_BARE + """expect = { body_contains = "x" }
 
 class TestWitnessCitations:
     def test_cited_assert_is_a_witness(self, tmp_path):
-        findings = audit(
-            _vault(tmp_path, RUBRIC_CITES), _drives(tmp_path, DRIVE_WITH_ASSERT)
-        )
+        findings = audit(*_vault(tmp_path, RUBRIC_CITES, DRIVE_WITH_ASSERT))
         assert findings == []
 
     def test_missing_cited_step_is_an_error(self, tmp_path):
-        findings = audit(
-            _vault(tmp_path, RUBRIC_CITES), _drives(tmp_path, DRIVE_HTTP_ONLY)
-        )
+        findings = audit(*_vault(tmp_path, RUBRIC_CITES, DRIVE_HTTP_ONLY))
         assert has_errors(findings)
-        assert "no step named 'transition'" in findings[-1].message
+        assert "witness 'transition'" in findings[-1].message
 
     def test_bare_goto_cannot_be_a_witness(self, tmp_path):
-        findings = audit(
-            _vault(tmp_path, RUBRIC_CITES), _drives(tmp_path, DRIVE_GOTO_BARE)
-        )
+        findings = audit(*_vault(tmp_path, RUBRIC_CITES, DRIVE_GOTO_BARE))
         assert has_errors(findings)
         assert "leaves no record" in findings[-1].message
 
     def test_goto_with_expect_is_a_witness(self, tmp_path):
-        findings = audit(
-            _vault(tmp_path, RUBRIC_CITES), _drives(tmp_path, DRIVE_GOTO_EXPECT)
-        )
+        findings = audit(*_vault(tmp_path, RUBRIC_CITES, DRIVE_GOTO_EXPECT))
         assert findings == []
 
     def test_expect_makes_log_producible(self):

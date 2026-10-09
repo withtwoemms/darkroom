@@ -29,8 +29,7 @@ The two repos you touch, and never confuse:
   (one folder per scenario: `exposure.toml`, QA's steps, beside
   `rubric.toml`, product's criteria), `backdrops.toml` (shared setup an
   exposure is posed against with `backdrop = [...]`), `vault/` (the
-  audit log; on the older layout, the sealed rubrics beside
-  `drives/`), `state/`. The builder cannot read this — it is
+  audit log), `state/`. The builder cannot read this — it is
   structurally outside every tenant path. Sealing happens here.
 
 You wear **QA's** hat here: you write the exposure, you never edit the

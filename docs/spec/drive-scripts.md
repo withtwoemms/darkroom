@@ -1,22 +1,20 @@
 # Drive Scripts
 
-**Format:** TOML · **Schema version:** 1.7 · **File:** one script per
-scenario, named `<anything>.drive.toml`, conventionally in the
-operator home's `drives/` directory.
+**Format:** TOML · **Schema version:** 1.7 · **File:** the exposure of a
+[proof](proofs.md), `proofs/<scenario>/exposure.toml`.
 
-> **Deprecated as a standalone file since darkroom 0.20.** The drive
-> script's step vocabulary lives on unchanged as the exposure of a
-> [proof](proofs.md) — `proofs/<scenario>/exposure.toml`, beside the
-> `rubric.toml` that scores it. Existing drive scripts and vault
-> rubrics keep working; `darkroom migrate` turns each pair into a proof
-> folder, and a home holding proofs is read as proofs. Everything below
-> — step kinds, fields, interpolation, expectations — continues to
-> version here and applies to exposures verbatim; a drive script may
-> also name `backdrop = [...]` (proofs.md).
+> **The standalone `.drive.toml` file is retired since darkroom 0.21.**
+> Its step vocabulary lives on unchanged as the exposure of a proof,
+> beside the `rubric.toml` that scores it; everything below — step
+> kinds, fields, interpolation, expectations — versions here and
+> applies to exposures verbatim, and an exposure may name
+> `backdrop = [...]` (proofs.md). The only reader of a `.drive.toml`
+> left is `darkroom migrate`, which turns each pre-0.20 pair into a
+> proof folder.
 
 ## Purpose
 
-A drive script is the exam as data: a declarative step sequence that
+An exposure (historically, a drive script) is the exam as data: a declarative step sequence that
 drives the system under test as a black box over its real interfaces
 (HTTP, CLI), capturing every exchange as ordinary evidence. The
 engine executing it is a distributed package, the script is

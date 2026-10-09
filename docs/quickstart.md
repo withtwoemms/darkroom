@@ -241,9 +241,9 @@ darkroom home init          # ~/.darkroom/projects/<name>/ — operator space, m
    git rm -rq --cached proofs && rmdir proofs
    ```
 
-   (A project on the older layout — drive scripts and sealed rubrics
-   — runs `darkroom migrate` instead: one folder per pair, nothing
-   retyped.) Then drop `--drives proofs` from the `test` command in
+   (A home still on the pre-0.20 pair — drive scripts and sealed
+   rubrics — is refused by every command but `darkroom migrate`, which
+   writes one folder per pair, nothing retyped.) Then drop `--drives proofs` from the `test` command in
    `darkroom.toml` (`test = "darkroom expose"`) and commit. The
    contract keeps deriving from the proofs at run time, and the gates
    ratchet in the home's `state/`; nothing exam-shaped is committed.

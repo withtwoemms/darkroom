@@ -74,9 +74,14 @@ def _ctx(tmp_path) -> LoopContext:
 
 
 def _vault(tmp_path) -> FilesystemVault:
-    vault = FilesystemVault(tmp_path / "vault")
+    proof = tmp_path / "proofs" / "answer_flow"
+    proof.mkdir(parents=True, exist_ok=True)
+    (proof / "exposure.toml").write_text(
+        'scenario = "answer_flow"\n[[step]]\nname = "run"\nkind = "command"\ncmd = "x"\n'
+    )
+    (proof / "rubric.toml").write_text(RUBRIC)
+    vault = FilesystemVault(tmp_path / "vault", proofs=tmp_path / "proofs")
     vault.initialize()
-    (vault.root / "answer-flow.rubric.toml").write_text(RUBRIC)
     return vault
 
 

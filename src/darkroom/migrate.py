@@ -30,7 +30,6 @@ if sys.version_info >= (3, 11):
 else:  # pragma: no cover - exercised only on 3.10
     import tomli as tomllib
 
-from darkroom.drive import DRIVE_SUFFIX
 from darkroom.proof import (
     EXPOSURE_FILE,
     RUBRIC_FILE,
@@ -41,7 +40,16 @@ from darkroom.proof import (
     rubric_source,
 )
 from darkroom.tomlout import dumps_toml
-from darkroom.vault import RUBRIC_SUFFIX
+
+# the pre-0.20 pair this module alone still reads
+DRIVE_SUFFIX = ".drive.toml"
+RUBRIC_SUFFIX = ".rubric.toml"
+
+
+def old_drives(project_name: str) -> Path:
+    from darkroom.homedir import project_home
+
+    return project_home(project_name) / "drives"
 
 
 class MigrateError(Exception):

@@ -12,6 +12,14 @@ import textwrap
 
 import pytest
 
+
+def _exposure(proofs, scenario):
+    """A proof folder holding only its exposure — the fixture shape."""
+    folder = proofs / scenario
+    folder.mkdir(parents=True, exist_ok=True)
+    return folder / "exposure.toml"
+
+
 pytest.importorskip("testcontainers")
 
 from darkroom.adapter import loads_adapter  # noqa: E402
@@ -116,7 +124,7 @@ class TestContainerDrive:
         adapter, drives = tenant
         monkeypatch.delenv("EVIDENCE_MODE", raising=False)
         monkeypatch.delenv("EVIDENCE_DIR", raising=False)
-        (drives / "boxed.drive.toml").write_text(textwrap.dedent("""
+        _exposure(drives, "boxed").write_text(textwrap.dedent("""
             scenario = "boxed"
 
             [serve]
@@ -158,7 +166,7 @@ class TestContainerDrive:
         adapter, drives = tenant
         monkeypatch.delenv("EVIDENCE_MODE", raising=False)
         monkeypatch.delenv("EVIDENCE_DIR", raising=False)
-        (drives / "chaos.drive.toml").write_text(textwrap.dedent("""
+        _exposure(drives, "chaos").write_text(textwrap.dedent("""
             scenario = "chaos"
 
             [serve]
