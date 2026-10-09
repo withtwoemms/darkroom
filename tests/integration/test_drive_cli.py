@@ -40,6 +40,34 @@ class TestDriveCLI:
         assert "scenario note_lifecycle: ok" in harness_logs[0].read_text()
 
 
+    def test_shipped_example_runs_green_with_workers(self, tmp_path, capsys, monkeypatch):
+        project = tmp_path / "relay-service"
+        shutil.copytree(EXAMPLE, project, ignore=shutil.ignore_patterns("evidence"))
+        monkeypatch.chdir(project)
+        monkeypatch.delenv("EVIDENCE_MODE", raising=False)
+        monkeypatch.delenv("EVIDENCE_DIR", raising=False)
+
+        assert main(["expose", "--drives", "proofs", "--workers", "2"]) == 0
+        out = capsys.readouterr().out
+        assert "3/3 scenario(s) green" in out
+        assert "verify: ok (contract)" in out
+
+        manifests = list(project.glob("evidence/runs/*/manifest.json"))
+        assert len(manifests) == 1
+        import json
+
+        names = [b["scenario"] for b in json.loads(manifests[0].read_text())["scenarios"]]
+        assert names == ["deletion_guarded", "note_lifecycle", "read_once_note"]
+        log = manifests[0].parent / "harness.log"
+        scenario_lines = [
+            line for line in log.read_text().splitlines() if line.startswith("scenario ")
+        ]
+        assert scenario_lines == [
+            "scenario deletion_guarded: ok",
+            "scenario note_lifecycle: ok",
+            "scenario read_once_note: ok",
+        ]
+
     def test_scenario_scoped_run_verifies_scoped_contract(
         self, tmp_path, capsys, monkeypatch
     ):
