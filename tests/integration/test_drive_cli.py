@@ -15,7 +15,7 @@ EXAMPLE = Path(__file__).parent.parent.parent / "examples" / "relay-service"
 class TestDriveCLI:
     def test_shipped_example_runs_green(self, tmp_path, capsys, monkeypatch):
         project = tmp_path / "relay-service"
-        shutil.copytree(EXAMPLE, project)
+        shutil.copytree(EXAMPLE, project, ignore=shutil.ignore_patterns("evidence"))
         monkeypatch.chdir(project)
         monkeypatch.delenv("EVIDENCE_MODE", raising=False)
         monkeypatch.delenv("EVIDENCE_DIR", raising=False)
@@ -23,8 +23,9 @@ class TestDriveCLI:
         assert main(["drive", "--drives", "proofs"]) == 0
         out = capsys.readouterr().out
         assert "note_lifecycle:" in out and "deletion_guarded:" in out
+        assert "read_once_note:" in out
         assert "verify: ok (contract)" in out
-        assert "2/2 scenario(s) green" in out
+        assert "3/3 scenario(s) green" in out
 
         harness_logs = list(project.glob("evidence/runs/*/harness.log"))
         assert len(harness_logs) == 1
@@ -35,7 +36,7 @@ class TestDriveCLI:
         self, tmp_path, capsys, monkeypatch
     ):
         project = tmp_path / "relay-service"
-        shutil.copytree(EXAMPLE, project)
+        shutil.copytree(EXAMPLE, project, ignore=shutil.ignore_patterns("evidence"))
         monkeypatch.chdir(project)
         monkeypatch.delenv("EVIDENCE_MODE", raising=False)
         monkeypatch.delenv("EVIDENCE_DIR", raising=False)

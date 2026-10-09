@@ -8,6 +8,18 @@ url = "{base_url}/"
 expect = { status = 200, title_contains = "Relay Notes", selector_visible = "#note-form" }
 
 [[step]]
+name = "nothing_yet"          # absence, witnessed positively: the page says so itself
+kind = "goto"
+url = "{base_url}/"
+expect = { selector_visible = 'main[data-note-state="empty"]' }
+
+[[step]]
+name = "save_is_ready"
+kind = "goto"
+url = "{base_url}/"
+expect = { selector_visible = '#save[data-state="ready"]' }
+
+[[step]]
 name = "empty_state"
 kind = "screenshot"
 full_page = true
@@ -18,10 +30,10 @@ kind = "fill"
 fields = { "#note-text" = "fix the enlarger" }
 
 [[step]]
-name = "save_note"
+name = "save_note"            # a control is proven by what it does
 kind = "click"
 selector = "#save"
-expect = { body_contains = "fix the enlarger", selector_visible = "#notes li" }
+expect = { body_contains = "fix the enlarger", selector_visible = '#notes li[data-archived="false"]' }
 
 [[step]]
 name = "saved_state"

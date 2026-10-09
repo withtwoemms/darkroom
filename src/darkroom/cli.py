@@ -812,8 +812,8 @@ def _cmd_surfaces(args) -> int:
     them. The tenant gains only files beside its specs."""
     from darkroom.adapter import load_adapter
     from darkroom.audit import _drive_scripts
-    from darkroom.backdrops import BackdropError, load_backdrops
-    from darkroom.homedir import default_backdrops, exams_dir
+    from darkroom.backdrops import BackdropError, backdrops_for, load_backdrops
+    from darkroom.homedir import exams_dir
     from darkroom.surfaces import (
         SurfacesError,
         draft_from_exposure,
@@ -827,7 +827,7 @@ def _cmd_surfaces(args) -> int:
     adapter = load_adapter(adapter_path)
     drives = Path(args.drives) if args.drives else exams_dir(adapter.name)
     try:
-        scripts = _drive_scripts(drives, load_backdrops(default_backdrops(adapter.name)))
+        scripts = _drive_scripts(drives, load_backdrops(backdrops_for(adapter.name, drives)))
     except BackdropError as exc:
         print(f"error: {exc}")
         return 2

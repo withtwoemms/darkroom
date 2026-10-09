@@ -1,0 +1,16 @@
+[routes]
+POST /notes                   → 201 {id, token}
+POST /notes/{id}/archive      → 200 {archived: true}
+
+[commands]
+
+[pages]
+/                             the notes page
+main[data-note-state]         empty | draft | archived | gone — the state of the latest note
+#notes li[data-note-id]       one item per note, addressable by id
+#notes li[data-archived]      "true" or "false" on every item
+
+[files]
+
+[notes]
+the page is server-rendered, so a state change shows on the next load

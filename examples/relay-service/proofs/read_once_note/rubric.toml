@@ -1,0 +1,13 @@
+version = "1"
+
+[[criterion]]
+id = "one_read_only"
+points = 15
+description = "the first read returns the text; the second is refused as gone, and the refusal says the note was read"
+witnesses = ["first_read", "second_read_gone"]
+
+[[criterion]]
+id = "gone_is_final"
+points = 5
+description = "a gone note cannot be archived either; every door answers gone the same way"
+witnesses = ["archive_refused"]

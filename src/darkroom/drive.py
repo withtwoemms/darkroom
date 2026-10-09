@@ -1124,6 +1124,12 @@ def drive_scenario(
     return result
 
 
+def backdrops_file(adapter: ProjectAdapter, drives_dir: Path) -> Path | None:
+    from darkroom.backdrops import backdrops_for
+
+    return backdrops_for(adapter.name, drives_dir)
+
+
 def drive(
     adapter: ProjectAdapter,
     drives_dir: Path,
@@ -1137,13 +1143,12 @@ def drive(
     scenario), and ends the run so the manifest is written.
     """
     from darkroom.backdrops import BackdropError, load_backdrops
-    from darkroom.homedir import default_backdrops
     from darkroom.proof import ProofError, exposure, load_proof, proof_dirs
     from darkroom.proof import provenance as proof_provenance
     from darkroom.run import end_run, start_run
 
     try:
-        backdrops = load_backdrops(default_backdrops(adapter.name) if adapter.name else None)
+        backdrops = load_backdrops(backdrops_file(adapter, Path(drives_dir)))
     except BackdropError as exc:
         raise DriveError(str(exc)) from None
 

@@ -1,0 +1,14 @@
+[routes]
+POST /notes                   `{text, read_once: true}` → 201 {id, token}; the note answers one read
+GET /notes/{id}               → 200 on the first read; 410 {error: "gone", reason: "read"} after it
+POST /notes/{id}/archive      → 410 {error: "gone", reason: "read"} once the note is gone
+
+[commands]
+
+[pages]
+
+[files]
+
+[notes]
+a gone note keeps a tombstone with its reason, so the page can show it as
+`#notes li[data-gone-reason="read"]` and the API can say why rather than 404

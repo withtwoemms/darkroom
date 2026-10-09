@@ -1,11 +1,5 @@
 scenario = "deletion_guarded"
-
-[[step]]
-name = "create"
-method = "POST"
-url = "{base_url}/notes"
-json = { text = "guarded" }
-save = { note_id = "$.id", token = "$.token" }
+backdrop = ["token_in_hand"]   # a saved note whose token we hold; not what this proves
 
 [[step]]
 name = "wrong_token_refused"

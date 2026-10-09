@@ -1,0 +1,25 @@
+scenario = "read_once_note"
+
+[[step]]
+name = "create_read_once"
+method = "POST"
+url = "{base_url}/notes"
+json = { text = "burn after reading", read_once = true }
+expect = { status = 201 }
+save = { note_id = "$.id" }
+
+[[step]]
+name = "first_read"
+url = "{base_url}/notes/{note_id}"
+expect = { status = 200, body_contains = "burn after reading" }
+
+[[step]]
+name = "second_read_gone"
+url = "{base_url}/notes/{note_id}"
+expect = { status = 410, body_contains = "read" }
+
+[[step]]
+name = "archive_refused"
+method = "POST"
+url = "{base_url}/notes/{note_id}/archive"
+expect = { status = 410 }

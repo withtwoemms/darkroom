@@ -191,7 +191,7 @@ class TestBrowserDrive:
 
     def test_shipped_ui_example_runs_green(self, tmp_path, capsys, monkeypatch):
         project = tmp_path / "relay-service"
-        shutil.copytree(EXAMPLE, project)
+        shutil.copytree(EXAMPLE, project, ignore=shutil.ignore_patterns("evidence"))
         monkeypatch.chdir(project)
         monkeypatch.delenv("EVIDENCE_MODE", raising=False)
         monkeypatch.delenv("EVIDENCE_DIR", raising=False)
@@ -206,7 +206,7 @@ class TestBrowserDrive:
 
         manifest = next(project.glob("evidence/runs/*/manifest.json"))
         bundle = load_manifest(manifest).scenarios[0]
-        assert bundle.provenance["rubric_version"] == "1"
+        assert bundle.provenance["rubric_version"] == "2"
         items = bundle.items
         assert [i.step for i in items if i.kind == "screenshot"] == [
             "empty_state", "saved_state",
