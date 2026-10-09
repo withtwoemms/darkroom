@@ -15,7 +15,7 @@ EXAMPLE = Path(__file__).parent.parent.parent / "examples" / "relay-service"
 class TestDriveCLI:
     def test_shipped_example_runs_green(self, tmp_path, capsys, monkeypatch):
         project = tmp_path / "relay-service"
-        shutil.copytree(EXAMPLE, project)
+        shutil.copytree(EXAMPLE, project, ignore=shutil.ignore_patterns("evidence"))
         monkeypatch.chdir(project)
         monkeypatch.delenv("EVIDENCE_MODE", raising=False)
         monkeypatch.delenv("EVIDENCE_DIR", raising=False)
@@ -36,7 +36,7 @@ class TestDriveCLI:
         self, tmp_path, capsys, monkeypatch
     ):
         project = tmp_path / "relay-service"
-        shutil.copytree(EXAMPLE, project)
+        shutil.copytree(EXAMPLE, project, ignore=shutil.ignore_patterns("evidence"))
         monkeypatch.chdir(project)
         monkeypatch.delenv("EVIDENCE_MODE", raising=False)
         monkeypatch.delenv("EVIDENCE_DIR", raising=False)
