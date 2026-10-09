@@ -1627,6 +1627,7 @@ def drive(
             report = _drive_pooled(
                 adapter, run, scripts, backdrops_path, containers, workers, pool=pool
             )
+            report.selection = selection
         else:
             for path in scripts:
                 name = path.name

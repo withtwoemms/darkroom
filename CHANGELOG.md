@@ -22,8 +22,8 @@ with `selection: <flags>` or `selection: all`, the command prints it,
 the contract is scoped to the proofs selected, and `darkroom audit`
 takes the same flags — so a partial run is never mistaken for the
 gate. Gates are untouched by any expose. On the first tenant,
-`--touching '#sealed-items'` selects the hearth-and-ledger scenarios
-and runs them in under a minute on the warm pool.
+an address on the ledger page selects nine of seventy-six scenarios and
+runs them in 1 min 44 s with three workers on the warm pool.
 
 ## [0.21.0] - 2026-10-09
 

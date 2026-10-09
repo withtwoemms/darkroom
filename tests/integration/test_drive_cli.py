@@ -77,7 +77,7 @@ class TestDriveCLI:
         monkeypatch.delenv("EVIDENCE_MODE", raising=False)
         monkeypatch.delenv("EVIDENCE_DIR", raising=False)
 
-        assert main(["expose", "--drives", "proofs", "--tag", "notes"]) == 0
+        assert main(["expose", "--drives", "proofs", "--tag", "notes", "--workers", "2"]) == 0
         out = capsys.readouterr().out
         assert "selection: --tag notes" in out
         assert "note_lifecycle:" in out and "read_once_note:" in out
