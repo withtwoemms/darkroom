@@ -17,6 +17,21 @@ its rubric's criterion count and points so a scenario that alone
 proves a refusal on a shared surface stays visible. A report, never a
 verdict; nothing is retired.
 
+`darkroom status` reads the newest run's harness log and reports the
+run under `## last run`: how many scenarios went green and the
+selection the run was made with (`all`, or the flags), so a partial
+run is never mistaken for the full gate.
+
+### Fixed
+
+Once the exam has moved operator-side, `auto` refuses one that lives
+inside the tenant — proofs under the tenant root, whether the project's
+home resolves there or the test command names them with `--drives` —
+naming the path and the home they belong in; the quickstart's free
+stages, which keep the exam in the tenant on purpose, are untouched. The pre-0.20 drives-in-tenant check went with its layout in
+0.21.0; this is its equivalent for proofs. `expose` is unaffected, so
+an in-tree example still runs.
+
 A run can be narrowed to what a slice affects. `darkroom expose --tag
 <name>` keeps the proofs whose new `tags` key carries the name;
 `--touching <address>` keeps the proofs whose own steps reach a surface
