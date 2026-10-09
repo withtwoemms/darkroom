@@ -14,3 +14,5 @@ import pytest
 @pytest.fixture(autouse=True)
 def _evidence_under_tmp_path(tmp_path, monkeypatch):
     monkeypatch.setenv("EVIDENCE_DIR", str(tmp_path / "evidence"))
+    # and a darkroom home of its own, since proofs live there
+    monkeypatch.setenv("DARKROOM_HOME", str(tmp_path / "home"))

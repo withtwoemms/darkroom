@@ -13,6 +13,14 @@ from pathlib import Path
 
 import pytest
 
+
+def _exposure(proofs, scenario):
+    """A proof folder holding only its exposure — the fixture shape."""
+    folder = proofs / scenario
+    folder.mkdir(parents=True, exist_ok=True)
+    return folder / "exposure.toml"
+
+
 pytest.importorskip("playwright")
 
 from darkroom.adapter import loads_adapter  # noqa: E402
@@ -107,7 +115,7 @@ class TestBrowserDrive:
         adapter, drives = tenant
         monkeypatch.delenv("EVIDENCE_MODE", raising=False)
         monkeypatch.delenv("EVIDENCE_DIR", raising=False)
-        (drives / "note_saved.drive.toml").write_text(textwrap.dedent("""
+        _exposure(drives, "note_saved").write_text(textwrap.dedent("""
             scenario = "note_saved"
 
             [[step]]
@@ -153,7 +161,7 @@ class TestBrowserDrive:
         adapter, drives = tenant
         monkeypatch.delenv("EVIDENCE_MODE", raising=False)
         monkeypatch.delenv("EVIDENCE_DIR", raising=False)
-        (drives / "recorded.drive.toml").write_text(textwrap.dedent("""
+        _exposure(drives, "recorded").write_text(textwrap.dedent("""
             scenario = "recorded"
             record = true
 
@@ -284,7 +292,7 @@ class TestBrowserDrive:
         )
         drives = tmp_path / "drives"
         drives.mkdir()
-        (drives / "passkey.drive.toml").write_text(textwrap.dedent("""
+        _exposure(drives, "passkey_flow").write_text(textwrap.dedent("""
             scenario = "passkey_flow"
 
             [browser]
@@ -393,7 +401,7 @@ class TestBrowserDrive:
         )
         drives = tmp_path / "drives"
         drives.mkdir()
-        (drives / "prf_on.drive.toml").write_text(textwrap.dedent("""
+        _exposure(drives, "prf_on").write_text(textwrap.dedent("""
             scenario = "prf_on"
 
             [browser]
@@ -423,7 +431,7 @@ class TestBrowserDrive:
             selector = "#derive"
             expect = { selector_visible = "text=same=true" }
         """))
-        (drives / "prf_off.drive.toml").write_text(textwrap.dedent("""
+        _exposure(drives, "prf_off").write_text(textwrap.dedent("""
             scenario = "prf_off"
 
             [browser]
@@ -457,7 +465,7 @@ class TestBrowserDrive:
         adapter, drives = tenant
         monkeypatch.delenv("EVIDENCE_MODE", raising=False)
         monkeypatch.delenv("EVIDENCE_DIR", raising=False)
-        (drives / "missing.drive.toml").write_text(textwrap.dedent("""
+        _exposure(drives, "missing").write_text(textwrap.dedent("""
             scenario = "missing"
 
             [[step]]

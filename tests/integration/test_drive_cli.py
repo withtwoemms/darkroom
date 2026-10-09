@@ -9,6 +9,14 @@ from darkroom.cli import main
 from darkroom.loop import LoopContext
 from darkroom.roles import AdapterAssessor
 
+
+def _exposure(proofs, scenario):
+    """A proof folder holding only its exposure — the fixture shape."""
+    folder = proofs / scenario
+    folder.mkdir(parents=True, exist_ok=True)
+    return folder / "exposure.toml"
+
+
 EXAMPLE = Path(__file__).parent.parent.parent / "examples" / "relay-service"
 
 
@@ -58,11 +66,11 @@ class TestDriveCLI:
         )
         drives = tmp_path / "drives"
         drives.mkdir()
-        (drives / "boots.drive.toml").write_text(
+        _exposure(drives, "boots").write_text(
             'scenario = "boots"\n[[step]]\nname = "hit"\nkind = "http"\n'
             'url = "{base_url}/"\n'
         )
-        (drives / "no_server.drive.toml").write_text(
+        _exposure(drives, "no_server").write_text(
             'scenario = "no_server"\n[[step]]\nname = "sh"\nkind = "command"\n'
             'cmd = "echo fine"\nexpect = { exit_code = 0 }\n'
         )

@@ -81,8 +81,10 @@ def project(tmp_path):
     return adapter, drives
 
 
-def _script(drives: Path, name: str, content: str) -> Path:
-    path = drives / f"{name}.drive.toml"
+def _script(proofs: Path, name: str, content: str) -> Path:
+    folder = proofs / name
+    folder.mkdir(exist_ok=True)
+    path = folder / "exposure.toml"
     path.write_text(textwrap.dedent(content))
     return path
 
@@ -207,7 +209,7 @@ class TestDriveEngine:
         _script(drives, "one", 'scenario = "one"\n[[step]]\nname = "x"\nkind = "wait"\nseconds = 0\n')
         report = drive(adapter, drives, scenario="one")
         assert report.ok and report.results[0].scenario == "one"
-        with pytest.raises(DriveError, match="no exams"):
+        with pytest.raises(DriveError, match="no proofs"):
             drive(adapter, drives, scenario="ghost")
 
     def test_unknown_placeholder_named(self, project, monkeypatch):

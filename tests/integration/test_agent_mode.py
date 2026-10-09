@@ -20,10 +20,11 @@ from darkroom.cli import main
 
 
 def _write(path: Path, content: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(textwrap.dedent(content))
 
 
-def _make_project(root: Path, vault_dir: Path, operator_path: Path) -> None:
+def _make_project(root: Path, vault_dir: Path, operator_path: Path, home: Path) -> None:
     root.mkdir()
     _write(root / "app.py", 'print("41")\n')  # seeded bug
 
@@ -55,25 +56,33 @@ def _make_project(root: Path, vault_dir: Path, operator_path: Path) -> None:
         [evidence]
         dir = "evidence"
         contract = "evidence-contract.toml"
-
-        [scenarios]
-        rubric_glob = "scenarios/*.rubric.toml"
         """,
     )
 
-    (root / "scenarios").mkdir()
+    # the proof lives in the operator home (set per test by DARKROOM_HOME):
+    # an exposure naming the step the harness records, and the rubric
+    proof = home / "projects" / "mini" / "proofs" / "answer_flow"
     _write(
-        root / "scenarios" / "answer-flow.rubric.toml",
+        proof / "exposure.toml",
         """
-        feature_id = "answer-flow"
-        version = "1"
         scenario = "answer_flow"
+
+        [[step]]
+        name = "answer"
+        kind = "command"
+        cmd = "python app.py"
+        """,
+    )
+    _write(
+        proof / "rubric.toml",
+        """
+        version = "1"
 
         [[criterion]]
         id = "prints_the_answer"
         points = 100
         description = "the program prints exactly 42"
-        evidence = ["command_transcript"]
+        witnesses = ["answer"]
         """,
     )
 
@@ -157,18 +166,18 @@ def test_agent_mode_convergence(tmp_path, capsys, monkeypatch):
     project = tmp_path / "mini"
     vault_dir = tmp_path / "vault"
     operator_path = tmp_path / "operator.toml"  # outside the tenant, as intended
-    _make_project(project, vault_dir, operator_path)
+    _make_project(project, vault_dir, operator_path, tmp_path / "darkroom-home")
     monkeypatch.chdir(project)
     monkeypatch.setenv("DARKROOM_HOME", str(tmp_path / "darkroom-home"))
     monkeypatch.delenv("EVIDENCE_MODE", raising=False)
     monkeypatch.delenv("EVIDENCE_DIR", raising=False)
 
-    # seal rubrics out of the tenant, derive the contract from the vault
+    # seal the proofs in place, derive the contract from them
     assert main(["vault", "seal", "--vault", str(vault_dir)]) == 0
     assert main(["vault", "derive-contract", "--vault", str(vault_dir)]) == 0
     subprocess.run(["git", "add", "-A"], cwd=project, check=True)
     subprocess.run(
-        ["git", "commit", "-q", "-m", "seal rubrics; derive contract"],
+        ["git", "commit", "-q", "-m", "derive contract"],
         cwd=project, check=True,
     )
     capsys.readouterr()
@@ -193,10 +202,10 @@ def test_agent_mode_convergence(tmp_path, capsys, monkeypatch):
 
     # the vault was the judge's rubric source, and every read is audited
     audit = (vault_dir / "audit.log").read_text()
-    assert audit.count("read answer-flow") >= 2  # derive-contract + judge reads
+    assert audit.count("read proof answer_flow") >= 2  # derive-contract + judge reads
 
-    # opacity held structurally: no rubric remains anywhere in the tenant
-    assert not list(project.rglob("*.rubric.toml"))
+    # opacity held structurally: no rubric exists anywhere in the tenant
+    assert not list(project.rglob("rubric.toml"))
 
     # every invocation was metered: judge records carry parsed usage,
     # builder records (silent fake) degrade to partial — never absent
@@ -225,7 +234,7 @@ def test_agent_mode_defaults_vault_to_home(tmp_path, capsys, monkeypatch):
     project = tmp_path / "mini"
     vault_dir = tmp_path / "vault"
     operator_path = tmp_path / "operator.toml"
-    _make_project(project, vault_dir, operator_path)
+    _make_project(project, vault_dir, operator_path, tmp_path / "elsewhere")
     monkeypatch.chdir(project)
     monkeypatch.setenv("DARKROOM_HOME", str(tmp_path / "darkroom-home"))
     operator_path.write_text('[judge]\nmodel = "m"\n[loop]\nmax_iterations = 1')

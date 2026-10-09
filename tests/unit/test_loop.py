@@ -199,28 +199,6 @@ class TestPreconditionsAndMemory:
                 _ctx(tmp_path)
             )
 
-    def test_drives_in_tenant_refused_once_the_exam_is_operator_side(
-        self, tmp_path, monkeypatch
-    ):
-        monkeypatch.setenv("DARKROOM_HOME", str(tmp_path / "home"))
-        home = tmp_path / "home" / "projects" / "p"
-        home.mkdir(parents=True)
-        (home / "operator.toml").write_text("[judge]\n")
-        (tmp_path / "drives").mkdir()
-        (tmp_path / "drives" / "flow.drive.toml").write_text('scenario = "flow"\n')
-        with pytest.raises(LoopError, match="live inside the tenant"):
-            _loop(ScriptedJudge([100])).run(_ctx(tmp_path))
-
-    def test_drives_in_tenant_allowed_in_the_free_loop(self, tmp_path, monkeypatch):
-        # the quickstart's stage 3: auto has made a home for loop state, but
-        # no operator config or sealed rubric exists — nothing to protect yet
-        monkeypatch.setenv("DARKROOM_HOME", str(tmp_path / "home"))
-        (tmp_path / "home" / "projects" / "p" / "vault").mkdir(parents=True)
-        (tmp_path / "drives").mkdir()
-        (tmp_path / "drives" / "flow.drive.toml").write_text('scenario = "flow"\n')
-        result = _loop(ScriptedJudge([100])).run(_ctx(tmp_path))
-        assert result.converged
-
     def test_builder_log_written(self, tmp_path):
         judge = ScriptedJudge([50, 100])
         ctx = _ctx(tmp_path)

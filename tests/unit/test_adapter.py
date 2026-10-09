@@ -24,7 +24,6 @@ gates = "gates.json"
 
 [scenarios]
 spec_glob = "scenarios/*.feature"
-rubric_glob = "scenarios/*.rubric.toml"
 
 [defaults]
 trials = 3
@@ -81,14 +80,29 @@ class TestAdapterModel:
         assert find_adapter(tmp_path) is None
 
 
-def _project(tmp_path, adapter_text=FULL_ADAPTER, specs=(), rubrics=(), contract=True):
+def _project(tmp_path, adapter_text=FULL_ADAPTER, specs=(), proofs=(), contract=True):
+    """A tenant with specs, and proof folders in the home (``DARKROOM_HOME``
+    is set per test) named for the scenarios they prove."""
+    import os
+    import re as _re
+
     (tmp_path / "darkroom.toml").write_text(adapter_text)
     scenario_dir = tmp_path / "scenarios"
     scenario_dir.mkdir(exist_ok=True)
     for name in specs:
         (scenario_dir / name).write_text("Feature: x")
-    for name in rubrics:
-        (scenario_dir / name).write_text("")
+    project = _re.search(r'name = "([^"]+)"', adapter_text).group(1)
+    for scenario in proofs:
+        folder = Path(os.environ["DARKROOM_HOME"]) / "projects" / project / "proofs" / scenario
+        folder.mkdir(parents=True, exist_ok=True)
+        (folder / "exposure.toml").write_text(
+            f'scenario = "{scenario}"\n[[step]]\nname = "hit"\nurl = "{{base_url}}/"\n'
+            'expect = { status = 200 }\n'
+        )
+        (folder / "rubric.toml").write_text(
+            'version = "1"\n[[criterion]]\nid = "c"\npoints = 1\n'
+            'description = "d"\nwitnesses = ["hit"]\n'
+        )
     if contract:
         (tmp_path / "evidence-contract.toml").write_text(
             '[[scenario]]\nname = "s"\n[[scenario.requires]]\nkind = "log"'
@@ -101,18 +115,18 @@ class TestPreflight:
         adapter = _project(
             tmp_path,
             specs=["staff_login.feature"],
-            rubrics=["staff-login.rubric.toml"],
+            proofs=["staff_login"],
         )
         result = preflight(adapter)
         assert result.ok, [f.message for f in result.errors]
         assert not result.warnings
 
     def test_normalized_stem_pairing(self, tmp_path):
-        # underscore spec pairs with dash rubric (source-framework convention)
+        # a dashed spec name pairs with its snake_case proof
         adapter = _project(
             tmp_path,
-            specs=["pay_invoices.feature"],
-            rubrics=["pay-invoices.rubric.toml"],
+            specs=["pay-invoices.feature"],
+            proofs=["pay_invoices"],
         )
         assert preflight(adapter).ok
 
@@ -130,29 +144,22 @@ class TestPreflight:
         result = preflight(adapter)
         assert any(f.code == "no-specs" for f in result.errors)
 
-    def test_drives_in_tenant_warn_once_a_home_exists(self, tmp_path, monkeypatch):
+    def test_old_layout_in_home_is_an_error(self, tmp_path, monkeypatch):
         monkeypatch.setenv("DARKROOM_HOME", str(tmp_path / "home"))
         adapter = _project(
             tmp_path,
-            adapter_text='[project]\nname = "p"\n[commands]\ntest = "darkroom drive"',
+            adapter_text='[project]\nname = "p"\n[commands]\ntest = "darkroom expose"',
             contract=False,
         )
-        (tmp_path / "drives").mkdir()
-        (tmp_path / "drives" / "flow.drive.toml").write_text('scenario = "flow"\n')
-        # a bare home (auto makes one for loop state) is no signal: stages 1-3
-        # keep drives in the tenant on purpose
-        (tmp_path / "home" / "projects" / "p" / "vault").mkdir(parents=True)
-        assert "drives-in-tenant" not in {f.code for f in preflight(adapter).warnings}
-        # sealed rubrics mean the exam is operator-side; the drives must be too
-        (tmp_path / "home" / "projects" / "p" / "vault" / "flow.rubric.toml").write_text("")
-        finding = next(
-            f for f in preflight(adapter).warnings if f.code == "drives-in-tenant"
-        )
-        assert "drives/flow.drive.toml" in finding.message
-        assert str(tmp_path / "home" / "projects" / "p" / "drives") in finding.message
+        home = tmp_path / "home" / "projects" / "p"
+        (home / "vault").mkdir(parents=True)
+        assert "old-layout" not in {f.code for f in preflight(adapter).errors}
+        (home / "vault" / "flow.rubric.toml").write_text("")
+        finding = next(f for f in preflight(adapter).errors if f.code == "old-layout")
+        assert "darkroom migrate" in finding.message
 
     def test_unpaired_spec_is_warning(self, tmp_path):
-        adapter = _project(tmp_path, specs=["lonely.feature"], rubrics=[])
+        adapter = _project(tmp_path, specs=["lonely.feature"], proofs=["other"])
         result = preflight(adapter)
         assert result.ok  # warnings only
         codes = {f.code for f in result.warnings}
@@ -162,7 +169,7 @@ class TestPreflight:
         adapter = _project(
             tmp_path,
             specs=["a.feature"],
-            rubrics=["a.rubric.toml"],
+            proofs=["a"],
             contract=False,
         )
         result = preflight(adapter)
@@ -170,7 +177,7 @@ class TestPreflight:
 
     def test_unparseable_contract_is_error(self, tmp_path):
         adapter = _project(
-            tmp_path, specs=["a.feature"], rubrics=["a.rubric.toml"], contract=False
+            tmp_path, specs=["a.feature"], proofs=["a"], contract=False
         )
         (tmp_path / "evidence-contract.toml").write_text("[[scenario]]\n")  # no name
         result = preflight(adapter)
@@ -185,7 +192,7 @@ class TestPreflight:
 
 class TestPreflightAndRunCLI:
     def test_preflight_cli(self, tmp_path, capsys, monkeypatch):
-        _project(tmp_path, specs=["a.feature"], rubrics=["a.rubric.toml"])
+        _project(tmp_path, specs=["a.feature"], proofs=["a"])
         monkeypatch.chdir(tmp_path)
         from darkroom.cli import main
 
