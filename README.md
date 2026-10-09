@@ -159,7 +159,8 @@ witnesses = ["save", "read_back"]     # evidence kinds follow from the steps cit
 ```
 
 `darkroom expose` runs the exposure (`darkroom drive`, its older
-name, still does). The builder, for its part, publishes the interface
+name, still does); `--workers N` runs scenarios side by side in N
+processes, same manifest, same log, less clock. The builder, for its part, publishes the interface
 it chose beside each spec — `scenarios/<name>.surfaces`, the routes,
 commands, pages, and files the build exposes — and `darkroom audit`
 holds every exposure to that publication both ways: a step probing
