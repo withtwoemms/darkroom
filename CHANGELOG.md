@@ -8,6 +8,22 @@ versioned independently of the package — see `ROADMAP.md`.
 
 ## [Unreleased]
 
+### Added
+
+`darkroom expose --workers N` (or `[evidence] workers = N`; the flag
+wins) runs scenarios side by side in N worker processes. Scenarios
+were always hermetic — a fresh server, services, browser and port each
+— so the pool changes nothing but the clock: one run directory, one
+manifest with bundles in proof order, one harness log in that order;
+a worker that fails is a failed scenario, never a lost run. Scenarios
+are scheduled longest-first from the newest earlier run's timings, and
+each worker draws ports from its own band so two can never collide.
+Measured on the first tenant's 76-scenario suite: 72 minutes serial,
+29 minutes with three workers on a four-core container VM, the same
+verdicts both ways (one scenario red once in each, green alone). A
+serve template under a pool must not name a fixed shared path; name it
+with `{port}`.
+
 ### Removed
 
 The pre-0.20 exam layout — `drives/<scenario>.drive.toml` beside
