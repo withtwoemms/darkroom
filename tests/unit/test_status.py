@@ -193,11 +193,49 @@ class TestReport:
         adapter, state = project
         text = dumps_status_markdown(assemble_status(adapter, state, now=NOW))
         headings = [line for line in text.splitlines() if line.startswith("## ")]
-        assert headings == ["## convergence", "## blocker", "## queue", "## metered equivalent"]
+        assert headings == [
+            "## convergence", "## last run", "## blocker", "## queue", "## metered equivalent",
+        ]
         assert "3 campaign(s): 1 converged · 1 running · 1 exhausted" in text
         assert "| gate_closes | converged | 2 | 0 → 100 | 100 | 100 | $1.00 |" in text
         assert "failing: clock_is_real" in text
         assert "- interview/t1 — First thing (4.6)" in text
+
+    def test_last_run_names_its_selection(self, project):
+        adapter, state = project
+        runs = adapter.root / "evidence" / "runs"
+        (runs / "2026-10-09T10-00-00").mkdir(parents=True)
+        (runs / "2026-10-09T10-00-00" / "harness.log").write_text(
+            "selection: all\nscenario gate_closes: ok\nscenario badge: FAILED\n"
+        )
+        (runs / "2026-10-09T11-00-00").mkdir()
+        (runs / "2026-10-09T11-00-00" / "harness.log").write_text(
+            "selection: --touching '#save'\nscenario gate_closes: ok\n"
+        )
+        bundle = assemble_status(adapter, state, now=NOW)
+        assert bundle["last_run"] == {
+            "run": "2026-10-09T11-00-00", "selection": "--touching '#save'",
+            "scenarios": 1, "green": 1, "partial": True,
+        }
+        text = dumps_status_markdown(bundle)
+        assert "2026-10-09T11-00-00: 1/1 green · selection --touching '#save' (a partial run" in text
+
+    def test_last_run_without_a_selection_line_is_unknown(self, project):
+        adapter, state = project
+        run = adapter.root / "evidence" / "runs" / "2026-10-01T00-00-00"
+        run.mkdir(parents=True)
+        (run / "harness.log").write_text("scenario gate_closes: ok\n")
+        last = assemble_status(adapter, state, now=NOW)["last_run"]
+        assert last["selection"] == "unknown" and last["partial"] is False
+        assert "selection unknown" in dumps_status_markdown(
+            assemble_status(adapter, state, now=NOW)
+        )
+
+    def test_no_run_is_no_run(self, project):
+        adapter, state = project
+        bundle = assemble_status(adapter, state, now=NOW)
+        assert bundle["last_run"] is None
+        assert "no run on record" in dumps_status_markdown(bundle)
 
     def test_empty_state_reports_nothing_ran(self, tmp_path):
         root = tmp_path / "t"
