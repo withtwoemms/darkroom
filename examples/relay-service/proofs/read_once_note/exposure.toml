@@ -1,4 +1,5 @@
 scenario = "read_once_note"
+tags = ["notes"]
 
 [[step]]
 name = "create_read_once"

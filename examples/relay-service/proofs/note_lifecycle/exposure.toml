@@ -1,4 +1,5 @@
 scenario = "note_lifecycle"
+tags = ["notes"]
 
 [[step]]
 name = "create"

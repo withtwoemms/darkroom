@@ -26,6 +26,11 @@ beside the proofs a `--drives` names wins over the home's). The
 builder's own publication, and `darkroom audit` holds each exposure to
 them.
 
+Exposures may carry `tags = [...]`; `darkroom expose --drives proofs --tag notes`
+runs the tagged ones, and `--touching '#notes li'` runs whichever reach
+that surface. Either way the harness log opens with the selection, so a
+partial run is never mistaken for the full slate.
+
 ## What each scenario shows
 
 | scenario | the darkroom idea it carries |

@@ -352,6 +352,58 @@ def matches(published: Surface, touched: Surface) -> bool:
     return False
 
 
+_ADDRESS_KIND = re.compile(r"^(route|page|selector|command):\s*(.+)$", re.S)
+_SELECTOR_START = ("#", ".", "[", "*", ":")
+_SELECTOR_MARKS = ("#", "[", ":", ">")  # a dot alone could be a file name
+
+
+def parse_address(text: str) -> Surface:
+    """An address written the way a ``.surfaces`` entry is written, as the
+    surface it names: ``POST /notes/{id}/archive`` is a route, ``/`` or
+    ``/notes/{id}`` a page, ``#save`` or ``main[data-note-state]`` a
+    selector, anything else a command. A ``kind:`` prefix (``command:``,
+    ``selector:``, ``page:``, ``route:``) settles an ambiguous one."""
+    text = text.strip()
+    if not text:
+        raise SurfacesError("an empty address names nothing")
+    forced = _ADDRESS_KIND.match(text)
+    if forced:
+        kind, body = forced.group(1), forced.group(2).strip()
+        if kind == "route":
+            words = body.split(maxsplit=1)
+            if len(words) != 2 or words[0].upper() not in HTTP_METHODS:
+                raise SurfacesError(
+                    f"a route address opens with an HTTP method and a path ('{body}')"
+                )
+            return route(words[0], words[1])
+        if kind == "page":
+            return page(body)
+        if kind == "selector":
+            return selector(body)
+        return command(body)
+    words = text.split(maxsplit=1)
+    if len(words) == 2 and words[0].upper() in HTTP_METHODS and words[1].startswith("/"):
+        return route(words[0], words[1])
+    if text.startswith("/"):
+        return page(text)
+    if text.startswith(_SELECTOR_START):
+        return selector(text)
+    head = text.split()[0]
+    if any(mark in head for mark in _SELECTOR_MARKS):
+        return selector(text)  # main[data-x], li:first-child, a>b; `li.active` needs `selector:`
+    return command(text)
+
+
+def touches(script: dict, addresses: list[Surface]) -> bool:
+    """Whether an exposure's own steps reach any of the addresses, by the
+    same rules the audit holds an exposure to its publication with: a
+    selector narrowed to a state is the element published, a path with a
+    placeholder matches the concrete paths, a command matches by its
+    words. Backdrop steps never count."""
+    touched = touched_surfaces(script)
+    return any(matches(address, t) for address in addresses for t in touched)
+
+
 def cross_check(published: Surfaces, script: dict) -> list[tuple[str, str]]:
     """(code, message) pairs: ``surface-unpublished`` for a touched surface
     the build never published, ``surface-untouched`` for a published one no

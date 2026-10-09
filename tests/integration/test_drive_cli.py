@@ -68,6 +68,37 @@ class TestDriveCLI:
             "scenario read_once_note: ok",
         ]
 
+    def test_a_tag_selects_the_tagged_proofs_and_names_the_selection(
+        self, tmp_path, capsys, monkeypatch
+    ):
+        project = tmp_path / "relay-service"
+        shutil.copytree(EXAMPLE, project, ignore=shutil.ignore_patterns("evidence"))
+        monkeypatch.chdir(project)
+        monkeypatch.delenv("EVIDENCE_MODE", raising=False)
+        monkeypatch.delenv("EVIDENCE_DIR", raising=False)
+
+        assert main(["expose", "--drives", "proofs", "--tag", "notes", "--workers", "2"]) == 0
+        out = capsys.readouterr().out
+        assert "selection: --tag notes" in out
+        assert "note_lifecycle:" in out and "read_once_note:" in out
+        assert "deletion_guarded:" not in out
+        assert "verify: ok (contract)" in out  # scoped to the selection, not the slate
+        assert "2/2 scenario(s) green" in out
+        log = next(project.glob("evidence/runs/*/harness.log")).read_text().splitlines()
+        assert log[0] == "selection: --tag notes"
+
+    def test_touching_a_route_selects_whoever_reaches_it(self, tmp_path, capsys, monkeypatch):
+        project = tmp_path / "relay-service"
+        shutil.copytree(EXAMPLE, project, ignore=shutil.ignore_patterns("evidence"))
+        monkeypatch.chdir(project)
+        monkeypatch.delenv("EVIDENCE_MODE", raising=False)
+        monkeypatch.delenv("EVIDENCE_DIR", raising=False)
+
+        assert main(["expose", "--drives", "proofs", "--touching", "DELETE /notes/{id}"]) == 0
+        out = capsys.readouterr().out
+        assert "selection: --touching 'DELETE /notes/{id}'" in out
+        assert "1/1 scenario(s) green" in out and "deletion_guarded:" in out
+
     def test_scenario_scoped_run_verifies_scoped_contract(
         self, tmp_path, capsys, monkeypatch
     ):

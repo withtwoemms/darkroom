@@ -122,6 +122,7 @@ def audit(
     drives_dir: Path,
     backdrops: dict[str, list[dict]] | None = None,
     specs: list[Path] | None = None,
+    only: set[str] | None = None,
 ) -> list[AuditFinding]:
     """Cross-check every rubric criterion against its exposure's
     capabilities, and the exposure's steps against the surfaces the build
@@ -132,6 +133,8 @@ def audit(
     spec_by_scenario = {Path(p).name.split(".", 1)[0]: Path(p) for p in specs or []}
 
     for feature_id in vault.list():
+        if only is not None and feature_id not in only:
+            continue
         try:
             rubric = tomllib.loads(vault.read(feature_id))
         except VaultError as exc:

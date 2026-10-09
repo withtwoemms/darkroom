@@ -163,7 +163,10 @@ witnesses = ["save", "read_back"]     # evidence kinds follow from the steps cit
 
 `darkroom expose` runs the exposure (`darkroom drive`, its older
 name, still does); `--workers N` runs scenarios side by side in N
-processes, same manifest, same log, less clock. The builder, for its part, publishes the interface
+processes, same manifest, same log, less clock. `--tag <name>` and
+`--touching <address>` run only the proofs a slice affects, the
+selection named in the harness log; the full gate is the run with no
+flags. The builder, for its part, publishes the interface
 it chose beside each spec — `scenarios/<name>.surfaces`, the routes,
 commands, pages, and files the build exposes — and `darkroom audit`
 holds every exposure to that publication both ways: a step probing
