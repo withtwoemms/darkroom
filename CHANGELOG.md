@@ -8,6 +8,13 @@ versioned independently of the package — see `ROADMAP.md`.
 
 ## [0.20.5] - 2026-10-08
 
+### Added
+
+A `backdrops.toml` beside the proofs a `--drives` directory holds wins
+over the operator home's — for the run, the derived contract and the
+expose command alike — so an in-tree example or a slice carried in a
+directory brings its own setup.
+
 ### Changed
 
 darkroom never uses a tenant's name or domain language. The author
@@ -29,13 +36,6 @@ with a reason at every door; a `token_in_hand` backdrop that
 `[serve.defaults]`. Two scenarios join the slate (`read_once_note`,
 `archived_note_shows_its_state`); `notes_page` witnesses the empty
 state and the ready control (rubric v2).
-
-### Added
-
-A `backdrops.toml` beside the proofs a `--drives` directory holds wins
-over the operator home's — for the run, the derived contract and the
-expose command alike — so an in-tree example or a slice carried in a
-directory brings its own setup.
 
 ## [0.20.4] - 2026-10-07
 
