@@ -13,7 +13,7 @@
         "source": "git-subdir",
         "url": "https://github.com/withtwoemms/darkroom.git",
         "path": "src/darkroom",
-        "ref": "0.20.5"
+        "ref": "0.21.0"
       },
       "homepage": "https://github.com/withtwoemms/darkroom"
     }

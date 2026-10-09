@@ -1,6 +1,6 @@
 {
   "name": "darkroom",
-  "version": "0.20.5",
+  "version": "0.21.0",
   "description": "Evidence-based autonomous delivery: the darkroom interview, author, converge, status, and chronicle skills — version-locked to the darkroom-ai engine",
   "author": { "name": "Emmanuel I. Obi" },
   "homepage": "https://github.com/withtwoemms/darkroom",
