@@ -117,6 +117,140 @@ def _surface_findings(scenario: str, script: dict, spec: Path | None) -> list[Au
     ]
 
 
+@dataclass(frozen=True)
+class Redundancy:
+    """One scenario's standing in the redundancy report."""
+
+    scenario: str
+    criteria: int
+    points: int
+    touched: tuple[str, ...]  # published surfaces its own steps reach
+    unique: tuple[str, ...]   # the ones no other scenario reaches
+    covered_by: tuple[str, ...]  # scenarios whose touched sets contain this one's
+
+    @property
+    def candidate(self) -> bool:
+        return bool(self.touched) and not self.unique
+
+
+def _touched_published(script: dict, spec: Path | None) -> list[str]:
+    """The surfaces an exposure's own steps reach, named the way the
+    build publishes them: a selector narrowed to a state collapses onto
+    the element published, a concrete path onto its route. A scenario
+    without a publication is named by what it reaches as written."""
+    from darkroom.surfaces import (
+        SurfacesError,
+        load_surfaces,
+        matches,
+        surfaces_path,
+        touched_surfaces,
+    )
+
+    published = []
+    if spec is not None:
+        path = surfaces_path(spec)
+        if path.is_file():
+            try:
+                published = load_surfaces(path).of("route", "page", "selector", "command")
+            except (SurfacesError, OSError):
+                published = []
+    names: list[str] = []
+    for touched in touched_surfaces(script):
+        name = next((str(p) for p in published if matches(p, touched)), str(touched))
+        if name not in names:
+            names.append(name)
+    return names
+
+
+def redundancy(
+    vault: RubricVault,
+    drives_dir: Path,
+    backdrops: dict[str, list[dict]] | None = None,
+    specs: list[Path] | None = None,
+    only: set[str] | None = None,
+) -> list[Redundancy]:
+    """Which scenarios reach no surface another does not. A report, never
+    a verdict: a scenario can be the only one proving a *refusal* on a
+    shared surface, which is why each entry carries its rubric's
+    criterion count and points."""
+    scripts = _drive_scripts(drives_dir, backdrops)
+    spec_by_scenario = {Path(p).name.split(".", 1)[0]: Path(p) for p in specs or []}
+    reach: dict[str, list[str]] = {}
+    weight: dict[str, tuple[int, int]] = {}
+    for feature_id in vault.list():
+        if only is not None and feature_id not in only:
+            continue
+        try:
+            rubric = tomllib.loads(vault.read(feature_id))
+        except VaultError:
+            continue
+        scenario = rubric.get("scenario", feature_id.replace("-", "_"))
+        script = scripts.get(scenario)
+        if script is None:
+            continue
+        criteria = rubric.get("criterion", [])
+        weight[scenario] = (len(criteria), sum(int(c.get("points", 0)) for c in criteria))
+        reach[scenario] = _touched_published(script, spec_by_scenario.get(scenario))
+
+    report: list[Redundancy] = []
+    for scenario, touched in reach.items():
+        others = {name: set(t) for name, t in reach.items() if name != scenario}
+        unique = [s for s in touched if not any(s in t for t in others.values())]
+        covered_by = (
+            sorted(name for name, t in others.items() if set(touched) <= t)
+            if touched and not unique
+            else []
+        )
+        criteria, points = weight[scenario]
+        report.append(
+            Redundancy(
+                scenario, criteria, points, tuple(touched), tuple(unique), tuple(covered_by)
+            )
+        )
+    # candidates first; among them, one a single scenario covers outright
+    # before one only covered jointly, which a reader weighs differently
+    report.sort(key=lambda r: (not r.candidate, not r.covered_by, r.scenario))
+    return report
+
+
+def dumps_redundancy(report: list[Redundancy]) -> str:
+    """The report as text: candidates first, each with who covers it, then
+    every scenario with what it alone reaches."""
+    lines: list[str] = []
+    candidates = [r for r in report if r.candidate]
+    lines.append(
+        f"candidates: {len(candidates)} of {len(report)} scenario(s) reach no surface "
+        "another does not"
+    )
+    for r in candidates:
+        who = ", ".join(r.covered_by) if r.covered_by else "no single scenario; covered jointly"
+        lines.append(
+            f"  {r.scenario}  [{r.criteria} criteria, {r.points} points]  covered by: {who}"
+        )
+        for s in r.touched:
+            lines.append(f"      reaches {s}")
+    lines.append("")
+    lines.append("alone:")
+    for r in report:
+        if r.candidate:
+            continue
+        head = f"  {r.scenario}  [{r.criteria} criteria, {r.points} points]"
+        if not r.touched:
+            lines.append(
+                head + "  reaches no published surface (command/assert-only, or no publication)"
+            )
+            continue
+        lines.append(head)
+        for s in r.unique:
+            lines.append(f"      alone on {s}")
+    lines.append("")
+    lines.append(
+        "a candidate is not a duplicate until a reader has checked it does not alone "
+        "prove a refusal on a shared surface; nothing here retires anything"
+    )
+    return "\n".join(lines) + "\n"
+
+
 def audit(
     vault: RubricVault,
     drives_dir: Path,
