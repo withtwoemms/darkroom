@@ -257,6 +257,19 @@ serve template under a pool must not name a fixed shared path (one log
 file for every scenario, say); name it with `{port}` so each scenario
 has its own.
 
+### The redundancy report
+
+`darkroom audit --redundant` names, for every scenario, the published
+surfaces its own steps reach (a selector narrowed to a state counts as
+the element published; backdrop steps never count) and which of them
+no other scenario reaches. A scenario that reaches no surface another
+does not is a *candidate*, listed first with the scenario(s) whose
+reach contains its own; every entry carries its rubric's criterion
+count and points, because a scenario can be the only one proving a
+refusal on a shared surface and the numbers are what make that
+visible. The report retires nothing: it is the input to a reading,
+and `--tag` / `--touching` confine it like the audit.
+
 ### Selecting a run
 
 A run exposes every proof unless narrowed: `--scenario <name>` keeps
