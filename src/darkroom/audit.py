@@ -22,7 +22,6 @@ if sys.version_info >= (3, 11):
 else:  # pragma: no cover - exercised only on 3.10
     import tomli as tomllib
 
-from darkroom.drive import DRIVE_SUFFIX, DriveError, load_exam
 from darkroom.vault import RubricVault, VaultError
 
 # what each drive step kind can register in the manifest
@@ -88,14 +87,6 @@ def _drive_scripts(
         try:
             script = exposure(load_proof(folder), backdrops)
         except (ProofError, OSError, ValueError):
-            continue
-        scripts[script["scenario"]] = script
-    if scripts:
-        return scripts
-    for path in sorted(Path(drives_dir).glob(f"*{DRIVE_SUFFIX}")):
-        try:
-            script = load_exam(path, backdrops)
-        except (DriveError, OSError, ValueError):
             continue
         scripts[script["scenario"]] = script
     return scripts

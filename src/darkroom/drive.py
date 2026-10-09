@@ -54,14 +54,12 @@ from pathlib import Path
 from types import SimpleNamespace
 
 if sys.version_info >= (3, 11):
-    import tomllib
+    pass
 else:  # pragma: no cover - exercised only on 3.10
-    import tomli as tomllib
+    pass
 
 from darkroom.adapter import ProjectAdapter
 from darkroom.capture import EvidenceCapture
-
-DRIVE_SUFFIX = ".drive.toml"
 
 
 class DriveError(Exception):
@@ -988,24 +986,6 @@ def _run_container_step(
 
 # --- the engine -----------------------------------------------------------
 
-def load_drive(path: Path) -> dict:
-    script = tomllib.loads(Path(path).read_text())
-    if not script.get("scenario"):
-        raise DriveError(f"{path.name}: drive script is missing 'scenario'")
-    return script
-
-
-def load_exam(path: Path, backdrops: dict[str, list[dict]] | None = None) -> dict:
-    """A drive script with its backdrops expanded into steps."""
-    from darkroom.backdrops import BackdropError, expand
-
-    script = load_drive(path)
-    try:
-        return expand(script, backdrops or {})
-    except BackdropError as exc:
-        raise DriveError(str(exc)) from None
-
-
 def drive_scenario(
     adapter: ProjectAdapter,
     script: dict,
@@ -1136,10 +1116,10 @@ def drive(
     scenario: str | None = None,
     containers_mode: str = "auto",
 ) -> DriveReport:
-    """Run drive scripts under an evidence run; returns the report.
+    """Run every proof's exposure under an evidence run; returns the report.
 
     The caller owns run lifecycle policy; this function sets evidence
-    mode, starts a run, executes each script (fresh server per
+    mode, starts a run, executes each exposure (fresh server per
     scenario), and ends the run so the manifest is written.
     """
     from darkroom.backdrops import BackdropError, load_backdrops
@@ -1152,28 +1132,25 @@ def drive(
     except BackdropError as exc:
         raise DriveError(str(exc)) from None
 
-    # proofs are the exam when the directory holds them; drive scripts otherwise
-    proofs = proof_dirs(drives_dir)
-
     def _load(path: Path) -> tuple[dict, dict]:
         """The runnable script and what the manifest records about it."""
-        if proofs:
-            try:
-                proof = load_proof(path)
-                return exposure(proof, backdrops), proof_provenance(path, proof)
-            except ProofError as exc:
-                raise DriveError(str(exc)) from None
-        return load_exam(path, backdrops), {}
+        try:
+            proof = load_proof(path)
+            return exposure(proof, backdrops), proof_provenance(path, proof)
+        except ProofError as exc:
+            raise DriveError(str(exc)) from None
 
-    def _names(path: Path) -> str:
-        return path.name if proofs else load_drive(path)["scenario"]
-
-    scripts = proofs or sorted(Path(drives_dir).glob(f"*{DRIVE_SUFFIX}"))
+    scripts = proof_dirs(drives_dir)
+    if not scripts and any(Path(drives_dir).glob("*.drive.toml")):
+        raise DriveError(
+            f"{drives_dir} holds pre-0.20 drive scripts and no proofs; "
+            "run `darkroom migrate` to carry them into proofs/"
+        )
     if scenario is not None:
-        scripts = [p for p in scripts if _names(p) == scenario]
+        scripts = [p for p in scripts if p.name == scenario]
     if not scripts:
         raise DriveError(
-            f"no exams{f' for scenario {scenario!r}' if scenario else ''} in {drives_dir}"
+            f"no proofs{f' for scenario {scenario!r}' if scenario else ''} in {drives_dir}"
         )
 
     containers = resolve_container_mode(containers_mode, adapter)
@@ -1199,7 +1176,7 @@ def drive(
     report = DriveReport()
     try:
         for path in scripts:
-            name = path.name if proofs else path.name[: -len(DRIVE_SUFFIX)]
+            name = path.name
             try:
                 script, provenance = _load(path)
                 report.results.append(
