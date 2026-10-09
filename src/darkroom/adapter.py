@@ -75,6 +75,9 @@ class ProjectAdapter:
     # [evidence] keep_runs: prune the evidence run directories to the newest
     # N after each drive, keeping any run a gate cites; unset keeps everything
     keep_runs: int | None = None
+    # [evidence] workers: scenarios run side by side in this many worker
+    # processes; 1 (the default) is the serial run. The CLI's --workers wins.
+    workers: int = 1
 
     def serve_vars(self, overrides: dict | None = None) -> dict:
         merged = dict(self.serve_defaults)
@@ -111,6 +114,14 @@ def _keep_runs(value) -> int | None:
         return None
     if isinstance(value, bool) or not isinstance(value, int) or value < 1:
         raise ValueError("[evidence] keep_runs must be a positive integer")
+    return value
+
+
+def _workers(value) -> int:
+    if value is None:
+        return 1
+    if isinstance(value, bool) or not isinstance(value, int) or value < 1:
+        raise ValueError("[evidence] workers must be a positive integer")
     return value
 
 
@@ -186,6 +197,7 @@ def loads_adapter(text: str, root: Path) -> ProjectAdapter:
         gates_path=Path(evidence.get("gates", "evidence-gates.json")),
         gates_declared="gates" in evidence,
         keep_runs=_keep_runs(evidence.get("keep_runs")),
+        workers=_workers(evidence.get("workers")),
         spec_glob=scenarios.get("spec_glob", ""),
         defaults=dict(data.get("defaults", {})),
     )

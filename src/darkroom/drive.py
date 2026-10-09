@@ -574,9 +574,26 @@ def _run_browser_step(
 # --- server lifecycle -----------------------------------------------------
 
 def _free_port() -> int:
-    with socket.socket() as s:
-        s.bind(("127.0.0.1", 0))
-        return s.getsockname()[1]
+    """A port nothing listens on. Under a worker pool each worker draws
+    from its own thousand-port band (``DARKROOM_WORKER``), so two workers
+    picking at the same instant can never be handed the same number."""
+    worker = os.environ.get("DARKROOM_WORKER")
+    if worker is None:
+        with socket.socket() as s:
+            s.bind(("127.0.0.1", 0))
+            return s.getsockname()[1]
+    import random
+
+    low = 20000 + (int(worker) % 40) * 1000
+    for _ in range(200):
+        port = random.randint(low, low + 999)
+        with socket.socket() as s:
+            try:
+                s.bind(("127.0.0.1", port))
+            except OSError:
+                continue
+            return port
+    raise DriveError(f"no free port in {low}-{low + 999} for worker {worker}")
 
 
 def _wait_healthy(base_url: str, timeout: float = 30.0) -> None:
@@ -1110,25 +1127,173 @@ def backdrops_file(adapter: ProjectAdapter, drives_dir: Path) -> Path | None:
     return backdrops_for(adapter.name, drives_dir)
 
 
+# --- the worker pool --------------------------------------------------------
+#
+# Scenarios are hermetic by construction — a fresh server, services,
+# browser and port each — which is exactly what lets them run side by
+# side. A worker is a process (spawned, so every platform behaves alike)
+# that runs one scenario under the run directory the parent opened and
+# hands back the scenario's result and its manifest bundle; the parent
+# merges bundles in the original order, so a run made with workers is
+# indistinguishable from a serial one except for the clock.
+
+
+def _bundle_to_dict(bundle) -> dict:
+    return {
+        "scenario": bundle.scenario,
+        "provenance": dict(bundle.provenance),
+        "items": [
+            {
+                "kind": i.kind, "mime": i.mime, "path": i.path.as_posix(),
+                "scenario": i.scenario, "step": i.step,
+                "captured_at": i.captured_at.isoformat(), "metadata": i.metadata,
+            }
+            for i in bundle.items
+        ],
+    }
+
+
+def _bundle_from_dict(data: dict):
+    from datetime import datetime
+
+    from darkroom.model import EvidenceItem, ScenarioBundle
+
+    bundle = ScenarioBundle(
+        scenario=data["scenario"], provenance=dict(data.get("provenance") or {})
+    )
+    for i in data.get("items", []):
+        bundle.add(
+            EvidenceItem(
+                kind=i["kind"], mime=i["mime"], path=Path(i["path"]),
+                scenario=i["scenario"],
+                step=i["step"], captured_at=datetime.fromisoformat(i["captured_at"]),
+                metadata=dict(i.get("metadata") or {}),
+            )
+        )
+    return bundle
+
+
+def _previous_durations(evidence_dir: Path, current_run_id: str) -> dict[str, float]:
+    """Seconds each scenario took in the newest earlier run, from the
+    first and last capture it recorded; nothing when no run exists."""
+    from datetime import datetime
+
+    runs_dir = Path(evidence_dir) / "runs"
+    if not runs_dir.is_dir():
+        return {}
+    runs = sorted((p for p in runs_dir.iterdir() if p.is_dir()), key=lambda p: p.name)
+    for run in reversed(runs):
+        if run.name == current_run_id:
+            continue
+        manifest = run / "manifest.json"
+        if not manifest.is_file():
+            continue
+        try:
+            data = json.loads(manifest.read_text())
+        except (OSError, ValueError):
+            continue
+        durations: dict[str, float] = {}
+        for bundle in data.get("scenarios", []):
+            stamps = sorted(
+                i["captured_at"] for i in bundle.get("items", []) if i.get("captured_at")
+            )
+            if len(stamps) >= 2:
+                first, last = datetime.fromisoformat(stamps[0]), datetime.fromisoformat(stamps[-1])
+                durations[bundle["scenario"]] = (last - first).total_seconds()
+        return durations
+    return {}
+
+
+def schedule(paths: list[Path], durations: dict[str, float]) -> list[Path]:
+    """Longest first, so the pool's tail is short; unknown durations
+    after known ones, ties by name."""
+    return sorted(paths, key=lambda p: (-durations.get(p.name, -1.0), p.name))
+
+
+def _worker_run(task: tuple) -> tuple:
+    """One scenario in a worker process: open the parent's run by id, drive
+    the scenario, return (name, result, bundle dict). Never raises — a
+    failure of any kind is a failed scenario the parent reports."""
+    adapter, path, backdrops_path, containers, run_id, evidence_dir, worker_index = task
+    from darkroom import run as run_module
+    from darkroom.backdrops import BackdropError, load_backdrops
+    from darkroom.proof import ProofError, exposure, load_proof
+    from darkroom.proof import provenance as proof_provenance
+
+    name = Path(path).name
+    os.environ["EVIDENCE_MODE"] = "1"
+    os.environ["EVIDENCE_DIR"] = str(evidence_dir)
+    os.environ["DARKROOM_WORKER"] = str(worker_index)
+    try:
+        run = run_module.start_run(run_id=run_id, project=adapter.name)
+        try:
+            backdrops = load_backdrops(backdrops_path)
+            proof = load_proof(Path(path))
+            script = exposure(proof, backdrops)
+            provenance = proof_provenance(Path(path), proof)
+            result = drive_scenario(
+                adapter, script, containers=containers, provenance=provenance
+            )
+        except (DriveError, ProofError, BackdropError) as exc:
+            result = ScenarioResult(
+                scenario=name, steps=[StepResult("boot", "serve", ok=False, detail=str(exc))]
+            )
+        bundle = next((b for b in run._manifest.scenarios if b.scenario == name), None)
+        run_module._current_run = None  # the parent writes the manifest
+        return name, result, _bundle_to_dict(bundle) if bundle is not None else None
+    except BaseException as exc:  # a crashed worker is a failed scenario, not a lost run
+        failed = StepResult("boot", "serve", ok=False, detail=f"worker failed: {exc!r}")
+        return name, ScenarioResult(scenario=name, steps=[failed]), None
+
+
+def _drive_pooled(adapter, run, scripts, backdrops_path, containers, workers: int) -> DriveReport:
+    import multiprocessing
+
+    evidence_dir = run.base_dir
+    order = schedule(list(scripts), _previous_durations(evidence_dir, run.run_id))
+    tasks = [
+        (adapter, path, backdrops_path, containers, run.run_id, evidence_dir, i % workers)
+        for i, path in enumerate(order)
+    ]
+    outcomes: dict[str, tuple] = {}
+    context = multiprocessing.get_context("spawn")
+    with context.Pool(processes=workers) as pool:
+        for name, result, bundle in pool.imap_unordered(_worker_run, tasks):
+            outcomes[name] = (result, bundle)
+    report = DriveReport()
+    for path in scripts:  # the original order, whatever the pool did
+        missing = StepResult("boot", "serve", ok=False, detail="no result from worker")
+        result, bundle = outcomes.get(
+            path.name, (ScenarioResult(scenario=path.name, steps=[missing]), None)
+        )
+        report.results.append(result)
+        if bundle is not None:
+            run._manifest.scenarios.append(_bundle_from_dict(bundle))
+    return report
+
+
 def drive(
     adapter: ProjectAdapter,
     drives_dir: Path,
     scenario: str | None = None,
     containers_mode: str = "auto",
+    workers: int = 1,
 ) -> DriveReport:
     """Run every proof's exposure under an evidence run; returns the report.
 
     The caller owns run lifecycle policy; this function sets evidence
     mode, starts a run, executes each exposure (fresh server per
-    scenario), and ends the run so the manifest is written.
+    scenario) — serially, or in a pool of ``workers`` processes — and
+    ends the run so the manifest is written.
     """
     from darkroom.backdrops import BackdropError, load_backdrops
     from darkroom.proof import ProofError, exposure, load_proof, proof_dirs
     from darkroom.proof import provenance as proof_provenance
     from darkroom.run import end_run, start_run
 
+    backdrops_path = backdrops_file(adapter, Path(drives_dir))
     try:
-        backdrops = load_backdrops(backdrops_file(adapter, Path(drives_dir)))
+        backdrops = load_backdrops(backdrops_path)
     except BackdropError as exc:
         raise DriveError(str(exc)) from None
 
@@ -1175,25 +1340,28 @@ def drive(
     run = start_run(project=adapter.name)
     report = DriveReport()
     try:
-        for path in scripts:
-            name = path.name
-            try:
-                script, provenance = _load(path)
-                report.results.append(
-                    drive_scenario(
-                        adapter, script, containers=containers, provenance=provenance
+        if workers > 1 and len(scripts) > 1:
+            report = _drive_pooled(adapter, run, scripts, backdrops_path, containers, workers)
+        else:
+            for path in scripts:
+                name = path.name
+                try:
+                    script, provenance = _load(path)
+                    report.results.append(
+                        drive_scenario(
+                            adapter, script, containers=containers, provenance=provenance
+                        )
                     )
-                )
-            except DriveError as exc:
-                # a scenario that cannot even boot is a failed scenario,
-                # not a failed drive — later scenarios still run, and the
-                # failure detail lands in the harness log for the builder
-                report.results.append(
-                    ScenarioResult(
-                        scenario=name,
-                        steps=[StepResult("boot", "serve", ok=False, detail=str(exc))],
+                except DriveError as exc:
+                    # a scenario that cannot even boot is a failed scenario,
+                    # not a failed drive — later scenarios still run, and the
+                    # failure detail lands in the harness log for the builder
+                    report.results.append(
+                        ScenarioResult(
+                            scenario=name,
+                            steps=[StepResult("boot", "serve", ok=False, detail=str(exc))],
+                        )
                     )
-                )
     finally:
         _write_harness_log(run, report)
         end_run()
