@@ -65,7 +65,8 @@ test = "darkroom drive"
 ```
 
 A tenant that needs a database beside the app declares it once, as a
-fact, and every scenario gets a fresh one:
+fact; the engine starts it once per run and gives every scenario its
+own database on it:
 
 ```toml
 [[environment.services]]
@@ -73,10 +74,11 @@ name = "postgres"
 image = "postgres:16"
 port = 5432
 env = { POSTGRES_PASSWORD = "exam" }
+fresh = "database"      # {postgres.database}: created and dropped per scenario
 ```
 
 ```toml
-serve = "make serve PORT={port} DATABASE_URL=postgres://postgres:exam@{postgres.host}:{postgres.port}/postgres"
+serve = "make serve PORT={port} DATABASE_URL=postgres://postgres:exam@{postgres.host}:{postgres.port}/{postgres.database}"
 ```
 
 An image whose entrypoint wants arguments declares them as `command`
@@ -101,6 +103,7 @@ name = "objects"
 image = "adobe/s3mock:latest"
 port = 9090
 ready_path = "/"
+fresh = "name"          # {objects.name}: a bucket name of the scenario's own
 ```
 
 What every scenario shares, the adapter says once — an exam then

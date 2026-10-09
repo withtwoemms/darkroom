@@ -256,6 +256,31 @@ serve template under a pool must not name a fixed shared path (one log
 file for every scenario, say); name it with `{port}` so each scenario
 has its own.
 
+### Services: once per run, a namespace per scenario
+
+A tenant's `[[environment.services]]` (a database, an object store)
+start **once per run**, by the parent, before the first scenario, and
+stop after the last; a worker never starts one. What a scenario gets
+from a shared service is its own namespace, declared on the service:
+
+| `fresh` | per scenario | reaches the serve template and `[serve.env]` as |
+|---------|--------------|------------------------------------------------|
+| `"database"` | a database created before the scenario and dropped after it (`psql` inside the container; no client in the engine) | `{name.database}` |
+| `"name"` | a unique token the app can name its own bucket, queue or prefix with; nothing is created | `{name.name}` |
+| unset | nothing — the service is shared as-is, and the tenant isolates by itself | `{name.host}` / `{name.port}` only |
+
+The namespace is also a drive value, so a step that reads the store
+directly addresses the scenario's own database or bucket. A service
+whose image is `postgres*` and that declares no `command` of its own
+runs with durability off (`fsync`, `synchronous_commit`,
+`full_page_writes`): an exam's database never has to survive a crash,
+and the writes it skips were most of a scenario's database time.
+
+A scenario opts out of the pool and gets services of its own, as every
+scenario did before 0.21, when it stops or starts a service (a `container`
+step) or declares `[environment] fresh_services = true` in its
+exposure. A run whose every scenario opts out starts no pool.
+
 ## What is derived, and from where
 
 | Was | Now |
