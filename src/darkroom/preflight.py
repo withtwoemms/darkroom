@@ -38,7 +38,7 @@ class PreflightResult:
 
 
 def _stem_key(path: Path) -> str:
-    """Normalized pairing key: 'staff_login.feature' ~ 'staff-login.rubric.toml'."""
+    """Normalized pairing key: 'staff-login.feature' ~ the 'staff_login' proof."""
     stem = path.name.split(".")[0]
     return re.sub(r"[-_]", "", stem).lower()
 
@@ -76,25 +76,19 @@ def _check_scenarios(adapter: ProjectAdapter, findings: list[Finding]) -> None:
         )
         return
 
-    # a spec pairs with its proof folder in the home (0.20), else with a
-    # rubric the tenant's rubric_glob names (the older layout)
+    # a spec pairs with its proof folder in the home
     from darkroom.homedir import default_proofs
     from darkroom.proof import proof_dirs
 
     proofs = proof_dirs(default_proofs(adapter.name)) if adapter.name else []
     if proofs:
         paired_with, keys = "proof", {_stem_key(p) for p in proofs}
-    elif adapter.rubric_glob:
-        paired_with, keys = "rubric", {_stem_key(p) for p in adapter.rubric_files()}
     else:
         findings.append(
             Finding(
                 severity="warning",
-                code="no-rubric-glob",
-                message=(
-                    "specs exist but no proofs are in the home and no rubric_glob "
-                    "is declared"
-                ),
+                code="no-proofs",
+                message="specs exist but no proofs are in the home",
             )
         )
         return
@@ -153,51 +147,14 @@ def _check_contract(adapter: ProjectAdapter, findings: list[Finding]) -> None:
 _SKIPPED_DIRS = {".git", "node_modules", "__pycache__"}
 
 
-def tenant_drive_scripts(adapter: ProjectAdapter) -> list[Path]:
-    """Drive scripts living inside the tenant — where the builder can read
-    the exam. Hidden directories, the evidence dir, and dependency trees
-    are not searched."""
-    root = adapter.root
-    evidence = adapter.resolve(adapter.evidence_dir)
-    found: list[Path] = []
-    for path in sorted(root.rglob("*.drive.toml")):
-        rel = path.relative_to(root)
-        if any(part.startswith(".") or part in _SKIPPED_DIRS for part in rel.parts[:-1]):
-            continue
-        if evidence in path.parents:
-            continue
-        found.append(rel)
-    return found
+def _check_layout(adapter: ProjectAdapter, findings: list[Finding]) -> None:
+    """A home still on the pre-0.20 pair is refused by name: every command
+    but ``migrate`` reads proofs only."""
+    from darkroom.homedir import old_layout_message
 
-
-def drives_in_tenant_message(adapter: ProjectAdapter, scripts: list[Path]) -> str:
-    from darkroom.homedir import default_drives
-
-    sample = ", ".join(str(p) for p in scripts[:3]) + (" …" if len(scripts) > 3 else "")
-    return (
-        f"{len(scripts)} drive script(s) live inside the tenant ({sample}); "
-        f"the builder can read the exam there. Move them to the operator home "
-        f"({default_drives(adapter.name)}) and drop --drives from the test command"
-    )
-
-
-def _check_drives_location(adapter: ProjectAdapter, findings: list[Finding]) -> None:
-    """Stages 1-3 of the quickstart keep drives in the tenant on purpose; the
-    finding only appears once the exam has moved operator-side (an
-    operator config or sealed rubrics in the home)."""
-    from darkroom.homedir import exam_is_operator_side
-
-    if not exam_is_operator_side(adapter.name):
-        return
-    scripts = tenant_drive_scripts(adapter)
-    if scripts:
-        findings.append(
-            Finding(
-                severity="warning",
-                code="drives-in-tenant",
-                message=drives_in_tenant_message(adapter, scripts),
-            )
-        )
+    message = old_layout_message(adapter.name)
+    if message:
+        findings.append(Finding(severity="error", code="old-layout", message=message))
 
 
 def _check_container_runtime(adapter: ProjectAdapter, findings: list[Finding]) -> None:
@@ -247,6 +204,6 @@ def preflight(adapter_path: Path) -> PreflightResult:
     _check_commands(adapter, findings)
     _check_scenarios(adapter, findings)
     _check_contract(adapter, findings)
-    _check_drives_location(adapter, findings)
+    _check_layout(adapter, findings)
     _check_container_runtime(adapter, findings)
     return PreflightResult(adapter_path=adapter_path, findings=findings)

@@ -330,12 +330,15 @@ def _cmd_audit(args) -> int:
         print(f"error: {exc}")
         return 2
 
-    from darkroom.backdrops import BackdropError, load_backdrops
-    from darkroom.homedir import default_backdrops, exams_dir
+    from darkroom.backdrops import BackdropError, backdrops_for, load_backdrops
+    from darkroom.homedir import default_proofs, old_layout_message
 
-    drives = Path(args.drives) if args.drives else exams_dir(adapter.name)
+    drives = Path(args.drives) if args.drives else default_proofs(adapter.name)
+    if args.drives is None and (stale := old_layout_message(adapter.name)):
+        print(f"error: {stale}")
+        return 2
     try:
-        backdrops = load_backdrops(default_backdrops(adapter.name))
+        backdrops = load_backdrops(backdrops_for(adapter.name, drives))
     except BackdropError as exc:
         print(f"error: {exc}")
         return 2
@@ -557,7 +560,7 @@ def _cmd_vault(args) -> int:
         VaultError,
         derive_contract,
         dumps_contract,
-        seal,
+        seal_proofs,
     )
 
     adapter_path = _find_adapter_or_error(args.project)
@@ -579,7 +582,13 @@ def _cmd_vault(args) -> int:
 
         vault = build_vault(operator, adapter.name)
     elif args.vault is not None:
-        vault = FilesystemVault(args.vault)
+        from darkroom.homedir import default_backdrops, default_proofs
+
+        vault = FilesystemVault(
+            args.vault,
+            proofs=default_proofs(adapter.name),
+            backdrops=default_backdrops(adapter.name),
+        )
     else:
         from darkroom.homedir import default_vault, ensure_project_home
 
@@ -588,51 +597,26 @@ def _cmd_vault(args) -> int:
 
     try:
         if args.vault_command == "seal":
+            from darkroom.homedir import old_layout_message
+
+            if stale := old_layout_message(adapter.name):
+                print(f"error: {stale}")
+                return 2
             if isinstance(vault, FilesystemVault):
-                sealed = seal(adapter, vault)
-                if vault.uses_proofs():
-                    print(f"sealed {len(sealed)} proof(s) in {vault.proofs}:")
-                    for name in sealed:
-                        print(f"  {name}")
-                    return 0
-                print(f"sealed {len(sealed)} rubric(s) into {vault.root}:")
+                sealed = seal_proofs(vault)
+                print(f"sealed {len(sealed)} proof(s) in {vault.proofs}:")
             else:
-                rubric_files = adapter.rubric_files()
-                if not rubric_files:
-                    print("error: no rubrics match the tenant's rubric_glob")
-                    return 2
-                sealed = []
-                for source in rubric_files:
-                    feature_id = source.name.removesuffix(".rubric.toml")
-                    vault.write(feature_id, source.read_text())
-                    source.unlink()
-                    sealed.append(feature_id)
-                print(f"sealed {len(sealed)} rubric(s) into the {operator.vault_backend} vault:")
+                # a secret-manager backend holds the rubric half of every
+                # proof; the proofs in the home stay the exposures' home
+                from darkroom.homedir import default_vault
+
+                source = FilesystemVault(default_vault(adapter.name))
+                sealed = seal_proofs(source)
+                for feature_id in sealed:
+                    vault.write(feature_id, source.read(feature_id))
+                print(f"sealed {len(sealed)} proof(s) into the {operator.vault_backend} vault:")
             for feature_id in sealed:
                 print(f"  {feature_id}")
-            print("commit the tenant-side removal; the vault is now the authority")
-            return 0
-
-        if args.vault_command in ("move", "migrate"):
-            from darkroom.homedir import default_vault
-
-            source_vault = FilesystemVault(args.vault or default_vault(adapter.name))
-            if isinstance(vault, FilesystemVault):
-                print("error: vault move needs an operator config with a non-filesystem backend")
-                return 2
-            archive = source_vault.root / "archive"
-            archive.mkdir(exist_ok=True)
-            migrated = []
-            for feature_id in source_vault.list():
-                vault.write(feature_id, source_vault.read(feature_id))
-                (source_vault.root / f"{feature_id}.rubric.toml").rename(
-                    archive / f"{feature_id}.rubric.toml"
-                )
-                migrated.append(feature_id)
-            print(
-                f"migrated {len(migrated)} rubric(s) to the "
-                f"{operator.vault_backend} vault; local copies archived in {archive}"
-            )
             return 0
 
         # derive-contract
@@ -670,10 +654,13 @@ def _cmd_drive(args) -> int:
     if args.drives is not None:
         drives_dir = args.drives
     else:
-        from darkroom.homedir import exams_dir
+        from darkroom.homedir import default_proofs, old_layout_message
 
         ensure_project_home(adapter.name)
-        drives_dir = exams_dir(adapter.name)
+        if stale := old_layout_message(adapter.name):
+            print(f"error: {stale}")
+            return 2
+        drives_dir = default_proofs(adapter.name)
 
     import os
 
@@ -723,11 +710,12 @@ def _cmd_drive(args) -> int:
 def _cmd_migrate(args) -> int:
     from darkroom.adapter import load_adapter
     from darkroom.backdrops import BackdropError, load_backdrops
-    from darkroom.homedir import default_backdrops, default_drives, default_proofs, default_vault
+    from darkroom.homedir import default_backdrops, default_proofs, default_vault
     from darkroom.migrate import (
         MigrateError,
         apply_serve_defaults,
         defaults_block,
+        old_drives,
         plan_migration,
         write_migration,
     )
@@ -737,7 +725,7 @@ def _cmd_migrate(args) -> int:
     if adapter_path is None:
         return 2
     adapter = load_adapter(adapter_path)
-    drives = args.drives or default_drives(adapter.name)
+    drives = args.drives or old_drives(adapter.name)
     vault = args.vault or default_vault(adapter.name)
     out = args.out or default_proofs(adapter.name)
     try:
@@ -800,7 +788,7 @@ def _cmd_migrate(args) -> int:
         target.write_text(draft)
         print(f"  {target.relative_to(adapter.root)} (draft — engineering makes it true)")
     print(
-        "proofs are now the exam: darkroom reads proofs/ ahead of drives/ and vault/; "
+        "proofs are the exam; drives/ and the vault rubrics are no longer read: "
         "run `darkroom vault seal` and `darkroom audit`, then retire the old pair"
     )
     return 0 if plan.ok else 1
@@ -813,7 +801,7 @@ def _cmd_surfaces(args) -> int:
     from darkroom.adapter import load_adapter
     from darkroom.audit import _drive_scripts
     from darkroom.backdrops import BackdropError, backdrops_for, load_backdrops
-    from darkroom.homedir import exams_dir
+    from darkroom.homedir import default_proofs, old_layout_message
     from darkroom.surfaces import (
         SurfacesError,
         draft_from_exposure,
@@ -825,7 +813,10 @@ def _cmd_surfaces(args) -> int:
     if adapter_path is None:
         return 2
     adapter = load_adapter(adapter_path)
-    drives = Path(args.drives) if args.drives else exams_dir(adapter.name)
+    drives = Path(args.drives) if args.drives else default_proofs(adapter.name)
+    if args.drives is None and (stale := old_layout_message(adapter.name)):
+        print(f"error: {stale}")
+        return 2
     try:
         scripts = _drive_scripts(drives, load_backdrops(backdrops_for(adapter.name, drives)))
     except BackdropError as exc:
@@ -1045,17 +1036,11 @@ def main(argv=None) -> int:
 
     vault_parser = sub.add_parser("vault", help="sealed rubric storage")
     vault_sub = vault_parser.add_subparsers(dest="vault_command", required=True)
-    for name, help_text, aliases in (
-        ("seal", "move the tenant's rubrics into the vault", []),
-        ("derive-contract", "regenerate the evidence contract from vaulted rubrics", []),
-        (
-            "move",
-            "move a filesystem vault's rubrics to the configured backend "
-            "(formerly `vault migrate`; that name still works)",
-            ["migrate"],
-        ),
+    for name, help_text in (
+        ("seal", "validate every proof in the home and record the sealing"),
+        ("derive-contract", "regenerate the evidence contract from the proofs' rubrics"),
     ):
-        p = vault_sub.add_parser(name, help=help_text, aliases=aliases)
+        p = vault_sub.add_parser(name, help=help_text)
         p.add_argument(
             "--vault", type=Path, default=None,
             help="vault directory (default: the project's darkroom home vault)",

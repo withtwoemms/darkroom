@@ -4,8 +4,8 @@ Rubrics are the load-bearing secret of the opacity model — builders must
 not read the criteria they are optimized against. The vault holds them
 outside every builder-visible path, behind a four-verb surface:
 
-- ``seal``: move rubrics out of the tenant tree (move, not copy — two
-  authorities is how leaks come back)
+- ``seal``: validate every proof in the home and record the sealing
+  (proofs are born operator-side; there is nothing to move)
 - ``list`` / ``read``: the judge's access, every read audited
 - ``derive_contract``: rubric-as-root — the evidence contract is
   regenerated from the rubrics' evidence declarations, demoting the
@@ -23,7 +23,6 @@ version field.
 
 from __future__ import annotations
 
-import shutil
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -41,8 +40,6 @@ from darkroom.contract import (
     ScenarioContract,
 )
 
-RUBRIC_SUFFIX = ".rubric.toml"
-
 
 class VaultError(Exception):
     pass
@@ -56,14 +53,13 @@ class RubricVault(Protocol):
 
 
 class FilesystemVault:
-    """Rubrics as files in a directory outside every builder-visible path.
+    """Rubrics read from the proofs beside the vault, outside every
+    builder-visible path.
 
-    Two layouts: ``vault/<feature-id>.rubric.toml`` (the rubric alone,
-    the drive in ``drives/``), or ``proofs/<scenario>/`` beside it
-    (``exposure.toml`` and ``rubric.toml``, one sealed folder). When a
-    ``proofs`` directory holds proofs it is the authority: ``list`` names
-    them by scenario and ``read`` renders the rubric half, so the judge is
-    given criteria and never the exposure.
+    ``proofs/<scenario>/`` holds ``exposure.toml`` and ``rubric.toml``,
+    one sealed folder; ``list`` names proofs by scenario and ``read``
+    renders the rubric half, so the judge is given criteria and never
+    the exposure. The vault directory itself keeps the audit log.
     """
 
     def __init__(self, root: Path, proofs: Path | None = None, backdrops: Path | None = None):
@@ -78,9 +74,6 @@ class FilesystemVault:
     def initialize(self) -> None:
         self.root.mkdir(parents=True, exist_ok=True)
         self.root.chmod(0o700)
-
-    def _path(self, feature_id: str) -> Path:
-        return self.root / f"{feature_id}{RUBRIC_SUFFIX}"
 
     def _audit(self, line: str) -> None:
         self.root.mkdir(parents=True, exist_ok=True)
@@ -98,47 +91,27 @@ class FilesystemVault:
         return load_backdrops(self.backdrops_path)
 
     def list(self) -> list[str]:
-        if self.uses_proofs():
-            from darkroom.proof import proof_dirs
+        from darkroom.proof import proof_dirs
 
-            return [p.name for p in proof_dirs(self.proofs)]
-        return sorted(
-            p.name[: -len(RUBRIC_SUFFIX)]
-            for p in self.root.glob(f"*{RUBRIC_SUFFIX}")
-        )
+        return [p.name for p in proof_dirs(self.proofs)]
 
     def read(self, feature_id: str, version: str | None = None) -> str:
-        if self.uses_proofs():
-            from darkroom.proof import ProofError, is_proof, load_proof, rubric_text
+        from darkroom.proof import ProofError, is_proof, load_proof, rubric_text
 
-            folder = self.proofs / feature_id
-            if not is_proof(folder):
-                raise VaultError(f"no proof '{feature_id}' in {self.proofs}")
-            try:
-                text = rubric_text(load_proof(folder), self._backdrops())
-            except ProofError as exc:
-                raise VaultError(str(exc)) from None
-            if version is not None:
-                stored = str(tomllib.loads(text).get("version", ""))
-                if stored != version:
-                    raise VaultError(
-                        f"proof '{feature_id}' is at version '{stored}', not '{version}'"
-                    )
-            self._audit(f"read proof {feature_id} version={version or 'current'}")
-            return text
-        path = self._path(feature_id)
-        if not path.exists():
-            raise VaultError(f"no rubric '{feature_id}' in the vault")
-        text = path.read_text()
+        folder = self.proofs / feature_id
+        if not is_proof(folder):
+            raise VaultError(f"no proof '{feature_id}' in {self.proofs}")
+        try:
+            text = rubric_text(load_proof(folder), self._backdrops())
+        except ProofError as exc:
+            raise VaultError(str(exc)) from None
         if version is not None:
             stored = str(tomllib.loads(text).get("version", ""))
             if stored != version:
                 raise VaultError(
-                    f"rubric '{feature_id}' is at version '{stored}', "
-                    f"not '{version}' (the filesystem backend keeps no "
-                    "history; versioned reads need a secret-manager backend)"
+                    f"proof '{feature_id}' is at version '{stored}', not '{version}'"
                 )
-        self._audit(f"read {feature_id} version={version or 'current'}")
+        self._audit(f"read proof {feature_id} version={version or 'current'}")
         return text
 
 
@@ -165,26 +138,6 @@ def seal_proofs(vault: FilesystemVault) -> list[str]:
     vault._audit(f"sealed {len(sealed)} proof(s): {', '.join(sealed)}")
     return sealed
 
-
-def seal(adapter: ProjectAdapter, vault: FilesystemVault) -> list[str]:
-    """Move the tenant's rubrics into the vault. Returns sealed feature ids."""
-    rubric_files = adapter.rubric_files()
-    if not rubric_files:
-        if vault.uses_proofs():
-            return seal_proofs(vault)
-        raise VaultError(
-            f"no rubrics match '{adapter.rubric_glob}' in the tenant; "
-            "nothing to seal"
-        )
-    vault.initialize()
-    sealed = []
-    for source in rubric_files:
-        feature_id = source.name[: -len(RUBRIC_SUFFIX)] \
-            if source.name.endswith(RUBRIC_SUFFIX) else source.stem
-        shutil.move(str(source), vault._path(feature_id))
-        sealed.append(feature_id)
-    vault._audit(f"sealed {len(sealed)} rubric(s): {', '.join(sealed)}")
-    return sealed
 
 
 def _scenario_name(rubric: dict, feature_id: str) -> str:
