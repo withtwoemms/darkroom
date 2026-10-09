@@ -24,6 +24,25 @@ verdicts both ways (one scenario red once in each, green alone). A
 serve template under a pool must not name a fixed shared path; name it
 with `{port}`.
 
+A tenant's `[[environment.services]]` now start **once per run** and
+hand every scenario a namespace of its own instead of a container of
+its own. A service that declares `fresh = "database"` gives each
+scenario a database created before it and dropped after it (by `psql`
+inside the container — the engine gains no client), reaching the serve
+template, `[serve.env]` and the exposure's own steps as
+`{name.database}`; `fresh = "name"` gives each a unique token,
+`{name.name}`, for an app that names its own bucket; a service that
+declares neither is shared as-is. A Postgres image with no `command`
+of its own runs with durability off, since an exam's database never
+has to survive a crash. A scenario that stops or starts a service, or
+declares `[environment] fresh_services = true`, keeps services of its
+own. Measured on the first tenant's 76-scenario suite, three workers:
+29 minutes with a container per scenario, **6 minutes 21 seconds** on
+the pool, the same 75/76 verdicts — and the one red was the pool
+earning its keep: an in-place restart step re-booted the app without
+the scenario's bucket name, a defect the per-scenario store had hidden.
+A single worker on the pool: 10 minutes 36 seconds, 76/76 — against 72 minutes serial before 0.21.
+
 ### Removed
 
 The pre-0.20 exam layout — `drives/<scenario>.drive.toml` beside

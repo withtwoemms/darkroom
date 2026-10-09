@@ -56,7 +56,9 @@ EXPOSURE_FILE = "exposure.toml"
 RUBRIC_FILE = "rubric.toml"
 
 # the exposure's keys; everything else in a merged proof is the rubric's
-EXPOSURE_KEYS = frozenset({"scenario", "backdrop", "serve", "browser", "record", "step"})
+EXPOSURE_KEYS = frozenset(
+    {"scenario", "backdrop", "serve", "browser", "environment", "record", "step"}
+)
 
 # what a step kind records, hence what a criterion citing it rests on
 STEP_EVIDENCE: dict[str, str | None] = {

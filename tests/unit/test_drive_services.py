@@ -5,6 +5,7 @@ import socket
 
 import pytest
 
+import darkroom.drive as drive_module
 from darkroom.adapter import loads_adapter
 from darkroom.drive import DriveError, _Server, _Services
 
@@ -102,7 +103,7 @@ class TestServices:
         assert cache.exposed == [] and services.namespaces["cache"].port is None
         # a declared command replaces the image's; none declared leaves it alone
         assert cache.command == ["redis-server", "--save", ""]
-        assert getattr(pg, "command", None) is None
+        assert getattr(pg, "command", None) == drive_module.POSTGRES_EXAM_COMMAND  # exam tuning by default
         services.stop()
         assert pg.stopped and cache.stopped
 
@@ -165,7 +166,7 @@ class TestDriveValues:
         seen = {}
 
         class _StubServer:
-            def __init__(self, adapter_, extra, services=None):
+            def __init__(self, adapter_, extra, services=None, namespaces=None):
                 self.base_url = "http://127.0.0.1:1"
                 self.port = 1
                 self.services = services

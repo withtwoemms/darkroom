@@ -230,16 +230,18 @@ witness is a vacuous pass, not proof.
   (a single failed `serve` step), never as a failed drive.
 - In container mode, an `environment` log item recording image
   digests precedes the step evidence. In process mode, an adapter
-  that declares `[[environment.services]]` gets each service as a
-  fresh container per scenario beside the process-booted app (since
-  engine 0.19): the service's mapped address reaches the serve
-  command as `{name.host}` / `{name.port}` — and to the drive's own
-  steps as the same placeholders (0.19.1), so a scenario that re-boots
-  the app in place can address the services the engine started — a
-  TCP probe waits for a declared port before the app boots, the
-  containers stop with the server, and the same `environment` log
-  item records their digests.
-  A scenario's database is therefore as hermetic as its process.
+  that declares `[[environment.services]]` gets them started once per
+  run beside the process-booted app (per scenario before 0.21): the
+  service's mapped address reaches the serve command as `{name.host}`
+  / `{name.port}`, and a service that declares `fresh` gives each
+  scenario its own `{name.database}` or `{name.name}` — all of them
+  drive values too (0.19.1), so a scenario that re-boots the app in
+  place, or reads the store directly, addresses the same services and
+  the same namespace. A TCP probe waits for a declared port before the
+  first app boots, and the same `environment` log item records the
+  digests. A scenario's database is therefore as hermetic as its
+  process, at the cost of a `CREATE DATABASE` rather than a container
+  boot; see [proofs.md](proofs.md) for `fresh` and the opt-out.
 - The engine writes the harness log (step names, ok/FAIL, failure
   details) beside the manifest — the builder-visible diagnostics
   channel specified in [role-hooks.md](role-hooks.md).

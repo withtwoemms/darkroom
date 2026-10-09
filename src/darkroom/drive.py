@@ -733,6 +733,146 @@ def prepare_container_runtime() -> bool:
     return True
 
 
+POSTGRES_EXAM_COMMAND = [
+    "postgres", "-c", "fsync=off", "-c", "synchronous_commit=off", "-c", "full_page_writes=off",
+]
+
+# postgres identifiers are 63 bytes; S3 bucket names 63 characters
+_NAME_LIMIT = 63
+
+
+def _run_stamp(run_id: str) -> str:
+    return re.sub(r"\D", "", run_id or "")[-6:] or "0"
+
+
+def database_name(scenario: str, run_id: str) -> str:
+    """``<scenario>_<run stamp>`` as a Postgres identifier: lowercase,
+    word characters, a letter first, within the length limit."""
+    stamp = _run_stamp(run_id)
+    base = re.sub(r"[^a-z0-9_]", "_", scenario.lower())
+    if not base or not base[0].isalpha():
+        base = "s_" + base
+    return f"{base[: _NAME_LIMIT - 1 - len(stamp)]}_{stamp}"
+
+
+def bucket_name(scenario: str, run_id: str) -> str:
+    """``<scenario>-<run stamp>`` as an S3-safe name: lowercase, letters,
+    digits and dashes, within the length limit."""
+    stamp = _run_stamp(run_id)
+    base = re.sub(r"[^a-z0-9-]", "-", scenario.lower()).strip("-")
+    if not base or not base[0].isalnum():
+        base = "s-" + base
+    return f"{base[: _NAME_LIMIT - 1 - len(stamp)]}-{stamp}"
+
+
+def _docker_exec(container_id: str, argv: list[str]) -> subprocess.CompletedProcess:
+    return subprocess.run(
+        ["docker", "exec", container_id, *argv], capture_output=True, text=True
+    )
+
+
+class ServicePool:
+    """The run's services, started once, from which every scenario draws
+    its own namespace: a database created and dropped around it on a
+    service that declares ``fresh = "database"``, a unique name on one
+    that declares ``fresh = "name"``, and the shared address on one that
+    declares neither. Plain data, so a worker process holds a copy and
+    asks the same containers for its own names.
+    """
+
+    def __init__(
+        self,
+        specs: list[dict],
+        namespaces: dict[str, dict],
+        container_ids: dict[str, str | None],
+        digests: dict[str, str] | None = None,
+    ):
+        self.specs = specs
+        self.namespaces = namespaces
+        self.container_ids = container_ids
+        self.digests = dict(digests or {})
+        self._created: dict[str, list[tuple[str, str]]] = {}
+
+    def to_dict(self) -> dict:
+        return {
+            "specs": self.specs, "namespaces": self.namespaces,
+            "container_ids": self.container_ids, "digests": self.digests,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> ServicePool:
+        return cls(
+            data["specs"], data["namespaces"], data["container_ids"], data.get("digests")
+        )
+
+    def _sql(
+        self, service: str, user: str, statement: str, attempts: int = 1
+    ) -> subprocess.CompletedProcess:
+        container_id = self.container_ids.get(service)
+        if not container_id:
+            raise DriveError(f"service '{service}' has no container to create a database in")
+        argv = ["psql", "-U", user, "-d", "postgres", "-v", "ON_ERROR_STOP=1", "-c", statement]
+        result = None
+        for attempt in range(attempts):
+            result = _docker_exec(container_id, argv)
+            if result.returncode == 0:
+                return result
+            if attempt + 1 < attempts:
+                time.sleep(0.5)  # the server may still be coming up
+        return result
+
+    def namespace_for(self, scenario: str, run_id: str) -> dict[str, SimpleNamespace]:
+        """The scenario's view of every service: host and port always;
+        ``database`` or ``name`` where the service declares ``fresh``."""
+        spaces: dict[str, SimpleNamespace] = {}
+        created: list[tuple[str, str]] = []
+        for spec in self.specs:
+            name = spec["name"]
+            ns = SimpleNamespace(**self.namespaces[name])
+            if spec.get("fresh") == "database":
+                database = database_name(scenario, run_id)
+                result = self._sql(
+                    name, spec.get("user", "postgres"), f'CREATE DATABASE "{database}"', attempts=60
+                )
+                if result.returncode != 0:
+                    for svc, db in created:
+                        self._drop(svc, db)
+                    raise DriveError(
+                        f"could not create database '{database}' on service '{name}': "
+                        + (result.stderr or result.stdout).strip()[-400:]
+                    )
+                created.append((name, database))
+                ns.database = database
+            elif spec.get("fresh") == "name":
+                ns.name = bucket_name(scenario, run_id)
+            spaces[name] = ns
+        self._created[scenario] = created
+        return spaces
+
+    def _drop(self, service: str, database: str) -> None:
+        user = next(
+            (s.get("user", "postgres") for s in self.specs if s["name"] == service), "postgres"
+        )
+        result = self._sql(service, user, f'DROP DATABASE "{database}" WITH (FORCE)')
+        if result.returncode != 0:  # an older server: no FORCE
+            self._sql(service, user, f'DROP DATABASE "{database}"')
+
+    def release(self, scenario: str) -> None:
+        for service, database in self._created.pop(scenario, []):
+            try:
+                self._drop(service, database)
+            except DriveError:
+                pass
+
+
+def _opts_out_of_pool(script: dict) -> bool:
+    """A scenario that stops or starts a service, or asks for its own, gets
+    services of its own as before the pool."""
+    if bool((script.get("environment") or {}).get("fresh_services")):
+        return True
+    return any(s.get("kind") == "container" for s in script.get("step", []))
+
+
 class _Services:
     """The adapter's declared services beside a process-mode app: a fresh
     Postgres per scenario while ``make serve`` still boots the app itself.
@@ -756,6 +896,7 @@ class _Services:
         self.adapter = adapter
         self.containers: dict[str, object] = {}
         self.namespaces: dict[str, SimpleNamespace] = {}
+        self.container_ids: dict[str, str | None] = {}
         try:
             for svc in adapter.services:
                 container = container_cls(svc.image)
@@ -763,6 +904,11 @@ class _Services:
                     container.with_env(key, value)
                 if svc.command:
                     container.with_command(list(svc.command))
+                elif svc.image.startswith("postgres"):
+                    # an exam's database never has to survive a crash: skip
+                    # the durability writes, which is most of a scenario's
+                    # database time on a laptop
+                    container.with_command(POSTGRES_EXAM_COMMAND)
                 if svc.port is not None:
                     container.with_exposed_ports(svc.port)
                 container.start()
@@ -775,12 +921,33 @@ class _Services:
                     if svc.ready_path:
                         ready(f"http://{host}:{port}{svc.ready_path}")
                 self.namespaces[svc.name] = SimpleNamespace(host=host, port=port)
+                wrapped = getattr(container, "_container", None)
+                self.container_ids[svc.name] = getattr(wrapped, "id", None)
         except Exception:
             self.stop()
             raise
 
     def digests(self) -> dict[str, str]:
         return {svc.name: _image_digest(svc.image) for svc in self.adapter.services}
+
+    def pool(self) -> ServicePool:
+        """These services as a run-scoped pool scenarios draw namespaces
+        from; the pool is plain data, so a worker process can hold it."""
+        return ServicePool(
+            specs=[
+                {
+                    "name": svc.name,
+                    "fresh": svc.fresh,
+                    "user": dict(svc.env).get("POSTGRES_USER", "postgres"),
+                }
+                for svc in self.adapter.services
+            ],
+            namespaces={
+                name: {"host": ns.host, "port": ns.port} for name, ns in self.namespaces.items()
+            },
+            container_ids=dict(self.container_ids),
+            digests=self.digests(),
+        )
 
     def stop(self) -> None:
         for container in self.containers.values():
@@ -800,7 +967,7 @@ def _serve_env(adapter: ProjectAdapter, port: int, substitutions: dict) -> dict[
     for key, value in substitutions.items():
         if isinstance(value, SimpleNamespace):
             values[str(key)] = SimpleNamespace(
-                host=str(value.host), port="" if value.port is None else str(value.port)
+                **{k: ("" if v is None else str(v)) for k, v in vars(value).items()}
             )
         else:
             values[str(key)] = str(value)
@@ -818,13 +985,19 @@ def _serve_env(adapter: ProjectAdapter, port: int, substitutions: dict) -> dict[
 
 class _Server:
     def __init__(
-        self, adapter: ProjectAdapter, extra_vars: dict, services: _Services | None = None
+        self,
+        adapter: ProjectAdapter,
+        extra_vars: dict,
+        services: _Services | None = None,
+        namespaces: dict[str, SimpleNamespace] | None = None,
     ):
         self.port = _free_port()
         self.base_url = f"http://127.0.0.1:{self.port}"
         self.services = services
         substitutions = dict(extra_vars)
-        if services is not None:
+        if namespaces is not None:
+            substitutions.update(namespaces)
+        elif services is not None:
             substitutions.update(services.namespaces)
         self.command = adapter.command("serve", port=self.port, **substitutions)
         # [serve.env]: the engine sets the served process's environment
@@ -1008,6 +1181,8 @@ def drive_scenario(
     script: dict,
     containers: bool = False,
     provenance: dict | None = None,
+    pool: ServicePool | None = None,
+    run_id: str = "",
 ) -> ScenarioResult:
     scenario = script["scenario"]
     result = ScenarioResult(scenario=scenario)
@@ -1025,6 +1200,8 @@ def drive_scenario(
     environment = None
     browser = None
     capture = None
+    drawn_from_pool = False
+    pool_digests: dict[str, str] | None = None
     ctx = Context()
     try:
         if needs_server:
@@ -1035,18 +1212,29 @@ def drive_scenario(
                 ctx.values["base_url"] = environment.base_url
                 _wait_healthy(environment.base_url)
             else:
-                services = _Services(adapter) if adapter.services else None
+                if pool is not None and not _opts_out_of_pool(script):
+                    # the run's services, with this scenario's own namespace
+                    namespaces = pool.namespace_for(scenario, run_id)
+                    drawn_from_pool = True
+                    pool_digests = pool.digests
+                    services = None
+                else:
+                    services = _Services(adapter) if adapter.services else None
+                    namespaces = services.namespaces if services is not None else {}
                 server = _Server(
-                    adapter, adapter.serve_vars(script.get("serve")), services=services
+                    adapter,
+                    adapter.serve_vars(script.get("serve")),
+                    services=services,
+                    namespaces=namespaces,
                 )
                 ctx.values["base_url"] = server.base_url
-                if services is not None:
-                    # a drive that re-boots the app in place (a restart
-                    # scenario) must address the same services the engine
-                    # started, so their mapped addresses are drive values too
-                    for svc_name, ns in services.namespaces.items():
-                        ctx.values[f"{svc_name}.host"] = ns.host
-                        ctx.values[f"{svc_name}.port"] = "" if ns.port is None else str(ns.port)
+                # a drive that re-boots the app in place (a restart
+                # scenario) must address the same services the engine
+                # started, so their addresses — and the scenario's own
+                # database or name on them — are drive values too
+                for svc_name, ns in namespaces.items():
+                    for attr, value in vars(ns).items():
+                        ctx.values[f"{svc_name}.{attr}"] = "" if value is None else str(value)
                 if adapter.browser_options(script.get("browser")).get("webauthn"):
                     # WebAuthn RP IDs must be valid domains — an IP
                     # origin is rejected, so passkey scenarios address
@@ -1075,6 +1263,8 @@ def drive_scenario(
             capture.log("environment", {"images": environment.digests()})
         elif server is not None and server.services is not None:
             capture.log("environment", {"images": server.services.digests()})
+        elif pool_digests:
+            capture.log("environment", {"images": pool_digests})
         for step in script.get("step", []):
             kind = step.get("kind", "http")
             name = step.get("name", kind)
@@ -1118,6 +1308,8 @@ def drive_scenario(
             server.stop()
         if environment is not None:
             environment.stop()
+        if drawn_from_pool and pool is not None:
+            pool.release(scenario)
     return result
 
 
@@ -1214,7 +1406,10 @@ def _worker_run(task: tuple) -> tuple:
     """One scenario in a worker process: open the parent's run by id, drive
     the scenario, return (name, result, bundle dict). Never raises — a
     failure of any kind is a failed scenario the parent reports."""
-    adapter, path, backdrops_path, containers, run_id, evidence_dir, worker_index = task
+    (
+        adapter, path, backdrops_path, containers, run_id, evidence_dir, worker_index, pool_data,
+    ) = task
+    pool = ServicePool.from_dict(pool_data) if pool_data is not None else None
     from darkroom import run as run_module
     from darkroom.backdrops import BackdropError, load_backdrops
     from darkroom.proof import ProofError, exposure, load_proof
@@ -1232,7 +1427,8 @@ def _worker_run(task: tuple) -> tuple:
             script = exposure(proof, backdrops)
             provenance = proof_provenance(Path(path), proof)
             result = drive_scenario(
-                adapter, script, containers=containers, provenance=provenance
+                adapter, script, containers=containers, provenance=provenance,
+                pool=pool, run_id=run_id,
             )
         except (DriveError, ProofError, BackdropError) as exc:
             result = ScenarioResult(
@@ -1246,13 +1442,19 @@ def _worker_run(task: tuple) -> tuple:
         return name, ScenarioResult(scenario=name, steps=[failed]), None
 
 
-def _drive_pooled(adapter, run, scripts, backdrops_path, containers, workers: int) -> DriveReport:
+def _drive_pooled(
+    adapter, run, scripts, backdrops_path, containers, workers: int, pool: ServicePool | None = None
+) -> DriveReport:
     import multiprocessing
 
     evidence_dir = run.base_dir
     order = schedule(list(scripts), _previous_durations(evidence_dir, run.run_id))
+    pool_data = pool.to_dict() if pool is not None else None
     tasks = [
-        (adapter, path, backdrops_path, containers, run.run_id, evidence_dir, i % workers)
+        (
+            adapter, path, backdrops_path, containers, run.run_id, evidence_dir,
+            i % workers, pool_data,
+        )
         for i, path in enumerate(order)
     ]
     outcomes: dict[str, tuple] = {}
@@ -1270,6 +1472,25 @@ def _drive_pooled(adapter, run, scripts, backdrops_path, containers, workers: in
         if bundle is not None:
             run._manifest.scenarios.append(_bundle_from_dict(bundle))
     return report
+
+
+def _any_draws_from_pool(scripts, load) -> bool:
+    """Whether starting the run's services pays: at least one scenario
+    that boots a server and does not opt out of the pool."""
+    for path in scripts:
+        try:
+            script, _ = load(path)
+        except DriveError:
+            continue
+        steps = script.get("step", [])
+        boots = any(
+            s.get("kind", "http") == "http" or s.get("kind") in BROWSER_STEP_KINDS
+            or s.get("session") == "browser"
+            for s in steps
+        )
+        if boots and not _opts_out_of_pool(script):
+            return True
+    return False
 
 
 def drive(
@@ -1339,9 +1560,18 @@ def drive(
     )
     run = start_run(project=adapter.name)
     report = DriveReport()
+    owner: _Services | None = None
+    pool: ServicePool | None = None
     try:
+        if adapter.services and not containers and _any_draws_from_pool(scripts, _load):
+            # the run's services, started once; each scenario draws its
+            # own database or name from them instead of booting its own
+            owner = _Services(adapter)
+            pool = owner.pool()
         if workers > 1 and len(scripts) > 1:
-            report = _drive_pooled(adapter, run, scripts, backdrops_path, containers, workers)
+            report = _drive_pooled(
+                adapter, run, scripts, backdrops_path, containers, workers, pool=pool
+            )
         else:
             for path in scripts:
                 name = path.name
@@ -1349,7 +1579,8 @@ def drive(
                     script, provenance = _load(path)
                     report.results.append(
                         drive_scenario(
-                            adapter, script, containers=containers, provenance=provenance
+                            adapter, script, containers=containers, provenance=provenance,
+                            pool=pool, run_id=run.run_id,
                         )
                     )
                 except DriveError as exc:
@@ -1363,6 +1594,8 @@ def drive(
                         )
                     )
     finally:
+        if owner is not None:
+            owner.stop()
         _write_harness_log(run, report)
         end_run()
         prune_runs(adapter)

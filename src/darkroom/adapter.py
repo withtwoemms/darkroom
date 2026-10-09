@@ -44,6 +44,12 @@ class ServiceSpec:
     # an HTTP path to poll until the service answers; TCP-open alone is
     # not ready for a JVM store that accepts connections before it serves
     ready_path: str | None = None
+    # how a scenario gets its own namespace on a service the run shares:
+    # "database" (a database created and dropped per scenario, reaching
+    # the serve template as {name.database}) or "name" (a unique token,
+    # {name.name}, for an app that creates its own bucket); None shares
+    # the service as-is
+    fresh: str | None = None
 
 
 @dataclass(frozen=True)
@@ -150,12 +156,17 @@ def loads_adapter(text: str, root: Path) -> ProjectAdapter:
             env=tuple(sorted((svc.get("env") or {}).items())),
             command=tuple(svc.get("command") or ()),
             ready_path=svc.get("ready_path"),
+            fresh=svc.get("fresh"),
         )
         for svc in environment.get("services", [])
     )
     for svc in services:
         if not svc.name or not svc.image:
             raise ValueError("[[environment.services]] entries need name and image")
+        if svc.fresh not in (None, "database", "name"):
+            raise ValueError(
+                f"[[environment.services]] {svc.name}: fresh must be \"database\" or \"name\""
+            )
         if not all(isinstance(part, str) for part in svc.command):
             raise ValueError(
                 f"[[environment.services]] {svc.name}: command must be an array of strings"
