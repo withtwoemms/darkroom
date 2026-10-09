@@ -357,6 +357,12 @@ def _cmd_audit(args) -> int:
             return 2
         only = {p.name for p in kept}
         print(f"selection: {selection}")
+    if getattr(args, "redundant", False):
+        from darkroom.audit import dumps_redundancy, redundancy
+
+        report = redundancy(vault, drives, backdrops, adapter.spec_files(), only=only)
+        print(dumps_redundancy(report), end="")
+        return 0
     findings = audit(vault, drives, backdrops, adapter.spec_files(), only=only)
     from collections import Counter
 
@@ -1135,6 +1141,13 @@ def main(argv=None) -> int:
     audit_parser.add_argument("--operator", type=Path, default=None)
     audit_parser.add_argument("--drives", type=Path, default=None)
     _add_selection_flags(audit_parser)
+    audit_parser.add_argument(
+        "--redundant", action="store_true",
+        help=(
+            "report scenarios whose touched surfaces another already covers "
+            "(a report, never a verdict)"
+        ),
+    )
     audit_parser.add_argument("--project", type=Path, default=None)
     audit_parser.set_defaults(func=_cmd_audit)
 

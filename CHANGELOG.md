@@ -10,6 +10,13 @@ versioned independently of the package — see `ROADMAP.md`.
 
 ### Added
 
+`darkroom audit --redundant`: a report of which scenarios reach no
+published surface another already reaches — candidates first, each
+with the scenario(s) whose reach contains its own, every entry with
+its rubric's criterion count and points so a scenario that alone
+proves a refusal on a shared surface stays visible. A report, never a
+verdict; nothing is retired.
+
 A run can be narrowed to what a slice affects. `darkroom expose --tag
 <name>` keeps the proofs whose new `tags` key carries the name;
 `--touching <address>` keeps the proofs whose own steps reach a surface
