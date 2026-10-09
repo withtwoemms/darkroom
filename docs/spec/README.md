@@ -17,7 +17,7 @@ package.
 | gates.md | regression gates (JSON) | 1.0 |
 | tickets.md | tickets (Markdown + frontmatter) | 1.0 |
 | [proofs.md](proofs.md) | proofs: `exposure.toml` + `rubric.toml`, one sealed folder; backdrops; the `.surfaces` file | 1.0 |
-| drive-scripts.md | drive scripts (TOML) — the exposure's step vocabulary; standalone use deprecated | 1.7 |
+| drive-scripts.md | the exposure's step vocabulary (TOML); the standalone `.drive.toml` file is retired | 1.7 |
 | role-hooks.md | judge/builder hook contract | 1.1 |
 | dossier.md | cross-run dossier bundle (JSON) | 1.1 |
 
@@ -61,7 +61,6 @@ the map:
 | tickets | operator side | loop, both roles | yes |
 | proofs | operator side (the exam): QA the exposure, product the rubric | the engine (exposure), the judge (rubric half only) | no — operator home |
 | surfaces | the builder (engineering's published interface) | the audit, QA, product; the judge sees the addresses only — never descriptions or notes | yes — it writes them |
-| drive scripts | operator side (the exam) | the drive engine | no — operator home |
 | role hooks | operator config | the loop | no — operator home |
 | dossier | operator side (assembled from state) | operator, narration tooling | **no** — carries score trajectories |
 
