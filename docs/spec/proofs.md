@@ -246,6 +246,16 @@ value for a placeholder fails the scenario's boot by name. The
 newest N after each drive, keeping any run a gate cites; unset keeps
 everything.
 
+`[evidence] workers = N` (or `darkroom expose --workers N`, which wins)
+runs scenarios side by side in N worker processes. Scenarios are
+hermetic — a fresh server, services, browser and port each — so the
+pool changes nothing but the clock: one run directory, one manifest
+with bundles in proof order, one harness log in that order. Scenarios
+are scheduled longest-first from the newest earlier run's timings. A
+serve template under a pool must not name a fixed shared path (one log
+file for every scenario, say); name it with `{port}` so each scenario
+has its own.
+
 ## What is derived, and from where
 
 | Was | Now |

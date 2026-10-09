@@ -666,8 +666,13 @@ def _cmd_drive(args) -> int:
 
     mode = args.containers or os.environ.get("DARKROOM_CONTAINERS", "auto")
     try:
+        workers = args.workers if args.workers is not None else adapter.workers
+        if workers < 1:
+            print("error: --workers must be a positive integer")
+            return 2
         report = drive(
-            adapter, drives_dir, scenario=args.scenario, containers_mode=mode
+            adapter, drives_dir, scenario=args.scenario, containers_mode=mode,
+            workers=workers,
         )
     except DriveError as exc:
         print(f"error: {exc}")
@@ -1019,6 +1024,10 @@ def main(argv=None) -> int:
     drive_parser.add_argument(
         "--containers", choices=["off", "auto", "required"], default=None,
         help="container mode (default: DARKROOM_CONTAINERS env or auto)",
+    )
+    drive_parser.add_argument(
+        "--workers", type=int, default=None,
+        help="run scenarios in this many worker processes (default: [evidence] workers, or 1)",
     )
     drive_parser.set_defaults(func=_cmd_drive)
 
