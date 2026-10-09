@@ -63,6 +63,7 @@ that would reveal criteria or scoring are misauthored.
 | `[serve]` | table | no | overrides of the adapter's `[serve.defaults]` for this scenario |
 | `[browser]` | table | no | overrides of the adapter's `[browser.defaults]` |
 | `record` | boolean | no | screencast the scenario (browser scenarios) |
+| `tags` | array of strings | no | names a run may select by (`darkroom expose --tag <name>`) |
 | `[[step]]` | array of tables | yes | the exposure, in order — every step kind, field, interpolation form, and expectation of [drive-scripts.md](drive-scripts.md) 1.7 applies unchanged; `kind` defaults to `"http"` |
 
 `version`, `trials`, and `[[criterion]]` are refused here: the
@@ -77,7 +78,7 @@ exposure produces records, it does not score them.
 | `scenario` | string | no | may restate the exposure's; must match if present |
 | `[[criterion]]` | array of tables | yes (≥ 1) | the rubric |
 
-`[[step]]`, `backdrop`, `[serve]`, `[browser]`, and `record` are refused
+`[[step]]`, `backdrop`, `[serve]`, `[browser]`, `record`, and `tags` are refused
 here: the rubric scores records, it does not drive. The file may be
 absent while the exam is being written (the quickstart's stage 1):
 the exposure then runs and is verified structurally, and sealing,
@@ -255,6 +256,28 @@ are scheduled longest-first from the newest earlier run's timings. A
 serve template under a pool must not name a fixed shared path (one log
 file for every scenario, say); name it with `{port}` so each scenario
 has its own.
+
+### Selecting a run
+
+A run exposes every proof unless narrowed: `--scenario <name>` keeps
+one; `--tag <name>` (repeatable) keeps the proofs whose `tags` carry
+any of the names; `--touching <address>` (repeatable) keeps the proofs
+whose own steps reach any of the addresses, by the rules the audit
+holds an exposure to its publication with — a selector narrowed to a
+state is the element published (`#notes li[data-archived]` is touched
+by a click on `#notes li[data-archived="true"]`), a path with a
+placeholder matches the concrete paths, a route matches by method and
+path, a command by its words. Backdrop steps never count. An address
+is written the way a `.surfaces` entry is written (`POST
+/notes/{id}/archive`, `/notes/{id}`, `#save`, `main[data-note-state]`,
+`relay export`); a `kind:` prefix (`command:`, `selector:`, `page:`,
+`route:`) settles one the heuristic would misread, such as `li.active`.
+Given together the flags intersect. The harness log opens with
+`selection: <the flags>` (or `selection: all`), the command prints it,
+and the contract is scoped to the proofs selected — so a partial run is
+never mistaken for the full gate, which stays the run with no flags.
+`darkroom audit --tag` / `--touching` confine the audit the same way.
+Gates are untouched by any expose; only `auto` ratchets them.
 
 ### Services: once per run, a namespace per scenario
 

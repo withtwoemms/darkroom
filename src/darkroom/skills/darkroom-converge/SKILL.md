@@ -98,6 +98,11 @@ Run `darkroom drive --scenario <name>`. This is the gate that audit
 cannot replace: it executes every step against the app as it exists
 right now.
 
+A slice's dry-run can run only what it affects: `darkroom expose
+--touching <address>` with the slice's published surfaces (repeatable),
+or `--tag <name>`; the harness log opens with the selection. The full
+suite, no flags, stays the pre-deploy gate (Stage 7).
+
 Read *where* it lands:
 
 - **A scenario that pins existing behavior** (a regression gate, a

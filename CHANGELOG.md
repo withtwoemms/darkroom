@@ -6,6 +6,25 @@ project follows [semantic versioning](https://semver.org/) (pre-1.0: minor
 releases may break API, patch releases never do). The manifest schema is
 versioned independently of the package — see `ROADMAP.md`.
 
+## [Unreleased]
+
+### Added
+
+A run can be narrowed to what a slice affects. `darkroom expose --tag
+<name>` keeps the proofs whose new `tags` key carries the name;
+`--touching <address>` keeps the proofs whose own steps reach a surface
+written the way a `.surfaces` entry is written, by the audit's own
+matching rules (a selector narrowed to a state is the element
+published, a placeholder path matches the concrete paths, a command
+matches by its words; backdrop steps never count). Both repeat; given
+together, or with `--scenario`, they intersect. The harness log opens
+with `selection: <flags>` or `selection: all`, the command prints it,
+the contract is scoped to the proofs selected, and `darkroom audit`
+takes the same flags — so a partial run is never mistaken for the
+gate. Gates are untouched by any expose. On the first tenant,
+`--touching '#sealed-items'` selects the hearth-and-ledger scenarios
+and runs them in under a minute on the warm pool.
+
 ## [0.21.0] - 2026-10-09
 
 ### Added
