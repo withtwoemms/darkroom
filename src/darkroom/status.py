@@ -150,6 +150,32 @@ def _campaign_spend(loop_dir: Path) -> dict[str, float | None]:
     return spend
 
 
+def _last_run(adapter: ProjectAdapter) -> dict | None:
+    """The newest run's record from its harness log: the selection it was
+    made with (``all``, or the flags), and how many scenarios went green.
+    A run older than the selection line reads ``unknown``."""
+    runs = adapter.resolve(adapter.evidence_dir) / "runs"
+    logs = sorted(runs.glob("*/harness.log")) if runs.is_dir() else []
+    if not logs:
+        return None
+    log = logs[-1]
+    try:
+        lines = log.read_text().splitlines()
+    except OSError:
+        return None
+    selection = "unknown"
+    if lines and lines[0].startswith("selection: "):
+        selection = lines[0][len("selection: "):].strip() or "unknown"
+    results = [line for line in lines if line.startswith("scenario ")]
+    return {
+        "run": log.parent.name,
+        "selection": selection,
+        "scenarios": len(results),
+        "green": sum(1 for line in results if line.endswith(": ok")),
+        "partial": selection not in ("all", "unknown"),
+    }
+
+
 def assemble_status(
     adapter: ProjectAdapter,
     state_dir: Path,
@@ -258,6 +284,7 @@ def assemble_status(
             if blocker_text is None
             else {"scenario": blocked_scenario, "text": blocker_text}
         ),
+        "last_run": _last_run(adapter),
         "queue": _queue(state_dir),
         "metering": metering_info(),
         "spend": usage_all["totals"],
@@ -365,6 +392,20 @@ def dumps_status_markdown(bundle: dict) -> str:
             lines.append(detail)
     else:
         lines.append("(nothing has run)")
+    lines += ["", "## last run", ""]
+    last = bundle.get("last_run")
+    if last is None:
+        lines.append("no run on record")
+    else:
+        gate = (
+            "a partial run — not the gate"
+            if last["partial"]
+            else ("the full gate" if last["selection"] == "all" else "selection unknown")
+        )
+        lines.append(
+            f"{last['run']}: {last['green']}/{last['scenarios']} green · "
+            f"selection {last['selection']} ({gate})"
+        )
     lines += ["", "## blocker", ""]
     blocker = bundle["blocker"]
     if blocker is None:
