@@ -174,12 +174,49 @@ class ConvergenceLoop:
         self.checkpointer = checkpointer
         self.on_iteration = on_iteration
 
+    @staticmethod
+    def _refuse_exam_in_tenant(ctx: LoopContext) -> None:
+        """Spend nothing against an exam the builder could read. The proofs
+        a run will expose — the project's home, or a ``--drives`` directory
+        the tenant's test command names — must resolve outside the tenant
+        root; an in-tree ``proofs/`` is fine for ``expose`` (an example runs
+        that way) and never for ``auto``."""
+        import re
+
+        from darkroom.homedir import default_proofs, exam_is_operator_side
+        from darkroom.proof import proof_dirs
+
+        adapter = ctx.adapter
+        # the quickstart's free stages keep the exam in the tenant on purpose;
+        # the refusal begins once the exam has moved operator-side
+        if not exam_is_operator_side(adapter.name):
+            return
+        root = Path(adapter.root).resolve()
+        home = default_proofs(adapter.name) if adapter.name else None
+        candidates: list[Path] = []
+        if home is not None:
+            candidates.append(home)
+        named = re.search(r"--drives\s+(\S+)", adapter.commands.get("test", ""))
+        if named:
+            candidates.append(adapter.resolve(Path(named.group(1))))
+        for proofs in candidates:
+            resolved = Path(proofs).resolve()
+            if not resolved.is_dir() or not proof_dirs(resolved):
+                continue
+            if resolved == root or root in resolved.parents:
+                raise LoopError(
+                    f"the exam lives inside the tenant ({resolved}); the builder could read "
+                    f"it. auto runs only against proofs outside the tenant root — the "
+                    f"project's home is {home or 'a darkroom home (set [project] name)'}"
+                )
+
     def run(self, ctx: LoopContext) -> ConvergenceResult:
         if not self.checkpointer.is_clean(ctx):
             raise LoopError(
                 "working tree is not clean; the loop makes checkpoints and "
                 "will not mix them with uncommitted work"
             )
+        self._refuse_exam_in_tenant(ctx)
 
         records: list[IterationRecord] = []
         best_score: float | None = None

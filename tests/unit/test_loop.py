@@ -192,6 +192,49 @@ class TestRollback:
 
 
 class TestPreconditionsAndMemory:
+    def test_exam_inside_the_tenant_refused(self, tmp_path):
+        # the exam has moved operator-side (an operator config in the home),
+        # yet the tenant's test command still names an in-tree proofs directory
+        home = tmp_path / "home" / "projects" / "p"
+        home.mkdir(parents=True)
+        (home / "operator.toml").write_text("[loop]\nmax_iterations = 1\n")
+        root = tmp_path / "tenant"
+        proofs = root / "proofs" / "note_lifecycle"
+        proofs.mkdir(parents=True)
+        (proofs / "exposure.toml").write_text('scenario = "note_lifecycle"\n')
+        adapter = ProjectAdapter(
+            root=root, name="p", commands={"test": "darkroom expose --drives proofs"}
+        )
+        ctx = LoopContext(adapter=adapter, scenario="note_lifecycle", state_dir=tmp_path / "s")
+        with pytest.raises(LoopError, match="inside the tenant"):
+            _loop(ScriptedJudge([100])).run(ctx)
+
+    def test_in_tree_proofs_are_fine_before_the_exam_moves_operator_side(self, tmp_path):
+        # the quickstart's free stages: no operator config, no home proofs
+        root = tmp_path / "tenant"
+        proofs = root / "proofs" / "note_lifecycle"
+        proofs.mkdir(parents=True)
+        (proofs / "exposure.toml").write_text('scenario = "note_lifecycle"\n')
+        adapter = ProjectAdapter(
+            root=root, name="p", commands={"test": "darkroom expose --drives proofs"}
+        )
+        ctx = LoopContext(adapter=adapter, scenario="flow", state_dir=tmp_path / "s")
+        assert _loop(ScriptedJudge([100])).run(ctx).converged  # no refusal
+
+    def test_home_inside_the_tenant_refused(self, tmp_path, monkeypatch):
+        # a darkroom home that resolves under the tenant root is the same door
+        root = tmp_path / "tenant"
+        root.mkdir()
+        monkeypatch.setenv("DARKROOM_HOME", str(root / ".darkroom"))
+        proofs = root / ".darkroom" / "projects" / "p" / "proofs" / "note_lifecycle"
+        proofs.mkdir(parents=True)
+        (proofs / "exposure.toml").write_text('scenario = "note_lifecycle"\n')
+        ctx = LoopContext(
+            adapter=ProjectAdapter(root=root, name="p"), scenario="x", state_dir=tmp_path / "s"
+        )
+        with pytest.raises(LoopError, match="inside the tenant"):
+            _loop(ScriptedJudge([100])).run(ctx)
+
     def test_dirty_tree_refused(self, tmp_path):
         judge = ScriptedJudge([100])
         with pytest.raises(LoopError, match="not clean"):
