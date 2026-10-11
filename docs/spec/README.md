@@ -21,6 +21,10 @@ package.
 | role-hooks.md | judge/builder hook contract | 1.1 |
 | dossier.md | cross-run dossier bundle (JSON) | 1.1 |
 
+These pages are formats, not process. For how a slice travels from a
+ticket to a gated behaviour — who writes which file, and what each
+hand-off refuses to accept — see [../slices.md](../slices.md).
+
 ## Conformance language
 
 The key words MUST, MUST NOT, SHOULD, and MAY are used per RFC 2119,

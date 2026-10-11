@@ -261,14 +261,20 @@ darkroom manifest; any judge infrastructure can consume one.
 
 ## Claude skills
 
-Four skills ship inside the package, version-locked to the engine:
+Five skills ship inside the package, version-locked to the engine.
+[docs/slices.md](docs/slices.md) is how they chain: ticket, interview,
+author, converge, report.
 
 - `darkroom-interview`: the intent interview, covering charter,
   scenario enumeration, thresholds, rubric drafting under the
   capturable-evidence rule (with structured witness citations),
   gaming self-audit, preflight-validated artifacts.
+- `darkroom-author`: the shape of a proof — the rubric in product's
+  words with the witnesses it intends, the exposure built to produce
+  exactly those, backdrops extracted from a corpus's repeated
+  openings.
 - `darkroom-converge`: the operator's run-a-scenario loop — author the
-  drive, audit, dry-run before spending, commit both repos, launch
+  exposure, audit, dry-run before spending, commit both repos, launch
   auto, triage blockers, regress, deploy.
 - `darkroom-status`: the standing report — where every scenario's
   campaign stands now, blockers with their triage, what is shipped

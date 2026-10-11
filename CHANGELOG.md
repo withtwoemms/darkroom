@@ -6,6 +6,20 @@ project follows [semantic versioning](https://semver.org/) (pre-1.0: minor
 releases may break API, patch releases never do). The manifest schema is
 versioned independently of the package — see `ROADMAP.md`.
 
+## [Unreleased]
+
+### Added
+
+`docs/slices.md`: how a slice travels from a ticket to a gated
+behaviour — the four hats and the file each writes, the chain from
+interview through author and converge to the closing regression, the
+rules that bite at each hand-off, and the two questions a tenant must
+answer before authoring (whether the exam needs infrastructure the
+product lacks, and which claims no exposure can witness at all, which
+belong beside a gate as manual checks rather than inside a rubric).
+The README listed four skills and shipped five since 0.20; it now
+lists `darkroom-author` and points at the new page.
+
 ## [0.21.1] - 2026-10-09
 
 ### Added
