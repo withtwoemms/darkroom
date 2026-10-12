@@ -8,9 +8,26 @@ versioned independently of the package — see `ROADMAP.md`.
 
 ## [Unreleased]
 
+### Changed
+
+The loop speaks one language. The iteration action
+`rolled-back-and-built` is now `reprinted-from-best`, the policy
+`rollback_on_regression` is `reprint_on_regression`, the flag
+`--no-rollback` is `--no-reprint`, and a checkpointer reprints rather
+than rolls back. In the darkroom you keep the best print and its
+settings; a worse one is discarded and you go back to what worked.
+`converged` and `built` were already neutral; this was the last term
+borrowed from databases. **Dossier schema 1.1 → 1.2**: the action's
+value changed, and a consumer SHOULD accept the former spelling for
+one release.
+
+A body of work is a **roll**, not a slice — a roll holds exposures, is
+shot as one body of work, and is developed together, and the unit
+below it was already called an exposure.
+
 ### Added
 
-`docs/slices.md`: how a slice travels from a ticket to a gated
+`docs/rolls.md`: how a roll travels from a ticket to a gated
 behaviour — the four hats and the file each writes, the chain from
 interview through author and converge to the closing regression, the
 rules that bite at each hand-off, and the two questions a tenant must

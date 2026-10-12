@@ -34,12 +34,12 @@ as a story, oldest first, in a few tight paragraphs:
 
 - Where each scenario started, how it moved, where it converged or
   exhausted — use `score`/`best_score` trajectories and `action`
-  transitions (`built`, `rolled-back-and-built`, `converged`).
+  transitions (`built`, `reprinted-from-best`, `converged`).
 - Name escalation moments explicitly: a `diagnostic` or
   `model-escalation` entry is the loop paying more for progress; a
   second model in `usage.totals.by_role.builder.models` is the same
   event in the ledger.
-- Rollbacks are informative failures: the builder made things worse
+- Reprints are informative failures: the builder made things worse
   and the loop retreated. Say so plainly.
 
 ## Step 3 — Collate what the judge witnessed

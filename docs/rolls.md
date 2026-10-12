@@ -1,12 +1,15 @@
-# Delivering a slice
+# Delivering a roll
 
-How one body of work travels from a ticket to a gated behaviour, which
+How one roll travels from a ticket to a gated behaviour, which
 skill owns which file, and what each hand-off must be true before the
 next begins. The format specs say what each file *is*; this page says
 who writes it, when, and what the next stage refuses to accept.
 
-A **slice** is a set of scenarios shipped together: one product idea,
-several behaviours, one closing regression.
+A **roll** is a set of scenarios shipped together: one product idea,
+several behaviours, one closing regression. The word is the
+photographer's: a roll holds exposures, is shot as one body of work,
+and is developed together, and the unit below it is already called an
+exposure.
 
 ## Who writes what
 
@@ -106,21 +109,21 @@ exist yet: iteration 1 builds and publishes them, the judge scores
 zero because the exposure's steps address shapes that were guessed,
 and the next iterations are the builder bending its code toward those
 guesses. **Stop and realign the exposure to what was published.** On
-one measured slice, three such scenarios took five iterations each
-where two would have done, and that accounted for most of the slice's
+one measured roll, three such scenarios took five iterations each
+where two would have done, and that accounted for most of the roll's
 cost.
 
 A `HARNESS-BLOCKER.md` means the builder believes the exam is wrong.
 Read it in full. Often it is right, and the brief contains the fix.
 
-### 5. The slice closes, not the scenario
+### 5. The roll closes, not the scenario
 
-A scenario's gate is not the end. Close the slice with:
+A scenario's gate is not the end. Close the roll with:
 
 - `darkroom surfaces --merge`, then `darkroom audit` clean;
-- the **full regression**, not the slice's own scenarios. A later
+- the **full regression**, not the roll's own scenarios. A later
   campaign can change a surface an earlier campaign gated against, and
-  nothing but the full suite will notice. On one measured slice the
+  nothing but the full suite will notice. On one measured roll the
   closing regression found four stale exams and one real product
   defect that a campaign had introduced four hours earlier;
 - a red rerun alone before it is called a regression;
@@ -128,7 +131,7 @@ A scenario's gate is not the end. Close the slice with:
   surface are two different claims.
 
 Now that a full suite can cost minutes rather than an hour, running it
-*between* campaigns within a slice is cheaper than discovering the
+*between* campaigns within a roll is cheaper than discovering the
 drift at the end.
 
 ## What a tenant must decide before authoring

@@ -25,7 +25,7 @@ from darkroom.gallery import load_evaluation_lenient
 from darkroom.gates import load_gates
 from darkroom.usage import read_usage
 
-CURRENT_DOSSIER_SCHEMA_VERSION = "1.1"
+CURRENT_DOSSIER_SCHEMA_VERSION = "1.2"
 
 _ITERATION_HEADING = re.compile(r"^## iteration (\d+) — (.+)$")
 

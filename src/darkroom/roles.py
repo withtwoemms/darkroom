@@ -2,7 +2,7 @@
 
 :class:`AdapterAssessor` runs the project's declared test command and
 verifies the resulting run against the contract. :class:`GitCheckpointer`
-implements checkpoints, best-ref rollback, and change listing over git.
+implements checkpoints, best-ref reprint, and change listing over git.
 Judge and builder roles are supplied by the operator (shell hooks now,
 agent implementations in the orchestration releases).
 """
@@ -92,7 +92,7 @@ class AdapterAssessor:
 
 
 class GitCheckpointer:
-    """Checkpoints, best-ref rollback, and change listing over git."""
+    """Checkpoints, best-ref reprint, and change listing over git."""
 
     def _git(self, ctx: LoopContext, *args: str) -> str:
         completed = subprocess.run(
@@ -115,7 +115,7 @@ class GitCheckpointer:
         self._git(ctx, "commit", "--allow-empty", "-m", label)
         return self.current(ctx)
 
-    def rollback(self, ctx: LoopContext, ref: str) -> None:
+    def reprint(self, ctx: LoopContext, ref: str) -> None:
         """Restore the working tree to ``ref`` without rewriting history."""
         self._git(ctx, "checkout", ref, "--", ".")
 

@@ -28,7 +28,7 @@ Top level:
 
 | Field | Type | Meaning |
 |-------|------|---------|
-| `schema_version` | string | `"1.0"` |
+| `schema_version` | string | `"1.2"` |
 | `project` | string | project name |
 | `generated_at` | string | ISO 8601 assembly time |
 | `scenario` | string or null | the scenario filter, or null for the whole project |
@@ -48,7 +48,7 @@ Iteration entry (parsed from iteration memory; all fields beyond
 | `scenario` | string | owning scenario, when recorded |
 | `score` / `best_score` | number | the iteration's score and best-so-far |
 | `stagnation` | integer | consecutive non-improving iterations |
-| `action` | string | `converged`, `built`, or `rolled-back-and-built` |
+| `action` | string | `converged`, `built`, or `reprinted-from-best` (a consumer SHOULD also accept `rolled-back-and-built`, the pre-1.2 spelling) |
 | `escalation` | array of strings | fired dials (`diagnostic`, `model-escalation`) |
 | `blocker` *(1.1)* | boolean | the builder raised a blocker this iteration, disputing the exam |
 | `changed` | array of strings | files changed by the iteration |

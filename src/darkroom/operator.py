@@ -96,8 +96,8 @@ def loads_operator(text: str) -> OperatorConfig:
         escalate_model_after=loop_raw.get(
             "escalate_model_after", defaults.escalate_model_after
         ),
-        rollback_on_regression=loop_raw.get(
-            "rollback_on_regression", defaults.rollback_on_regression
+        reprint_on_regression=loop_raw.get(
+            "reprint_on_regression", defaults.reprint_on_regression
         ),
         pause_escalation_on_blocker=loop_raw.get(
             "pause_escalation_on_blocker", defaults.pause_escalation_on_blocker

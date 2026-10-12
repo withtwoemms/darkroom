@@ -2,7 +2,7 @@
 
 The source framework's ``make auto`` rebuilt as a testable state
 machine. The loop owns *policy* — stagnation accounting, the three
-escalation dials, rollback-to-best, iteration memory — and never the
+escalation dials, reprint-from-best, iteration memory — and never the
 *hands*: assessment, judging, building, and checkpointing are injected
 roles. v0.7 ships real implementations for the two darkroom can own
 (:class:`AdapterAssessor`, :class:`GitCheckpointer`); judge and builder
@@ -42,7 +42,7 @@ class LoopPolicy:
     target_score: float = 100.0
     diagnostic_after: int = 2
     escalate_model_after: int = 3
-    rollback_on_regression: bool = True
+    reprint_on_regression: bool = True
     # a standing builder blocker disputes the exam itself; spending
     # frontier tokens on it fixes nothing, so model escalation pauses
     pause_escalation_on_blocker: bool = True
@@ -103,7 +103,7 @@ class IterationRecord:
     best_score: float
     stagnation: int
     escalation: Escalation
-    action: str  # "converged" | "built" | "rolled-back-and-built"
+    action: str  # "converged" | "built" | "reprinted-from-best"
     checkpoint: str = ""
     changed_files: list[str] = field(default_factory=list)
     blocker_raised: bool = False  # the builder disputed the exam this iteration
@@ -143,7 +143,7 @@ class Checkpointer(Protocol):
 
     def checkpoint(self, ctx: LoopContext, label: str) -> str: ...
 
-    def rollback(self, ctx: LoopContext, ref: str) -> None: ...
+    def reprint(self, ctx: LoopContext, ref: str) -> None: ...
 
     def changed_files(self, ctx: LoopContext, ref: str) -> list[str]: ...
 
@@ -274,9 +274,9 @@ class ConvergenceLoop:
                 best_ref = self.checkpointer.current(ctx)
                 stagnation = 0
             else:
-                if score < best_score and self.policy.rollback_on_regression:
-                    self.checkpointer.rollback(ctx, best_ref)
-                    action = "rolled-back-and-built"
+                if score < best_score and self.policy.reprint_on_regression:
+                    self.checkpointer.reprint(ctx, best_ref)
+                    action = "reprinted-from-best"
                 stagnation += 1
 
             escalation_out = _escalation(stagnation)

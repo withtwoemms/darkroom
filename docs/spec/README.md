@@ -19,11 +19,11 @@ package.
 | [proofs.md](proofs.md) | proofs: `exposure.toml` + `rubric.toml`, one sealed folder; backdrops; the `.surfaces` file | 1.0 |
 | drive-scripts.md | the exposure's step vocabulary (TOML); the standalone `.drive.toml` file is retired | 1.7 |
 | role-hooks.md | judge/builder hook contract | 1.1 |
-| dossier.md | cross-run dossier bundle (JSON) | 1.1 |
+| dossier.md | cross-run dossier bundle (JSON) | 1.2 |
 
-These pages are formats, not process. For how a slice travels from a
+These pages are formats, not process. For how a roll travels from a
 ticket to a gated behaviour — who writes which file, and what each
-hand-off refuses to accept — see [../slices.md](../slices.md).
+hand-off refuses to accept — see [../rolls.md](../rolls.md).
 
 ## Conformance language
 
