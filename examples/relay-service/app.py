@@ -2,9 +2,16 @@
 """relay-service: the darkroom example tenant (stdlib only).
 
 A tiny notes API with token-guarded deletion, archiving, read-once
-notes, and a server-rendered notes page that wears its state — enough
+notes, a server-rendered notes page that wears its state, and a
+telling page that asks to be allowed to reach this device — enough
 surface to demonstrate exposures, backdrops, surfaces, and rubrics end
-to end. Every attribute the page carries is a surface a scenario proves.
+to end. Every attribute the pages carry is a surface a scenario proves.
+
+The telling page is where the `[browser] push` option earns itself:
+the page talks to the Push API as any page would, and the exam
+supplies the push service a headless browser has none of. Nothing
+here knows it is being examined — there is no flag, no bridge, and no
+exam-only route behind the control.
 """
 
 import json
@@ -19,6 +26,93 @@ NOTES = {}
 # production and in every exposure that is not about the bridge
 # itself — darkroom.toml's [serve.defaults] keeps it at 0.
 OPEN_DELETE = os.environ.get("RELAY_OPEN_DELETE", "0") == "1"
+
+
+# In life this is the tenant's VAPID public key, served to the page so
+# the subscription it asks for is bound to this sender alone. The
+# relay never sends, so it is a constant here.
+SERVER_KEY = (
+    "BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDzkrxZJjSgSnfckjBJ"
+    "uRSoYvGmQgIiDUcJjBuMUDrKs"
+)
+
+WORKER_JS = """\
+// The page's own service worker. The exam fetches it like a browser
+// does — it is simply not what answers for push under examination.
+self.addEventListener('push', (event) => {
+  const said = event.data ? event.data.text() : '';
+  event.waitUntil(self.registration.showNotification('Relay', {body: said}));
+});
+"""
+
+TELLING_PAGE = """\
+<!doctype html><title>Relay Telling</title>
+<main data-telling-state="unknown">
+<h1>Relay Telling</h1>
+<button id="ask" data-state="ready">Tell me when a note arrives</button>
+<button id="stop" hidden>Stop telling me</button>
+<p id="endpoint" hidden></p>
+<p id="why" hidden></p>
+</main>
+<script>
+const SERVER_KEY = "__SERVER_KEY__";
+const main = document.querySelector("main");
+const ask = document.getElementById("ask");
+const stop = document.getElementById("stop");
+const endpoint = document.getElementById("endpoint");
+const why = document.getElementById("why");
+
+function show(state, sub, reason) {
+  main.dataset.tellingState = state;
+  const on = state === "on";
+  ask.hidden = on;
+  stop.hidden = !on;
+  endpoint.hidden = !on;
+  if (on) endpoint.textContent = sub.endpoint;
+  why.hidden = !reason;
+  if (reason) why.textContent = reason;
+}
+
+const worker = () => navigator.serviceWorker.register("/relay-worker.js");
+
+async function paint() {
+  if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
+    return show("unsupported", null, "this browser cannot be told");
+  }
+  const reg = await worker();
+  const sub = await reg.pushManager.getSubscription();
+  if (sub) return show("on", sub);
+  if (Notification.permission === "denied") {
+    return show("refused", null, "this device has refused");
+  }
+  show("unasked");
+}
+
+ask.onclick = async () => {
+  ask.dataset.state = "asking";
+  const answer = await Notification.requestPermission();
+  try {
+    const reg = await worker();
+    const sub = await reg.pushManager.subscribe({
+      userVisibleOnly: true, applicationServerKey: SERVER_KEY});
+    show("on", sub);
+  } catch (err) {
+    show(answer === "denied" ? "refused" : "unanswered", null, err.name);
+  } finally {
+    ask.dataset.state = "ready";
+  }
+};
+
+stop.onclick = async () => {
+  const reg = await worker();
+  const sub = await reg.pushManager.getSubscription();
+  if (sub) await sub.unsubscribe();
+  show("off");
+};
+
+paint();
+</script>
+"""
 
 
 def _new_note(text, read_once=False):
@@ -111,9 +205,22 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def _static(self, content_type, text):
+        body = text.encode()
+        self.send_response(200)
+        self.send_header("Content-Type", content_type)
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
     def do_GET(self):
         if self.path == "/":
             return self._page()
+        if self.path == "/telling":
+            page = TELLING_PAGE.replace("__SERVER_KEY__", SERVER_KEY)
+            return self._static("text/html", page)
+        if self.path == "/relay-worker.js":
+            return self._static("text/javascript", WORKER_JS)
         note = self._note()
         if note is None:
             return self._json(404, {"error": "no such note"})

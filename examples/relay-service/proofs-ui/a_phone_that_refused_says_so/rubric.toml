@@ -1,0 +1,13 @@
+version = "1"
+
+[[criterion]]
+id = "the_refusal_is_on_the_page"
+points = 10
+description = "a device that has refused the telling is told so by the page, in words, with no address offered — a control that looked available would be the lie"
+witnesses = ["open_telling", "the_page_says_refused", "refused_state"]
+
+[[criterion]]
+id = "pressing_it_again_changes_nothing"
+points = 10
+description = "pressing the control on a refused device leaves it refused, and what the page shows is the browser's own answer rather than a message the page invented"
+witnesses = ["press_it_anyway", "still_refused_state"]

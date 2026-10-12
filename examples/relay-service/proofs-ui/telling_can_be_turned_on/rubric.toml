@@ -1,0 +1,25 @@
+version = "1"
+
+[[criterion]]
+id = "the_page_says_it_has_not_asked"
+points = 5
+description = "before anything is clicked the page names its own state as not yet asked, with the control ready — the absence is on the page rather than in a selector that failed to appear"
+witnesses = ["open_telling", "nothing_asked_yet", "the_control_is_ready", "unasked_state"]
+
+[[criterion]]
+id = "agreeing_yields_an_address"
+points = 10
+description = "the control turns the telling on and the page shows the address the device was given, which is the address a sender would be handed"
+witnesses = ["agree_to_be_told", "told_state"]
+
+[[criterion]]
+id = "the_address_survives_a_reload"
+points = 10
+description = "opening the page again shows the same address without asking again — the page reads the subscription back rather than holding it"
+witnesses = ["open_it_again"]
+
+[[criterion]]
+id = "stopping_forgets_the_address"
+points = 10
+description = "stopping the telling leaves the page off with no address, and a reload still finds nothing — the device is no longer reachable"
+witnesses = ["stop_the_telling", "forgotten_after_a_reload", "off_state"]

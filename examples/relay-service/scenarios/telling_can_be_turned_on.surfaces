@@ -1,0 +1,20 @@
+[routes]
+GET /relay-worker.js          → 200 text/javascript, the page's service worker
+
+[commands]
+
+[pages]
+/telling                      the telling page: the control, and the address once on
+main[data-telling-state]      unasked | on | off | refused | unanswered
+#ask                          asks the device to allow the telling
+#ask[data-state]              "ready", or "asking" while the ask is open
+#stop                         stops the telling; present only while on
+#endpoint                     the address the device was given; present only while on
+#why                          why the telling is not on, when it is not
+
+[files]
+
+[notes]
+the page holds nothing server-side: the state it wears comes from what
+the browser tells it, so a reload re-reads the subscription rather than
+being handed it. the service worker is fetched on every load.

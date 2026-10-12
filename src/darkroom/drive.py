@@ -32,6 +32,11 @@ An http step with ``session = "browser"`` sends that session's cookies,
 acting as whoever the browser signed in; ``follow_redirects = false``
 records a 3xx itself (status, Location) instead of what it led to.
 
+The ``[browser]`` table also carries ``push`` — the Push API stub
+(``pushstub``), which lets a notifying tenant be driven without a
+product-side bridge, and publishes ``{push.endpoint}``,
+``{push.p256dh}``, ``{push.auth}``, and ``{push.private}``.
+
 Interpolation: ``{name}`` from saved values, ``{base_url}``,
 ``{keys.<n>.public}``, and the call form ``{sign(keys.<n>, <var>)}``.
 A step whose ``expect`` fails stops its scenario (later steps skipped);
@@ -60,6 +65,8 @@ else:  # pragma: no cover - exercised only on 3.10
 
 from darkroom.adapter import ProjectAdapter
 from darkroom.capture import EvidenceCapture
+from darkroom.pushstub import drive_values as push_drive_values
+from darkroom.pushstub import resolve_options as resolve_push_options
 
 
 class DriveError(Exception):
@@ -367,7 +374,11 @@ class _BrowserSession:
     presence auto-simulated) so passkey flows run headlessly; ``prf``
     (default on) gives it the PRF extension, so a passkey can also
     yield per-salt secrets — off, it models an authenticator without
-    it, for exams of the fallback road.
+    it, for exams of the fallback road. ``push`` (a configuration from
+    :func:`darkroom.pushstub.resolve_options`) installs the Push API
+    stub on every document, the same bargain as the authenticator:
+    the exam supplies the platform piece the product would otherwise
+    need a bridge for.
     """
 
     def __init__(
@@ -376,6 +387,7 @@ class _BrowserSession:
         viewport: dict | None = None,
         webauthn: bool = False,
         prf: bool = True,
+        push: dict | None = None,
         timeout_ms: float = 10_000,
     ):
         try:
@@ -402,6 +414,12 @@ class _BrowserSession:
                 "height": int(viewport.get("height", 720)),
             }
         self.context = self.browser.new_context(**options)
+        if push:
+            # before any page script on every document in the context,
+            # so a page reaching for the Push API on load finds it
+            from .pushstub import init_script
+
+            self.context.add_init_script(init_script(push))
         self.page = self.context.new_page()
         self.page.set_default_timeout(timeout_ms)
         if webauthn:
@@ -1250,11 +1268,20 @@ def drive_scenario(
 
                 record_dir = Path(tempfile.mkdtemp(prefix="darkroom-screencast-"))
             browser_options = adapter.browser_options(script.get("browser"))
+            # the endpoint resolves against the drive values already
+            # placed above, so it can address a declared service; the
+            # generated key material becomes {push.*} for later steps
+            push = resolve_push_options(
+                browser_options.get("push"), ctx.interpolate
+            )
+            if push is not None:
+                ctx.values.update(push_drive_values(push))
             browser = _BrowserSession(
                 record_dir=record_dir,
                 viewport=browser_options.get("viewport"),
                 webauthn=bool(browser_options.get("webauthn")),
                 prf=bool(browser_options.get("prf", True)),
+                push=push,
             )
 
         capture = EvidenceCapture(scenario)

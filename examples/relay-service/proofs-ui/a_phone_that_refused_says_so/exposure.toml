@@ -1,0 +1,38 @@
+scenario = "a_phone_that_refused_says_so"
+tags = ["page", "telling"]
+record = true
+
+# `permission = "denied"` is a device that has refused: subscribe()
+# rejects the way a browser's does, so the refused state is reachable
+# without the product holding a flag that fakes it. The third state,
+# `permission = "default"`, models a prompt the person dismissed.
+[browser]
+push = { permission = "denied" }
+
+[[step]]
+name = "open_telling"
+kind = "goto"
+url = "{base_url}/telling"
+expect = { status = 200, title_contains = "Relay Telling" }
+
+[[step]]
+name = "the_page_says_refused"
+kind = "goto"
+url = "{base_url}/telling"
+expect = { selector_visible = 'main[data-telling-state="refused"]', body_contains = "this device has refused" }
+
+[[step]]
+name = "refused_state"
+kind = "screenshot"
+full_page = true
+
+[[step]]
+name = "press_it_anyway"           # the answer is the browser's, not the page's
+kind = "click"
+selector = "#ask"
+expect = { selector_visible = 'main[data-telling-state="refused"]', body_contains = "NotAllowedError" }
+
+[[step]]
+name = "still_refused_state"
+kind = "screenshot"
+full_page = true

@@ -118,8 +118,14 @@ APP_TTL_SECONDS = "{ttl}"
 APP_DATABASE_URL = "postgresql://postgres:exam@{postgres.host}:{postgres.port}/postgres"
 
 [browser.defaults]
-webauthn = true
+webauthn = true         # a virtual authenticator, so passkeys run headlessly
+push = true             # a stubbed Push API, so a notifying page is driveable
 ```
+
+Those last two are the same bargain: the platform piece a headless
+browser lacks comes from the **exam**, never from a flag in the
+product. Nobody adds a bridge so WebAuthn can be driven, and nobody
+should have to add one so push can be.
 
 The **exam** is data, held operator-side as one **proof** per scenario
 — a folder in the project's darkroom home

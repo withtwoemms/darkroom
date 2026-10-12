@@ -17,7 +17,7 @@ package.
 | gates.md | regression gates (JSON) | 1.0 |
 | tickets.md | tickets (Markdown + frontmatter) | 1.0 |
 | [proofs.md](proofs.md) | proofs: `exposure.toml` + `rubric.toml`, one sealed folder; backdrops; the `.surfaces` file | 1.0 |
-| drive-scripts.md | the exposure's step vocabulary (TOML); the standalone `.drive.toml` file is retired | 1.7 |
+| drive-scripts.md | the exposure's step vocabulary (TOML); the standalone `.drive.toml` file is retired | 1.8 |
 | role-hooks.md | judge/builder hook contract | 1.1 |
 | dossier.md | cross-run dossier bundle (JSON) | 1.2 |
 

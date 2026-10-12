@@ -236,7 +236,13 @@ APP_DATABASE_URL = "postgresql://exam@{postgres.host}:{postgres.port}/app"
 
 [browser.defaults]
 webauthn = true
+push = { permission = "granted" }
 ```
+
+`[browser.defaults]` is the same arrangement for the `[browser]` table
+an exposure may carry: an exposure's own key replaces the default
+wholesale, so a scenario about a refused device writes
+`push = { permission = "denied" }` and inherits the rest.
 
 `[serve.env]` templates see `{port}`, every serve variable, and each
 declared service's `{name.host}` / `{name.port}`; a template with no

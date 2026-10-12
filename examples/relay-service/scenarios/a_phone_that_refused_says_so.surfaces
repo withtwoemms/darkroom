@@ -1,0 +1,18 @@
+[routes]
+
+[commands]
+
+[pages]
+/telling                      the telling page
+main[data-telling-state]      "refused" on a device that has refused
+#ask                          still present, still pressable
+#why                          why it is not on — "this device has refused",
+                              or what the browser answered when pressed anyway
+#endpoint                     absent while not on
+
+[files]
+
+[notes]
+the page never decides the refusal itself: it reads the browser's own
+answer, so the refused state is reachable only by driving a browser
+that refuses
