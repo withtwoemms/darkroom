@@ -189,7 +189,9 @@ registration whose `pushManager` answers `subscribe`,
 `getSubscription`, and `permissionState`; a subscription carrying
 `endpoint`, `getKey("p256dh")`, `getKey("auth")`, `toJSON()`, and
 `unsubscribe()`; `Notification` and `navigator.permissions.query`
-answering the configured permission. The state outlives the document,
+answering the configured permission, each in its own vocabulary —
+`Notification.permission` reads `"default"` where `permissionState()`
+and the Permissions API read `"prompt"`. The state outlives the document,
 as a real profile's does: a reload reads the subscription back, and
 after `unsubscribe()` finds nothing.
 

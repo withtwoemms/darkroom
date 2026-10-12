@@ -590,15 +590,17 @@ class TestPushOption:
             (s.name, s.detail) for r in report.results for s in r.steps if not s.ok
         ]
 
-    def test_an_application_server_key_given_as_bytes_is_carried_back(
+    def test_the_bench_page_reads_the_stub_as_a_browser_would(
         self, tmp_path, monkeypatch
     ):
-        """Pages pass the sender key either way, so both must survive.
+        """Two details the relay page does not reach.
 
-        The relay passes its VAPID key as a base64url string; plenty of
-        pages convert it to a `Uint8Array` first. Either way
+        A sender key may be handed over as bytes rather than a
+        base64url string, and either way
         `subscription.options.applicationServerKey` must read back as
-        the ArrayBuffer a browser hands over.
+        the ArrayBuffer a browser gives. And an unanswered permission
+        has two spellings: `Notification.permission` says "default"
+        where `pushManager.permissionState()` says "prompt".
         """
         pytest.importorskip("cryptography")
         root = tmp_path / "tenant"
@@ -607,17 +609,26 @@ class TestPushOption:
             import sys
             from http.server import BaseHTTPRequestHandler, HTTPServer
 
-            PAGE = '''<!doctype html><title>Bytes Bench</title>
+            PAGE = '''<!doctype html><title>Push Bench</title>
+            <div id="perms">waiting</div>
             <div id="out">waiting</div>
             <script>
             (async () => {
               const reg = await navigator.serviceWorker.register("/w.js");
-              const key = new Uint8Array(65); key[0] = 4;
-              const sub = await reg.pushManager.subscribe(
-                {userVisibleOnly: true, applicationServerKey: key});
-              const back = new Uint8Array(sub.options.applicationServerKey);
-              document.getElementById("out").textContent =
-                "bytes=" + back.byteLength + " head=" + back[0];
+              const state = await reg.pushManager.permissionState(
+                {userVisibleOnly: true});
+              document.getElementById("perms").textContent =
+                "notification=" + Notification.permission + " state=" + state;
+              try {
+                const key = new Uint8Array(65); key[0] = 4;
+                const sub = await reg.pushManager.subscribe(
+                  {userVisibleOnly: true, applicationServerKey: key});
+                const back = new Uint8Array(sub.options.applicationServerKey);
+                document.getElementById("out").textContent =
+                  "bytes=" + back.byteLength + " head=" + back[0];
+              } catch (err) {
+                document.getElementById("out").textContent = "error=" + err.name;
+              }
             })();
             </script>'''
 
@@ -641,7 +652,7 @@ class TestPushOption:
         adapter = loads_adapter(
             textwrap.dedent(f"""
             [project]
-            name = "bytes-bench"
+            name = "push-bench"
             [commands]
             serve = "{_sys.executable} app.py {{port}}"
             [evidence]
@@ -662,10 +673,39 @@ class TestPushOption:
             kind = "goto"
             url = "{base_url}/"
             expect = { status = 200, body_contains = "bytes=65 head=4" }
+
+            [[step]]
+            name = "both_spellings_say_granted"
+            kind = "goto"
+            url = "{base_url}/"
+            expect = { body_contains = "notification=granted state=granted" }
         """))
+        _exposure(drives, "an_unanswered_prompt_has_two_spellings").write_text(
+            textwrap.dedent("""
+            scenario = "an_unanswered_prompt_has_two_spellings"
+
+            [browser]
+            push = { permission = "default" }
+
+            [[step]]
+            name = "the_two_spellings"
+            kind = "goto"
+            url = "{base_url}/"
+            expect = { status = 200, body_contains = "notification=default state=prompt" }
+
+            [[step]]
+            name = "and_subscribe_refuses"
+            kind = "goto"
+            url = "{base_url}/"
+            expect = { body_contains = "error=NotAllowedError" }
+        """)
+        )
         report = drive(adapter, drives, containers_mode="off")
         assert report.ok, [
-            (s.name, s.detail) for r in report.results for s in r.steps if not s.ok
+            (r.scenario, s.name, s.detail)
+            for r in report.results
+            for s in r.steps
+            if not s.ok
         ]
 
     def test_the_generated_keys_reach_the_drive_context(self, tmp_path, monkeypatch):

@@ -286,7 +286,11 @@ _TEMPLATE = r"""
       return Promise.resolve(state.subscribed ? subscription(state) : null);
     },
     permissionState() {
-      return Promise.resolve(CFG.permission);
+      // PermissionState, not NotificationPermission: unanswered reads
+      // as 'prompt' here and as 'default' on Notification.permission
+      return Promise.resolve(
+        CFG.permission === 'default' ? 'prompt' : CFG.permission
+      );
     },
   };
 
