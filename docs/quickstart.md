@@ -330,8 +330,9 @@ backend's server-side audit is the graduation path.
 
 - **Browser steps** — drive real pages (`goto`/`click`/`fill`/
   `screenshot`), screencast whole scenarios (`record = true`), set
-  phone-width viewports, and run headless passkey ceremonies
-  (`[browser] webauthn = true`): `pip install 'darkroom-ai[playwright]'`,
+  phone-width viewports, run headless passkey ceremonies
+  (`[browser] webauthn = true`), and drive a notifying page without a
+  push service (`[browser] push`): `pip install 'darkroom-ai[playwright]'`,
   then see the UI slice in `examples/relay-service/`.
 - **Hardened backends** — containers for the system under test
   (`[containers]` extra) and an OpenBao rubric vault (`[vault]`).

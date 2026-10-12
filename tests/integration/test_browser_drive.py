@@ -7,6 +7,7 @@ the existing producer, and a failing selector expectation stopping
 the scenario while keeping its evidence.
 """
 
+import json
 import shutil
 import textwrap
 from pathlib import Path
@@ -504,3 +505,250 @@ class TestBrowserDrive:
         # the goto's log evidence survived the failure — and so did its
         # expectation witness, recording what it found — still judgeable
         assert [i.kind for i in manifest.scenarios[0].items] == ["log", "log"]
+
+
+class TestPushOption:
+    """The Push API the exam supplies, driven against the relay example.
+
+    The relay has no push service, no exam flag, and no route behind
+    its control — the page talks to the Push API as any page would.
+    What makes it driveable is ``[browser] push``, the same bargain as
+    the virtual authenticator: the exam provides the platform piece,
+    and the tenant stays clean.
+    """
+
+    def _relay(self, tmp_path, monkeypatch):
+        project = tmp_path / "relay-service"
+        shutil.copytree(EXAMPLE, project, ignore=shutil.ignore_patterns("evidence"))
+        monkeypatch.chdir(project)
+        monkeypatch.delenv("EVIDENCE_MODE", raising=False)
+        monkeypatch.delenv("EVIDENCE_DIR", raising=False)
+        return project
+
+    def _adapter(self):
+        return loads_adapter(Path("darkroom.toml").read_text(), root=Path.cwd())
+
+    def test_the_shipped_telling_proofs_run_green(self, tmp_path, capsys, monkeypatch):
+        pytest.importorskip("cryptography")
+        project = self._relay(tmp_path, monkeypatch)
+
+        code = main(["expose", "--drives", "proofs-ui", "--tag", "telling"])
+        out = capsys.readouterr().out
+        assert code == 0, out
+        assert "2/2 scenario(s) green" in out
+
+        manifest_path = next(project.glob("evidence/runs/*/manifest.json"))
+        bundles = {b.scenario: b for b in load_manifest(manifest_path).scenarios}
+        turned_on = bundles["telling_can_be_turned_on"]
+        witnesses = {i.step: i for i in turned_on.items if i.step.endswith(".expect")}
+
+        def witness(step):
+            path = manifest_path.parent / witnesses[step + ".expect"].path
+            return json.loads(path.read_text())["data"]
+
+        # the address the page showed is the endpoint the exam configured
+        agreed = witness("agree_to_be_told")
+        assert agreed["ok"] is True
+        assert "/push/relay-device" in agreed["expect"]["body_contains"]
+        # and opening it again found the same address, unasked
+        again = witness("open_it_again")
+        assert again["found"] == {"selector_visible": True, "body_contains": True}
+        # stopping left nothing for a reload to find
+        assert witness("forgotten_after_a_reload")["ok"] is True
+
+    def test_a_dismissed_prompt_is_its_own_state(self, tmp_path, monkeypatch):
+        """``permission = "default"`` — asked, and never answered.
+
+        subscribe() rejects as a browser's does, so a tenant can tell
+        "never answered" from "refused" without the product keeping a
+        flag for either.
+        """
+        pytest.importorskip("cryptography")
+        self._relay(tmp_path, monkeypatch)
+        drives = Path("drives")
+        drives.mkdir()
+        _exposure(drives, "the_prompt_went_unanswered").write_text(textwrap.dedent("""
+            scenario = "the_prompt_went_unanswered"
+
+            [browser]
+            push = { permission = "default" }
+
+            [[step]]
+            name = "open"
+            kind = "goto"
+            url = "{base_url}/telling"
+            expect = { status = 200, selector_visible = 'main[data-telling-state="unasked"]' }
+
+            [[step]]
+            name = "ask_and_say_nothing"
+            kind = "click"
+            selector = "#ask"
+            expect = { selector_visible = 'main[data-telling-state="unanswered"]', body_contains = "NotAllowedError" }
+        """))
+        report = drive(self._adapter(), drives, containers_mode="off")
+        assert report.ok, [
+            (s.name, s.detail) for r in report.results for s in r.steps if not s.ok
+        ]
+
+    def test_the_bench_page_reads_the_stub_as_a_browser_would(
+        self, tmp_path, monkeypatch
+    ):
+        """Two details the relay page does not reach.
+
+        A sender key may be handed over as bytes rather than a
+        base64url string, and either way
+        `subscription.options.applicationServerKey` must read back as
+        the ArrayBuffer a browser gives. And an unanswered permission
+        has two spellings: `Notification.permission` says "default"
+        where `pushManager.permissionState()` says "prompt".
+        """
+        pytest.importorskip("cryptography")
+        root = tmp_path / "tenant"
+        root.mkdir()
+        (root / "app.py").write_text(textwrap.dedent("""
+            import sys
+            from http.server import BaseHTTPRequestHandler, HTTPServer
+
+            PAGE = '''<!doctype html><title>Push Bench</title>
+            <div id="perms">waiting</div>
+            <div id="out">waiting</div>
+            <script>
+            (async () => {
+              const reg = await navigator.serviceWorker.register("/w.js");
+              const state = await reg.pushManager.permissionState(
+                {userVisibleOnly: true});
+              document.getElementById("perms").textContent =
+                "notification=" + Notification.permission + " state=" + state;
+              try {
+                const key = new Uint8Array(65); key[0] = 4;
+                const sub = await reg.pushManager.subscribe(
+                  {userVisibleOnly: true, applicationServerKey: key});
+                const back = new Uint8Array(sub.options.applicationServerKey);
+                document.getElementById("out").textContent =
+                  "bytes=" + back.byteLength + " head=" + back[0];
+              } catch (err) {
+                document.getElementById("out").textContent = "error=" + err.name;
+              }
+            })();
+            </script>'''
+
+            class Handler(BaseHTTPRequestHandler):
+                def log_message(self, *a): pass
+                def do_GET(self):
+                    js = self.path == "/w.js"
+                    body = (b"// worker" if js else PAGE.encode())
+                    self.send_response(200)
+                    self.send_header(
+                        "Content-Type",
+                        "text/javascript" if js else "text/html")
+                    self.send_header("Content-Length", str(len(body)))
+                    self.end_headers()
+                    self.wfile.write(body)
+
+            HTTPServer(("127.0.0.1", int(sys.argv[1])), Handler).serve_forever()
+        """))
+        import sys as _sys
+
+        adapter = loads_adapter(
+            textwrap.dedent(f"""
+            [project]
+            name = "push-bench"
+            [commands]
+            serve = "{_sys.executable} app.py {{port}}"
+            [evidence]
+            dir = "evidence"
+            """),
+            root=root,
+        )
+        drives = tmp_path / "drives"
+        drives.mkdir()
+        _exposure(drives, "the_sender_key_comes_back").write_text(textwrap.dedent("""
+            scenario = "the_sender_key_comes_back"
+
+            [browser]
+            push = true
+
+            [[step]]
+            name = "subscribe_with_bytes"
+            kind = "goto"
+            url = "{base_url}/"
+            expect = { status = 200, body_contains = "bytes=65 head=4" }
+
+            [[step]]
+            name = "both_spellings_say_granted"
+            kind = "goto"
+            url = "{base_url}/"
+            expect = { body_contains = "notification=granted state=granted" }
+        """))
+        _exposure(drives, "an_unanswered_prompt_has_two_spellings").write_text(
+            textwrap.dedent("""
+            scenario = "an_unanswered_prompt_has_two_spellings"
+
+            [browser]
+            push = { permission = "default" }
+
+            [[step]]
+            name = "the_two_spellings"
+            kind = "goto"
+            url = "{base_url}/"
+            expect = { status = 200, body_contains = "notification=default state=prompt" }
+
+            [[step]]
+            name = "and_subscribe_refuses"
+            kind = "goto"
+            url = "{base_url}/"
+            expect = { body_contains = "error=NotAllowedError" }
+        """)
+        )
+        report = drive(adapter, drives, containers_mode="off")
+        assert report.ok, [
+            (r.scenario, s.name, s.detail)
+            for r in report.results
+            for s in r.steps
+            if not s.ok
+        ]
+
+    def test_the_generated_keys_reach_the_drive_context(self, tmp_path, monkeypatch):
+        """``{push.private}`` is the drive's own ear.
+
+        A tenant that sends opens the collector's body in a ``command``
+        step. This proves the values are there, that the endpoint
+        resolved against a drive value, and that both halves and the
+        secret are the sizes RFC 8291 encryption needs; the unit tests
+        prove they open a real payload.
+        """
+        pytest.importorskip("cryptography")
+        self._relay(tmp_path, monkeypatch)
+        drives = Path("drives")
+        drives.mkdir()
+        import sys as _sys
+
+        sizes = (
+            "import base64; d = lambda s: base64.urlsafe_b64decode("
+            "s + '=' * (-len(s) % 4)); "
+            "print(len(d('{push.p256dh}')), len(d('{push.auth}')), "
+            "len(d('{push.private}')))"
+        )
+        _exposure(drives, "the_keys_are_in_hand").write_text(
+            'scenario = "the_keys_are_in_hand"\n\n'
+            "[browser]\n"
+            'push = { endpoint = "{base_url}/push/one-device" }\n\n'
+            "[[step]]\n"
+            'name = "open"\n'
+            'kind = "goto"\n'
+            'url = "{base_url}/telling"\n'
+            "expect = { status = 200 }\n\n"
+            "[[step]]\n"
+            'name = "the_endpoint_addressed_the_served_app"\n'
+            'kind = "assert"\n'
+            "that = '''{push.endpoint} == {base_url}/push/one-device'''\n\n"
+            "[[step]]\n"
+            'name = "both_halves_and_the_secret"\n'
+            'kind = "command"\n'
+            f"cmd = '''{_sys.executable} -c \"{sizes}\"'''\n"
+            'expect = { exit_code = 0, body_contains = "65 16 32" }\n'
+        )
+        report = drive(self._adapter(), drives, containers_mode="off")
+        assert report.ok, [
+            (s.name, s.detail) for r in report.results for s in r.steps if not s.ok
+        ]

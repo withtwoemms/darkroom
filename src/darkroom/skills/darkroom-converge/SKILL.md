@@ -131,11 +131,13 @@ witness is structurally unproducible, say so, verify that behavior
 with a local network-free script instead, ship it as un-gated
 production code, and record the engine gap — do not fake a witness,
 and never add auth machinery to the tenant for the exam's benefit.
-Three such gaps have since become engine seams, so check the spec
+Four such gaps have since become engine seams, so check the spec
 before declaring one: an HMAC over an exact raw request body (`body`,
 1.4); a redirect's status and target (`follow_redirects = false` with
 `location_contains`, 1.5); an http step acting as the member the
-browser signed in (`session = "browser"`, 1.5).
+browser signed in (`session = "browser"`, 1.5); a page subscribing to
+push notifications, and the payload the tenant then sent
+(`[browser] push`, 1.8).
 
 ## Stage 4 — Seal and commit both repos, in order
 

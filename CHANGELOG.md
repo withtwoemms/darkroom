@@ -27,6 +27,35 @@ below it was already called an exposure.
 
 ### Added
 
+`[browser] push`: the Push API the exam supplies, as `webauthn = true`
+supplies the authenticator. A tenant that notifies could not be driven
+end to end before — the page asks the browser to subscribe, the
+browser wants a real push service, and a headless Chromium in an exam
+has none, so every scenario about the control's states died at the
+first click. The only alternative was a flag in the product that faked
+a subscription under exam posture: a permanent hazard in production
+code, plus one more absence to prove. Now the session installs a stub
+before any page script, over `serviceWorker.register`,
+`pushManager.subscribe` / `getSubscription` / `permissionState`,
+the subscription's `endpoint` / `getKey` / `toJSON` / `unsubscribe`,
+and `Notification` — state outliving the document as a real profile's
+does, so a reload reads the subscription back. `push = { permission =
+"denied" | "default" }` makes `subscribe()` reject the way a browser
+does, so "this device has refused" and "the prompt went unanswered"
+are reachable states. The keypair is real (P-256, the curve RFC 8291
+encryption is defined over): the page gets the public point and a
+16-byte auth secret, and the drive context gets `{push.endpoint}`,
+`{push.p256dh}`, `{push.auth}`, and `{push.private}` — the private
+half published on purpose, so a `command` step can open what the
+tenant's server posted to a collector and assert that the body names
+nothing it shouldn't. The endpoint interpolates drive values, so it
+can address a declared service. Resolving the option needs the
+`crypto` extra. **Drive-scripts schema 1.7 → 1.8.** The option
+delivers no notification and shows none; that a real browser reaches a
+real push service stays a manual check beside a gate. The relay
+example grew a `/telling` page and two proofs for the browser-side
+contract (`telling_can_be_turned_on`, `a_phone_that_refused_says_so`).
+
 `docs/rolls.md`: how a roll travels from a ticket to a gated
 behaviour — the four hats and the file each writes, the chain from
 interview through author and converge to the closing regression, the

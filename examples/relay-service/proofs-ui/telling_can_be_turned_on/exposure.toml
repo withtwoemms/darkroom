@@ -1,0 +1,71 @@
+scenario = "telling_can_be_turned_on"
+tags = ["page", "telling"]
+record = true
+
+# The exam supplies the push service a headless browser has none of —
+# the same bargain as `webauthn = true`. The endpoint is interpolated
+# like any drive value, so it can address a declared collector
+# service; here it points back at the relay, since nothing in this
+# example ever sends. The engine generates the subscription's keys and
+# publishes {push.endpoint}, {push.p256dh}, {push.auth}, and
+# {push.private} — the private half being what lets a tenant that does
+# send open the payload in a `command` step.
+[browser]
+push = { endpoint = "{base_url}/push/relay-device", permission = "granted" }
+
+[[step]]
+name = "open_telling"
+kind = "goto"
+url = "{base_url}/telling"
+expect = { status = 200, title_contains = "Relay Telling", selector_visible = "#ask" }
+
+[[step]]
+name = "nothing_asked_yet"        # absence, witnessed positively
+kind = "goto"
+url = "{base_url}/telling"
+expect = { selector_visible = 'main[data-telling-state="unasked"]' }
+
+[[step]]
+name = "the_control_is_ready"
+kind = "goto"
+url = "{base_url}/telling"
+expect = { selector_visible = '#ask[data-state="ready"]' }
+
+[[step]]
+name = "unasked_state"
+kind = "screenshot"
+full_page = true
+
+[[step]]
+name = "agree_to_be_told"         # a control is proven by what it does
+kind = "click"
+selector = "#ask"
+expect = { selector_visible = 'main[data-telling-state="on"]', body_contains = "{push.endpoint}" }
+
+[[step]]
+name = "told_state"
+kind = "screenshot"
+full_page = true
+
+[[step]]
+name = "open_it_again"            # the subscription is read back, not re-asked
+kind = "goto"
+url = "{base_url}/telling"
+expect = { selector_visible = "#endpoint", body_contains = "{push.endpoint}" }
+
+[[step]]
+name = "stop_the_telling"
+kind = "click"
+selector = "#stop"
+expect = { selector_visible = 'main[data-telling-state="off"]' }
+
+[[step]]
+name = "forgotten_after_a_reload"
+kind = "goto"
+url = "{base_url}/telling"
+expect = { selector_visible = 'main[data-telling-state="unasked"]' }
+
+[[step]]
+name = "off_state"
+kind = "screenshot"
+full_page = true

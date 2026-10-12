@@ -1,6 +1,6 @@
 # Drive Scripts
 
-**Format:** TOML · **Schema version:** 1.7 · **File:** the exposure of a
+**Format:** TOML · **Schema version:** 1.8 · **File:** the exposure of a
 [proof](proofs.md), `proofs/<scenario>/exposure.toml`.
 
 > **The standalone `.drive.toml` file is retired since darkroom 0.21.**
@@ -38,7 +38,7 @@ reveal criteria or scoring is misauthored.
 | `scenario` | string | yes | the scenario this script exercises |
 | `[serve]` | table | no | variables substituted into the adapter's serve command / container env |
 | `record` *(1.2)* | boolean (default false) | no | browser scenarios only: record a screencast of the whole scenario, registered as one `video` evidence item (step `screencast`) at teardown |
-| `[browser]` *(1.3)* | table | no | browser-session options: `viewport = { width, height }` sizes the page (phone-width criteria); `webauthn = true` attaches a virtual authenticator (platform, user-verifying, presence auto-simulated) so passkey flows run headlessly — the scenario's `{base_url}` then addresses the server as `localhost`, since WebAuthn rejects IP origins; `prf` *(1.6, default true)* gives that authenticator the WebAuthn PRF extension so a ceremony can return per-salt secrets, and `prf = false` models an authenticator without it |
+| `[browser]` *(1.3)* | table | no | browser-session options: `viewport = { width, height }` sizes the page (phone-width criteria); `webauthn = true` attaches a virtual authenticator (platform, user-verifying, presence auto-simulated) so passkey flows run headlessly — the scenario's `{base_url}` then addresses the server as `localhost`, since WebAuthn rejects IP origins; `prf` *(1.6, default true)* gives that authenticator the WebAuthn PRF extension so a ceremony can return per-salt secrets, and `prf = false` models an authenticator without it; `push` *(1.8)* stubs the Push API (below) |
 | `[[step]]` | array of tables | yes | the steps, executed in order |
 
 Every step carries:
@@ -159,6 +159,73 @@ A browser-level failure (timeout, missing selector, navigation
 error) is an ordinary step failure — the scenario stops, its
 evidence is kept.
 
+### The push stub *(since 1.8)*
+
+A tenant that notifies cannot be driven otherwise: turning
+notifications on means the page asks the browser to subscribe, and
+the browser hands that to a real push service, of which a headless
+browser in an exam has none. The alternative a tenant reaches for is
+a flag in the product that fakes a subscription under exam posture —
+a permanent hazard in production code, and one more absence to prove.
+So the **exam** supplies the missing platform piece, exactly as
+`webauthn = true` supplies the authenticator.
+
+```toml
+[browser]
+push = { endpoint = "http://{collector.host}:{collector.port}/push/one", permission = "granted" }
+```
+
+| Field | Type | Meaning |
+|-------|------|---------|
+| `push` | `true`, or a table | `true` takes the defaults; a table may carry `endpoint` and `permission` |
+| `endpoint` | string (interpolated) | the address the subscription carries. Interpolates the usual drive values, so it can address a declared service — the engine's own collector. Default: a per-session URL under `https://push.darkroom.invalid/`, a reserved TLD that can reach nothing |
+| `permission` | `"granted"` (default), `"denied"`, `"default"` | what `Notification.permission` reads and what `requestPermission()` answers. Anything but `granted` makes `subscribe()` reject with a `NotAllowedError`, the way a browser does — so "this device has refused" and "the prompt went unanswered" are reachable states |
+
+The session installs an init script before any page script on every
+document, stubbing what a notifying page reaches for:
+`navigator.serviceWorker.register` (which still fetches the tenant's
+own worker file, and still fails if it is not served) resolving to a
+registration whose `pushManager` answers `subscribe`,
+`getSubscription`, and `permissionState`; a subscription carrying
+`endpoint`, `getKey("p256dh")`, `getKey("auth")`, `toJSON()`, and
+`unsubscribe()`; `Notification` and `navigator.permissions.query`
+answering the configured permission, each in its own vocabulary —
+`Notification.permission` reads `"default"` where `permissionState()`
+and the Permissions API read `"prompt"`. The state outlives the document,
+as a real profile's does: a reload reads the subscription back, and
+after `unsubscribe()` finds nothing.
+
+The keypair is real — P-256, the curve RFC 8291 payload encryption is
+defined over. The public point and a 16-byte auth secret are what the
+page receives, so they travel to the tenant's server exactly as a
+browser's would. Four values reach the interpolation context:
+
+| Placeholder | Meaning |
+|-------------|---------|
+| `{push.endpoint}` | the configured endpoint, resolved |
+| `{push.p256dh}` | the subscription's public point, base64url (65 bytes) |
+| `{push.auth}` | the subscription's auth secret, base64url (16 bytes) |
+| `{push.private}` | the private scalar, base64url (32 bytes, big-endian) |
+
+`{push.private}` is published on purpose, and is the one exception to
+the rule that private keys stay inside the engine (`keygen`'s do).
+Its point is that a `command` step can **decrypt what the tenant's
+server posted to a collector** and assert on the plaintext — without
+it the payload is opaque, and the most important criterion a notifying
+tenant has, that the body names nothing it shouldn't, is unprovable.
+It is the exam's own ear, never a tenant secret; an exposure that
+passes it to a shell command puts it in that command's transcript,
+which is ordinary evidence an operator holds.
+
+What the option does **not** do: deliver a notification, show one, or
+prove a real browser ever reached a real push service. Those stay
+outside every driver and belong beside a gate as manual checks. It
+makes the tenant's half driveable — the control, the subscription
+record, the send, the payload, and the dropping of an address.
+
+Resolving the option needs the `crypto` extra; a scenario declaring
+`push` without it fails with that instruction.
+
 ## Interpolation
 
 String values marked *interpolated* substitute, at execution time:
@@ -168,7 +235,10 @@ String values marked *interpolated* substitute, at execution time:
   table's substitutions;
 - `{keys.<n>.public}` — a generated public key;
 - `{sign(keys.<n>, <var>)}` — the base64 Ed25519 signature of
-  variable `<var>`'s value under key `<n>`.
+  variable `<var>`'s value under key `<n>`;
+- `{push.endpoint}` / `{push.p256dh}` / `{push.auth}` /
+  `{push.private}` *(1.8)* — the push stub's subscription, when the
+  `[browser]` table declares `push`.
 
 An unknown placeholder is an error, not empty text. *(1.3)* `{{`
 and `}}` are literal-brace escapes — shell fragments like curl's
@@ -254,7 +324,7 @@ browser step kinds and three browser expectation keys; `1.2` added
 the `record` flag; `1.3` added the `[browser]` session table
 (viewport, webauthn), literal-brace escapes, and bounded waiting
 (~5s) on all page-settling browser expectations (`title_contains`,
-`url_contains`, `body_contains`, `selector_visible`); `1.4` added the raw `body` field on `http` steps and expectation witnesses (every step with an `expect` logs a `<step>.expect` record of what it checked and found); `1.5` added `follow_redirects` and `session` on `http` steps and the `location_contains` expectation; `1.6` added `prf` on the `[browser]` table; `1.7` added array indexes in `save`/expectation paths — each additive, per the shared
+`url_contains`, `body_contains`, `selector_visible`); `1.4` added the raw `body` field on `http` steps and expectation witnesses (every step with an `expect` logs a `<step>.expect` record of what it checked and found); `1.5` added `follow_redirects` and `session` on `http` steps and the `location_contains` expectation; `1.6` added `prf` on the `[browser]` table; `1.7` added array indexes in `save`/expectation paths; `1.8` added `push` on the `[browser]` table (the Push API stub) and its four `{push.*}` interpolation values — each additive, per the shared
 policy, so every earlier script remains valid. New step
 kinds, fields, or expectation keys arrive as minor bumps; consumers
 (engines) MUST refuse unknown step kinds loudly rather than skip
@@ -293,6 +363,8 @@ expect = { status = 200, body_contains = "first" }
 - Engines MUST capture each step through the corresponding evidence
   producer so a drive run yields a conforming manifest.
 - Private keys generated by `keygen` MUST NOT be written to evidence,
-  logs, or the context's exported values.
+  logs, or the context's exported values. The push stub's private half
+  is the stated exception — it is exported as `{push.private}` so the
+  exam can read a payload, and MUST NOT be reachable from the page.
 - Scripts MUST NOT contain criteria, points, or scoring information;
   they live operator-side and are never shown to the builder.

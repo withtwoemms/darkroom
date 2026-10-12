@@ -40,6 +40,8 @@ partial run is never mistaken for the full slate.
 | `read_once_note` | absence and finality witnessed positively: the second read answers `410` with its reason, and so does every other door |
 | `notes_page` (ui) | browser steps; the page states "nothing yet" itself (`main[data-note-state="empty"]`) rather than a selector failing to appear; Save is proven by the list it produces |
 | `archived_note_shows_its_state` (ui) | a selector narrowed to a state is the same surface as the one published (`#notes li[data-archived]`); the page names its latest state |
+| `telling_can_be_turned_on` (ui) | `[browser] push` — the exam supplies the push service a headless browser has none of; subscribe, read back on reload, and forget |
+| `a_phone_that_refused_says_so` (ui) | `push = { permission = "denied" }` — the refused state is reached by driving a browser that refuses, not by a flag in the product |
 
 ## The UI slice (browser steps, since 0.12)
 
@@ -53,4 +55,30 @@ installed.
 ```bash
 pip install 'darkroom-ai[playwright]' && playwright install chromium
 darkroom expose --drives proofs-ui
+```
+
+## The telling page (the push stub, since 0.22)
+
+The service also renders `/telling`, a page that asks to be allowed to
+reach this device. It talks to the Push API as any page would — there
+is no flag, no bridge, and no exam-only route behind the control. A
+headless browser has no push service, so the exam supplies one:
+
+```toml
+[browser]
+push = { endpoint = "{base_url}/push/relay-device", permission = "granted" }
+```
+
+That is the same bargain as `webauthn = true`. The engine generates a
+real P-256 subscription, hands the page its public half, and publishes
+`{push.endpoint}`, `{push.p256dh}`, `{push.auth}`, and
+`{push.private}` as drive values — the private half being what lets a
+tenant that actually sends open the payload its server posted to a
+collector, in a `command` step. The relay never sends, so these two
+proofs cover the browser-side contract alone: subscribe, read back on
+reload, unsubscribe, and the browser's own refusal.
+
+```bash
+pip install 'darkroom-ai[playwright,crypto]' && playwright install chromium
+darkroom expose --drives proofs-ui --tag telling
 ```
