@@ -1,12 +1,12 @@
 # Delivering a roll
 
-How one roll travels from a ticket to a gated behaviour, which
+How one roll travels from a ticket to a gated behavior, which
 skill owns which file, and what each hand-off must be true before the
 next begins. The format specs say what each file *is*; this page says
 who writes it, when, and what the next stage refuses to accept.
 
 A **roll** is a set of scenarios shipped together: one product idea,
-several behaviours, one closing regression. The word is the
+several behaviors, one closing regression. The word is the
 photographer's: a roll holds exposures, is shot as one body of work,
 and is developed together, and the unit below it is already called an
 exposure.
@@ -25,7 +25,7 @@ go green.
 | review | the evaluation | everything else |
 
 The spec is product's description of what must be true, in plain
-Gherkin with no routes and no selectors: how a behaviour is reached is
+Gherkin with no routes and no selectors: how a behavior is reached is
 engineering's call. The `.surfaces` file is engineering's publication
 of the addresses it chose. The exposure drives those addresses and
 captures evidence. The rubric says what a good record shows, in
@@ -54,10 +54,10 @@ for each ruling.
 
 ### 2. The interview turns the charter into scenarios
 
-`darkroom-interview`, product's hat. Enumerate the behaviours the
+`darkroom-interview`, product's hat. Enumerate the behaviors the
 description implies, including the negative space it only implies:
 authorisation failures, immutability after commitment, error
-behaviour. Interrogate every vague term into a threshold — *notified*
+behavior. Interrogate every vague term into a threshold — *notified*
 by what channel within what window; *fast* measured where. A term the
 product declines to pin down becomes a criterion marked
 `confidence = "low"` with few points: flagged, never silently guessed.

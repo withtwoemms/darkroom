@@ -57,7 +57,7 @@ example grew a `/telling` page and two proofs for the browser-side
 contract (`telling_can_be_turned_on`, `a_phone_that_refused_says_so`).
 
 `docs/rolls.md`: how a roll travels from a ticket to a gated
-behaviour — the four hats and the file each writes, the chain from
+behavior — the four hats and the file each writes, the chain from
 interview through author and converge to the closing regression, the
 rules that bite at each hand-off, and the two questions a tenant must
 answer before authoring (whether the exam needs infrastructure the
