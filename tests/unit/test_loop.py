@@ -72,7 +72,7 @@ class FakeCheckpointer:
     def __init__(self, clean=True):
         self.clean = clean
         self.refs = ["ref-0"]
-        self.rollbacks: list[str] = []
+        self.reprints: list[str] = []
 
     def is_clean(self, ctx):
         return self.clean
@@ -84,8 +84,8 @@ class FakeCheckpointer:
         self.refs.append(f"ref-{len(self.refs)}")
         return self.refs[-1]
 
-    def rollback(self, ctx, ref):
-        self.rollbacks.append(ref)
+    def reprint(self, ctx, ref):
+        self.reprints.append(ref)
 
     def changed_files(self, ctx, ref):
         return ["app.py"]
@@ -169,26 +169,26 @@ class TestEscalation:
         assert [r.stagnation for r in result.iterations] == [0, 1, 0, 1]
 
 
-class TestRollback:
+class TestReprint:
     def test_regression_rolls_back_to_best_ref(self, tmp_path):
         checkpointer = FakeCheckpointer()
         judge = ScriptedJudge([80, 40, 60])
         result = _loop(
             judge, policy=LoopPolicy(max_iterations=3), checkpointer=checkpointer
         ).run(_ctx(tmp_path))
-        # iteration 2 scored 40 < best 80 → rollback to the ref current at best
-        assert checkpointer.rollbacks == ["ref-0", "ref-0"]
-        assert result.iterations[1].action == "rolled-back-and-built"
+        # iteration 2 scored 40 < best 80 → reprint from the ref current at best
+        assert checkpointer.reprints == ["ref-0", "ref-0"]
+        assert result.iterations[1].action == "reprinted-from-best"
 
-    def test_rollback_disabled(self, tmp_path):
+    def test_reprint_disabled(self, tmp_path):
         checkpointer = FakeCheckpointer()
         judge = ScriptedJudge([80, 40])
         _loop(
             judge,
-            policy=LoopPolicy(max_iterations=2, rollback_on_regression=False),
+            policy=LoopPolicy(max_iterations=2, reprint_on_regression=False),
             checkpointer=checkpointer,
         ).run(_ctx(tmp_path))
-        assert checkpointer.rollbacks == []
+        assert checkpointer.reprints == []
 
 
 class TestPreconditionsAndMemory:

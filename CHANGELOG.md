@@ -6,6 +6,37 @@ project follows [semantic versioning](https://semver.org/) (pre-1.0: minor
 releases may break API, patch releases never do). The manifest schema is
 versioned independently of the package — see `ROADMAP.md`.
 
+## [Unreleased]
+
+### Changed
+
+The loop speaks one language. The iteration action
+`rolled-back-and-built` is now `reprinted-from-best`, the policy
+`rollback_on_regression` is `reprint_on_regression`, the flag
+`--no-rollback` is `--no-reprint`, and a checkpointer reprints rather
+than rolls back. In the darkroom you keep the best print and its
+settings; a worse one is discarded and you go back to what worked.
+`converged` and `built` were already neutral; this was the last term
+borrowed from databases. **Dossier schema 1.1 → 1.2**: the action's
+value changed, and a consumer SHOULD accept the former spelling for
+one release.
+
+A body of work is a **roll**, not a slice — a roll holds exposures, is
+shot as one body of work, and is developed together, and the unit
+below it was already called an exposure.
+
+### Added
+
+`docs/rolls.md`: how a roll travels from a ticket to a gated
+behaviour — the four hats and the file each writes, the chain from
+interview through author and converge to the closing regression, the
+rules that bite at each hand-off, and the two questions a tenant must
+answer before authoring (whether the exam needs infrastructure the
+product lacks, and which claims no exposure can witness at all, which
+belong beside a gate as manual checks rather than inside a rubric).
+The README listed four skills and shipped five since 0.20; it now
+lists `darkroom-author` and points at the new page.
+
 ## [0.21.1] - 2026-10-09
 
 ### Added

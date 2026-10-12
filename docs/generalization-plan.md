@@ -73,7 +73,7 @@ at a time, keeping the pilot project green at every step.
    partitioning.
 2. **Convergence loop as a state machine**: assess → score → stagnation
    counter → the three escalation dials (diagnostic access, model
-   escalation, feedback specificity) → regression rollback → checkpoint
+   escalation, feedback specificity) → regression reprint → checkpoint
    commit → iteration memory. Testable Python with thresholds in config.
 3. **Agent invocation layer**: judge/builder triggers with prompt
    assembly from templates, consolidating logic currently split across

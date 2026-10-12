@@ -108,13 +108,13 @@ class TestGitCheckpointer:
         assert checkpointer.changed_files(ctx, ref) == ["app.py"]
         assert ref == checkpointer.current(ctx)
 
-    def test_rollback_restores_best(self, tmp_path):
+    def test_reprint_restores_best(self, tmp_path):
         ctx = self._repo(tmp_path)
         checkpointer = GitCheckpointer()
         best = checkpointer.current(ctx)
         (tmp_path / "app.py").write_text("regressed\n")
         checkpointer.checkpoint(ctx, "auto: iteration 1 (40.0%)")
-        checkpointer.rollback(ctx, best)
+        checkpointer.reprint(ctx, best)
         assert (tmp_path / "app.py").read_text() == "v1\n"
 
     def test_empty_iteration_still_checkpoints(self, tmp_path):

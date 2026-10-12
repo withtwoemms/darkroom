@@ -515,7 +515,7 @@ def _cmd_auto(args) -> int:
             target_score=args.target,
             diagnostic_after=args.diagnostic_after,
             escalate_model_after=args.escalate_after,
-            rollback_on_regression=not args.no_rollback,
+            reprint_on_regression=not args.no_reprint,
         )
         judge = CommandJudge(args.judge_cmd)
         builder = CommandBuilder(args.build_cmd)
@@ -1128,7 +1128,7 @@ def main(argv=None) -> int:
     auto_parser.add_argument("--target", type=float, default=100.0)
     auto_parser.add_argument("--diagnostic-after", type=int, default=2)
     auto_parser.add_argument("--escalate-after", type=int, default=3)
-    auto_parser.add_argument("--no-rollback", action="store_true")
+    auto_parser.add_argument("--no-reprint", action="store_true")
     auto_parser.add_argument("--project", type=Path, default=None)
     auto_parser.add_argument("--state", type=Path, default=None)
     auto_parser.set_defaults(func=_cmd_auto)
