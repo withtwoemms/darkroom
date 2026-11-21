@@ -27,10 +27,12 @@ go green.
 The spec is product's description of what must be true, in plain
 Gherkin with no routes and no selectors: how a behavior is reached is
 engineering's call. The `.surfaces` file is engineering's publication
-of the addresses it chose. The exposure drives those addresses and
-captures evidence. The rubric says what a good record shows, in
-product's words. The audit holds the exposure and the publication to
-each other, both ways.
+of the addresses it chose. Together those two are the **brief** — the
+tenant-side half of a scenario, and everything the builder may read.
+The exposure drives those addresses and captures evidence. The rubric
+says what a good record shows, in product's words. Together those two
+are the **proof**, and the builder never sees either. The audit holds
+the exposure and the publication to each other, both ways.
 
 ## The chain
 

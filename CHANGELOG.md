@@ -36,6 +36,17 @@ misleads, an external service that would be hammered — says so itself with
 config because whether continuing is safe is a property of the exam, not of
 who is running it.
 
+### Changed
+
+A scenario's tenant-side half has a name: the **brief** — the spec and
+the surfaces, both under `scenarios/`. It is the counterpart to the proof,
+and it exists so the sealing boundary fits in one line: *the brief is in
+the tenant, the proof is in the home.* The builder reads the brief and
+never sees the proof. Deliberately no collective noun for all four files:
+a single word for the set would invite "edit the ⟨word⟩" when the whole
+discipline is that each hat edits its own file. Documentation only — no
+schema, format, or API change.
+
 ## [0.22.0] - 2026-10-12
 
 ### Changed
