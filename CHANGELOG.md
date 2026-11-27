@@ -6,6 +6,36 @@ project follows [semantic versioning](https://semver.org/) (pre-1.0: minor
 releases may break API, patch releases never do). The manifest schema is
 versioned independently of the package — see `ROADMAP.md`.
 
+## [Unreleased]
+
+### Added
+
+A drive can run every step. `darkroom drive --all-steps` keeps going after a
+failure and reports every unmet expectation, instead of stopping at the
+first; `auto` always does, via `DARKROOM_ALL_STEPS`. Halting is right for a
+gate and wrong for a campaign — it caps what a builder learns at one fact per
+iteration, so a scenario with five unbuilt steps cannot converge in six. It
+also produces a flat trajectory that is indistinguishable from a builder that
+is genuinely stuck, which invites escalating the model to buy the same single
+bit.
+
+Steps whose dependencies the failure destroyed are reported as **skipped**
+rather than failed, with the cause named: a step needing a value the failed
+step was meant to save, or a browser step after a failed navigation. A
+cascade of consequences presented as separate defects is worse than silence,
+because a builder spends an iteration on symptoms. The next successful `goto`
+clears a lost page; an author can declare what the engine cannot infer with
+`requires = ["step_name"]`.
+
+Green is unchanged: it still requires every step to have passed, and a
+skipped step is not a pass. This alters what is reported, never what gates.
+
+An exposure that must not be continued — destructive steps whose cascade
+misleads, an external service that would be hammered — says so itself with
+`halt_on_failure = true`. That lives on the exposure rather than in operator
+config because whether continuing is safe is a property of the exam, not of
+who is running it.
+
 ## [0.22.0] - 2026-10-12
 
 ### Changed

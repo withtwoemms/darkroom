@@ -72,6 +72,22 @@ step's evidence kind follows from its kind, so a criterion declares
   step, or a step with an `expect` table (logged since drive-scripts
   1.4). Never cite a bare `goto`/`click`; `darkroom audit` refuses
   it, and three field blockers were exactly this.
+- **Fan assertions out from setup; do not chain them.** An exposure
+  where each step's precondition is the previous step's *effect* is a
+  chain, and one failure early leaves everything after it
+  unobservable — the engine skips what the failure made meaningless,
+  correctly, and the builder still learns one fact. Separate the two
+  kinds of dependency: *setup* dependencies are unavoidable (you must
+  create a thing before observing it), *assertion* dependencies are
+  not. Assertion B should not require assertion A to have **passed**.
+  Put the founding in a backdrop, keep setup few and early, and let
+  the assertions fan out from it so a red one leaves the rest
+  readable. `--all-steps` fixes the engine; only authoring fixes the
+  chain.
+- **Order the unbuilt steps so the first failure is the most
+  informative.** Under `halt_on_failure`, or against any engine older
+  than `--all-steps`, step order *is* the curriculum a builder is
+  taught in.
 - **Machine surfaces, not display text.** Expectations match `data-*`
   and stable markers; presentation is the judge's job, from
   screenshots. Typography must never be able to break a gate.
@@ -93,6 +109,13 @@ defects — but not an exposure that runs and fails. That is the next
 gate, and it is the one operators skip.
 
 ## Stage 3 — Dry-run (executes the drive, free)
+
+Add `--all-steps` when the scenario is build-heavy. A plain dry-run
+stops at the first failure, which is what you want for a gate and not
+what you want when you are about to hand the whole gap to a builder:
+it runs everything, reports every unmet expectation, and marks as
+*skipped* only what the failure made meaningless. `auto` always runs
+this way.
 
 Run `darkroom drive --scenario <name>`. This is the gate that audit
 cannot replace: it executes every step against the app as it exists

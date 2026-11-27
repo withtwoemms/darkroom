@@ -502,6 +502,14 @@ def _cmd_auto(args) -> int:
 
         policy = operator.loop
         os.environ["DARKROOM_CONTAINERS"] = operator.containers_mode
+        # A campaign's limit is how much a builder learns per iteration, and
+        # halting at the first failure caps that at one fact. The exam runs as
+        # the tenant's own test command, so this travels as an environment
+        # default rather than an argument. Not operator-configurable: with it
+        # off you get a flat trajectory and a builder that looks weak, which
+        # is a misdiagnosis rather than an error. An exposure that must not be
+        # continued says so itself with halt_on_failure.
+        os.environ["DARKROOM_ALL_STEPS"] = "1"
         try:
             vault = build_vault(operator, adapter.name)
         except VaultError as exc:
@@ -694,6 +702,10 @@ def _cmd_drive(args) -> int:
         report = drive(
             adapter, drives_dir, scenario=args.scenario, containers_mode=mode,
             workers=workers, tags=args.tag, touching=args.touching,
+            all_steps=(
+                getattr(args, "all_steps", False)
+                or os.environ.get("DARKROOM_ALL_STEPS", "") not in ("", "0", "false")
+            ),
         )
     except DriveError as exc:
         print(f"error: {exc}")
@@ -702,12 +714,20 @@ def _cmd_drive(args) -> int:
     if report.selection != "all":
         print(f"selection: {report.selection}")
     for result in report.results:
-        marks = " · ".join(
-            f"{s.name} {'✓' if s.ok else 'FAIL'}" for s in result.steps
-        )
+        # Three marks, not two. A skipped step reported as FAIL with no
+        # detail -- which is what two marks produces -- reads as a defect
+        # with no explanation, when it is a consequence of one above it.
+        def _mark(step):
+            if step.status == "skipped":
+                return "SKIP"
+            return "✓" if step.ok else "FAIL"
+
+        marks = " · ".join(f"{s.name} {_mark(s)}" for s in result.steps)
         print(f"{result.scenario}: {marks}")
         for step in result.steps:
-            if not step.ok:
+            if step.status == "skipped":
+                print(f"  {step.name}: skipped — {step.skipped_because}")
+            elif not step.ok:
                 print(f"  {step.name}: {step.detail}")
 
     verify_ok = True
@@ -1066,6 +1086,12 @@ def main(argv=None) -> int:
     drive_parser.add_argument(
         "--workers", type=int, default=None,
         help="run scenarios in this many worker processes (default: [evidence] workers, or 1)",
+    )
+    drive_parser.add_argument(
+        "--all-steps", action="store_true",
+        help="run every step and report every unmet expectation, instead of "
+             "stopping at the first failure (default: DARKROOM_ALL_STEPS env; "
+             "auto always sets it)",
     )
     _add_selection_flags(drive_parser)
     drive_parser.set_defaults(func=_cmd_drive)
