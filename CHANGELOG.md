@@ -35,13 +35,20 @@ row, and each figure may now be 720px rather than 320px — wide enough that a
 screenshot of a table is legible instead of being a thumbnail of one.
 
 A drive can run every step. `darkroom drive --all-steps` keeps going after a
-failure and reports every unmet expectation, instead of stopping at the
-first; `auto` always does, via `DARKROOM_ALL_STEPS`. Halting is right for a
-gate and wrong for a campaign — it caps what a builder learns at one fact per
-iteration, so a scenario with five unbuilt steps cannot converge in six. It
-also produces a flat trajectory that is indistinguishable from a builder that
-is genuinely stuck, which invites escalating the model to buy the same single
-bit.
+failure and reports every unmet expectation instead of stopping at the first;
+`auto` always does, via `DARKROOM_ALL_STEPS`.
+
+What is demonstrated: a five-step exposure whose second step fails reports
+three passes, one failure and one skip, where it previously reported one pass
+and one failure and stopped. Two assertions that were passing the whole time
+were invisible.
+
+The reason for it is an argument rather than a measurement, and worth stating
+as one. Halting bounds what a run can observe, so a builder learns at most
+one unmet expectation per iteration and a score reflects how far the drive
+got rather than how much behavior exists — which makes a flat trajectory and
+a genuinely stuck builder look alike. Whether this changes how campaigns
+actually converge has not been measured yet.
 
 Steps whose dependencies the failure destroyed are reported as **skipped**
 rather than failed, with the cause named: a step needing a value the failed
