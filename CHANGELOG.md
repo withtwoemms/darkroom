@@ -27,6 +27,13 @@ fetched is a broken image in exactly those conditions. Its gradient ids are
 namespaced so they cannot collide with whatever the page grows later, and the
 header now sits on the brand's near-black.
 
+A scenario's evidence stacks rather than flowing. The strip was a wrapping
+row, which reads as a filmstrip: it flatters a run of screenshots and
+misrepresents everything else, because the items of a scenario are a sequence
+somebody follows in order and side by side they read as alternatives. One per
+row, and each figure may now be 720px rather than 320px — wide enough that a
+screenshot of a table is legible instead of being a thumbnail of one.
+
 A drive can run every step. `darkroom drive --all-steps` keeps going after a
 failure and reports every unmet expectation, instead of stopping at the
 first; `auto` always does, via `DARKROOM_ALL_STEPS`. Halting is right for a

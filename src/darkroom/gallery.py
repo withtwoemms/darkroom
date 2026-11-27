@@ -81,8 +81,13 @@ _STYLE = """
   section { background: white; border: 1px solid #ddd6c9; border-radius: 6px;
             padding: 18px 22px; margin-top: 22px; }
   h2 { font-size: 16px; margin: 0 0 12px; }
-  .strip { display: flex; flex-wrap: wrap; gap: 14px; }
-  figure { margin: 0; max-width: 320px; }
+  /* One item per row. A wrapping strip reads as a filmstrip, which flatters
+     a run of screenshots and misrepresents everything else: the items of a
+     scenario are a sequence a person follows in order, and side by side they
+     read as alternatives. Vertical also lets a caption sit with its item
+     instead of being squeezed under a 320px column. */
+  .strip { display: flex; flex-direction: column; gap: 18px; }
+  figure { margin: 0; max-width: 720px; }
   figure img { max-width: 100%; border: 1px solid #ccc; border-radius: 3px; }
   figure.failure img { border: 3px solid #c0392b; }
   figcaption { font-size: 12px; color: #6b6154; margin-top: 4px; }
