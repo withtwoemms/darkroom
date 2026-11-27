@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 760" role="img" aria-label="darkroom">
+  <defs>
+    <linearGradient id="beam" gradientUnits="userSpaceOnUse" x1="410" y1="552" x2="868" y2="676">
+      <stop offset="0" stop-color="#FF2D2D"/>
+      <stop offset=".42" stop-color="#FF2D2D" stop-opacity=".5"/>
+      <stop offset="1" stop-color="#FF2D2D" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="wall" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#FF3A3A"/>
+      <stop offset="1" stop-color="#A81515"/>
+    </linearGradient>
+    <linearGradient id="ceil" gradientUnits="userSpaceOnUse" x1="0" y1="110" x2="0" y2="210">
+      <stop offset="0" stop-color="#000" stop-opacity=".75"/>
+      <stop offset="1" stop-color="#000" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="top" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#D6D6D6"/>
+      <stop offset="1" stop-color="#F3F3F3"/>
+    </linearGradient>
+    <linearGradient id="face" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#0B0B0B"/>
+      <stop offset="1" stop-color="#0B0B0B"/>
+    </linearGradient>
+  </defs>
+  <polygon fill="url(#beam)" points="260,512 354,463.6 603.6,514.4 892,592.4 892,757.6 260,568"/>
+  <polygon fill="#000" points="260,110 603.6,166 603.6,514.4 354,463.6 354,184.4"/>
+  <polygon fill="url(#wall)" points="260,110 354,184.4 354,463.6 260,512"/>
+  <polygon fill="url(#ceil)" points="260,110 354,184.4 354,463.6 260,512"/>
+  <polygon fill="url(#top)" points="260,38 634,138 603.6,166 260,110"/>
+  <polygon fill="#EFEFEF" points="634,138 634,517 603.6,514.4 603.6,166"/>
+  <polygon fill="url(#face)" points="40,168 260,38 260,572 40,509.6"/>
+</svg>

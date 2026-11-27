@@ -10,14 +10,45 @@ versioned independently of the package — see `ROADMAP.md`.
 
 ### Added
 
+darkroom has a face. The brand marks live in `assets/brand/` — symbol,
+reversed symbol, wordmark, horizontal lockup and app icon — and two surfaces
+use them.
+
+The README opens with the lockup, by absolute URL and as a PNG rather than
+the SVG beside it: this file is also the PyPI project page, where a relative
+path resolves against pypi.org and PyPI's renderer is strict about SVG. A
+logo that silently vanishes on the page most people see is worse than no
+logo.
+
+`darkroom gallery` puts the mark in its header, inlined rather than linked. A
+gallery is one self-contained file an operator opens out of a run directory,
+often with no network and sometimes after the run has been moved; anything
+fetched is a broken image in exactly those conditions. Its gradient ids are
+namespaced so they cannot collide with whatever the page grows later, and the
+header now sits on the brand's near-black.
+
+A scenario's evidence stacks rather than flowing. The strip was a wrapping
+row, which reads as a filmstrip: it flatters a run of screenshots and
+misrepresents everything else, because the items of a scenario are a sequence
+somebody follows in order and side by side they read as alternatives. One per
+row, and each figure may now be 720px rather than 320px — wide enough that a
+screenshot of a table is legible instead of being a thumbnail of one.
+
 A drive can run every step. `darkroom drive --all-steps` keeps going after a
-failure and reports every unmet expectation, instead of stopping at the
-first; `auto` always does, via `DARKROOM_ALL_STEPS`. Halting is right for a
-gate and wrong for a campaign — it caps what a builder learns at one fact per
-iteration, so a scenario with five unbuilt steps cannot converge in six. It
-also produces a flat trajectory that is indistinguishable from a builder that
-is genuinely stuck, which invites escalating the model to buy the same single
-bit.
+failure and reports every unmet expectation instead of stopping at the first;
+`auto` always does, via `DARKROOM_ALL_STEPS`.
+
+What is demonstrated: a five-step exposure whose second step fails reports
+three passes, one failure and one skip, where it previously reported one pass
+and one failure and stopped. Two assertions that were passing the whole time
+were invisible.
+
+The reason for it is an argument rather than a measurement, and worth stating
+as one. Halting bounds what a run can observe, so a builder learns at most
+one unmet expectation per iteration and a score reflects how far the drive
+got rather than how much behavior exists — which makes a flat trajectory and
+a genuinely stuck builder look alike. Whether this changes how campaigns
+actually converge has not been measured yet.
 
 Steps whose dependencies the failure destroyed are reported as **skipped**
 rather than failed, with the cause named: a step needing a value the failed

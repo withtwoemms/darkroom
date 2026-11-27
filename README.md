@@ -1,4 +1,19 @@
-# darkroom
+<p align="center">
+  <img src="https://raw.githubusercontent.com/withtwoemms/darkroom/0.23.0/assets/brand/darkroom-lockup-horizontal.png"
+       alt="darkroom" width="420">
+</p>
+
+<!-- Absolute, not relative: this file is also the PyPI project page, where a
+     relative image resolves against pypi.org and 404s. PNG rather than the
+     SVG beside it, because a logo that silently vanishes on the page most
+     people see is worse than no logo. Verified against PyPI's own sanitizer,
+     which keeps the tag, the src, the width and the centering.
+
+     Pinned to the release tag rather than to main. A published release is
+     immutable and its project page should be too: pinned to main, moving or
+     renaming assets/ one day would silently break the page of every version
+     ever released, and nobody revisits those pages to notice. The cost is
+     one line in each release PR, which is already a checklist. -->
 
 Evidence-based autonomous software delivery: agents build, sealed
 exams judge, and every claim ships with proof.

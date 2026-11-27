@@ -23,10 +23,54 @@ from darkroom.manifest import load_manifest
 from darkroom.model import EvidenceItem, RunManifest
 from darkroom.render import default_registry
 
+# The mark, inlined rather than linked. A gallery is one self-contained
+# file an operator opens from a run directory, often with no network and
+# sometimes after the run has been moved; a logo fetched from anywhere is
+# a broken image in exactly those conditions. The gradient ids are
+# namespaced so they cannot collide with anything this page grows later.
+_MARK = """<svg class="mark" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 760" role="img"
+  aria-label="darkroom">
+  <defs>
+    <linearGradient id="dr-beam" gradientUnits="userSpaceOnUse" x1="410" y1="552" x2="868"
+      y2="676">
+      <stop offset="0" stop-color="#FF2D2D"/>
+      <stop offset=".42" stop-color="#FF2D2D" stop-opacity=".5"/>
+      <stop offset="1" stop-color="#FF2D2D" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="dr-wall" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#FF3A3A"/>
+      <stop offset="1" stop-color="#A81515"/>
+    </linearGradient>
+    <linearGradient id="dr-ceil" gradientUnits="userSpaceOnUse" x1="0" y1="110" x2="0" y2="210">
+      <stop offset="0" stop-color="#000" stop-opacity=".75"/>
+      <stop offset="1" stop-color="#000" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="dr-top" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#E6E6E6"/>
+      <stop offset="1" stop-color="#FFFFFF"/>
+    </linearGradient>
+    <linearGradient id="dr-face" gradientUnits="userSpaceOnUse" x1="260" y1="60" x2="60"
+      y2="520">
+      <stop offset="0" stop-color="#3A3A3A"/>
+      <stop offset="1" stop-color="#141414"/>
+    </linearGradient>
+  </defs>
+    <polygon fill="url(#dr-beam)"
+      points="260,512 354,463.6 603.6,514.4 892,592.3 892,757.6 260,568"/>
+    <polygon fill="#000" points="260,110 603.6,166 603.6,514.4 354,463.6 354,184.4"/>
+    <polygon fill="url(#dr-wall)" points="260,110 354,184.4 354,463.6 260,512"/>
+    <polygon fill="url(#dr-ceil)" points="260,110 354,184.4 354,463.6 260,512"/>
+    <polygon fill="url(#dr-top)" points="260,38 634,138 603.6,166 260,110"/>
+    <polygon fill="#FFFFFF" points="634,138 634,517 603.6,514.4 603.6,166"/>
+    <polygon fill="url(#dr-face)" points="40,168 260,38 260,572 40,509.6"/>
+</svg>"""
+
 _STYLE = """
   body { font-family: -apple-system, "Segoe UI", sans-serif; margin: 0;
          background: #f5f3ef; color: #22262e; }
-  header { background: #22262e; color: #f5f3ef; padding: 16px 28px; }
+  header { background: #0B0B0B; color: #f5f3ef; padding: 16px 28px;
+           display: flex; align-items: center; gap: 14px; }
+  header .mark { width: 30px; height: auto; flex: 0 0 auto; }
   header h1 { font-size: 18px; margin: 0; }
   header p { margin: 4px 0 0; font-size: 13px; opacity: .75; }
   .badge { display: inline-block; border-radius: 10px; padding: 2px 10px;
@@ -37,8 +81,13 @@ _STYLE = """
   section { background: white; border: 1px solid #ddd6c9; border-radius: 6px;
             padding: 18px 22px; margin-top: 22px; }
   h2 { font-size: 16px; margin: 0 0 12px; }
-  .strip { display: flex; flex-wrap: wrap; gap: 14px; }
-  figure { margin: 0; max-width: 320px; }
+  /* One item per row. A wrapping strip reads as a filmstrip, which flatters
+     a run of screenshots and misrepresents everything else: the items of a
+     scenario are a sequence a person follows in order, and side by side they
+     read as alternatives. Vertical also lets a caption sit with its item
+     instead of being squeezed under a 320px column. */
+  .strip { display: flex; flex-direction: column; gap: 18px; }
+  figure { margin: 0; max-width: 720px; }
   figure img { max-width: 100%; border: 1px solid #ccc; border-radius: 3px; }
   figure.failure img { border: 3px solid #c0392b; }
   figcaption { font-size: 12px; color: #6b6154; margin-top: 4px; }
@@ -182,10 +231,11 @@ def render_gallery(
         "<!doctype html><html><head><meta charset='utf-8'>"
         f"<title>darkroom · {html.escape(manifest.run_id)}</title>"
         f"<style>{_STYLE}</style></head><body>"
-        f"<header><h1>run {html.escape(manifest.run_id)}{project}"
+        f"<header>{_MARK}<div>"
+        f"<h1>run {html.escape(manifest.run_id)}{project}"
         f"{header_badge}</h1>"
         f"<p>schema {html.escape(manifest.schema_version)} · "
-        f"written {html.escape(manifest.timestamp)}</p></header>"
+        f"written {html.escape(manifest.timestamp)}</p></div></header>"
         f"<main>{''.join(sections)}</main></body></html>"
     )
 
