@@ -1,4 +1,13 @@
-# darkroom
+<p align="center">
+  <img src="https://raw.githubusercontent.com/withtwoemms/darkroom/main/assets/brand/darkroom-lockup-horizontal.png"
+       alt="darkroom" width="420">
+</p>
+
+<!-- An absolute URL, not a relative path: this file is also the PyPI project
+     page, where a relative image resolves against pypi.org and 404s. PNG
+     rather than the SVG beside it for the same reason -- PyPI's renderer is
+     strict about SVG, and a logo that silently vanishes on the page most
+     people see is worse than no logo. -->
 
 Evidence-based autonomous software delivery: agents build, sealed
 exams judge, and every claim ships with proof.

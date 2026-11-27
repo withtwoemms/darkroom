@@ -10,6 +10,23 @@ versioned independently of the package — see `ROADMAP.md`.
 
 ### Added
 
+darkroom has a face. The brand marks live in `assets/brand/` — symbol,
+reversed symbol, wordmark, horizontal lockup and app icon — and two surfaces
+use them.
+
+The README opens with the lockup, by absolute URL and as a PNG rather than
+the SVG beside it: this file is also the PyPI project page, where a relative
+path resolves against pypi.org and PyPI's renderer is strict about SVG. A
+logo that silently vanishes on the page most people see is worse than no
+logo.
+
+`darkroom gallery` puts the mark in its header, inlined rather than linked. A
+gallery is one self-contained file an operator opens out of a run directory,
+often with no network and sometimes after the run has been moved; anything
+fetched is a broken image in exactly those conditions. Its gradient ids are
+namespaced so they cannot collide with whatever the page grows later, and the
+header now sits on the brand's near-black.
+
 A drive can run every step. `darkroom drive --all-steps` keeps going after a
 failure and reports every unmet expectation, instead of stopping at the
 first; `auto` always does, via `DARKROOM_ALL_STEPS`. Halting is right for a
