@@ -75,10 +75,30 @@ class DriveError(Exception):
 
 @dataclass
 class StepResult:
+    """What became of one step.
+
+    ``status`` is three-valued because a run that continues past a failure
+    produces steps that genuinely could not mean anything -- a request needing
+    an id the failed step never saved, a click on a page a failed navigation
+    never reached. Reporting those as failures would hand a builder a cascade
+    of consequences dressed up as separate defects, which is worse than
+    reporting nothing: it spends an iteration on four symptoms of one cause.
+    """
+
     name: str
     kind: str
     ok: bool
     detail: str = ""
+    status: str = ""  # "passed" | "failed" | "skipped"
+    skipped_because: str = ""
+
+    def __post_init__(self) -> None:
+        if not self.status:
+            self.status = "passed" if self.ok else "failed"
+
+    @property
+    def skipped(self) -> bool:
+        return self.status == "skipped"
 
 
 @dataclass
@@ -88,7 +108,21 @@ class ScenarioResult:
 
     @property
     def ok(self) -> bool:
-        return all(s.ok for s in self.steps)
+        """Green means every step passed.
+
+        A skipped step is not a pass. Continuing past a failure changes what
+        gets reported, never what gates -- otherwise this buys builder
+        throughput by weakening the thing the whole engine exists to be.
+        """
+        return all(s.status == "passed" for s in self.steps)
+
+    @property
+    def failed(self) -> list[StepResult]:
+        return [s for s in self.steps if s.status == "failed"]
+
+    @property
+    def skipped(self) -> list[StepResult]:
+        return [s for s in self.steps if s.status == "skipped"]
 
 
 @dataclass
@@ -111,6 +145,9 @@ class Context:
     def __init__(self, values: dict[str, str] | None = None):
         self.values: dict[str, str] = dict(values or {})
         self.private_keys: dict[str, object] = {}
+        # Which steps passed, so a step may declare `requires` for a
+        # dependency the engine cannot infer from placeholders or page state.
+        self.passed_steps: set[str] = set()
 
     def interpolate(self, text: str) -> str:
         # {{ and }} are literal-brace escapes, so shell fragments like
@@ -149,6 +186,64 @@ class Context:
         if isinstance(value, list):
             return [self.interpolate_json(v) for v in value]
         return value
+
+
+def _placeholders_in(value) -> set[str]:
+    """Every ``{name}`` a step would need resolved, anywhere in its fields."""
+    found: set[str] = set()
+    if isinstance(value, str):
+        text = value.replace("{{", "\x00").replace("}}", "\x01")
+        found.update(_PLACEHOLDER.findall(text))
+    elif isinstance(value, dict):
+        for item in value.values():
+            found |= _placeholders_in(item)
+    elif isinstance(value, list):
+        for item in value:
+            found |= _placeholders_in(item)
+    return found
+
+
+def _saves_of(step: dict) -> set[str]:
+    return set((step.get("save") or {}).keys())
+
+
+def _why_this_cannot_run(
+    step: dict, ctx: Context, browser_lost: bool, produced_by: dict[str, str]
+) -> str:
+    """Why continuing to this step would produce a misleading failure.
+
+    Returns a reason to skip, or "" to run it. Only two dependencies are
+    inferable from what the engine already holds, and both are real:
+
+    A step that interpolates a value no earlier step managed to save has
+    nothing to act on -- running it reports an unknown placeholder, which
+    reads as an authoring defect rather than as the consequence of the
+    failure above it.
+
+    A browser step after a failed navigation acts on whatever page happened
+    to be loaded, so its expectations fail for the wrong reason. A failed
+    click or fill does not lose the page, so those do not poison what
+    follows; only navigation does, and the next successful goto clears it.
+
+    Anything the engine cannot infer is the author's to declare with
+    ``requires``.
+    """
+    wanted = _placeholders_in({k: v for k, v in step.items() if k != "name"})
+    missing = sorted(
+        name for name in wanted if name not in ctx.values and name in produced_by
+    )
+    if missing:
+        owners = sorted({produced_by[name] for name in missing})
+        return "needs " + ", ".join(f"{{{m}}}" for m in missing) + " from " + ", ".join(owners)
+
+    if browser_lost and step.get("kind") in BROWSER_STEP_KINDS and step.get("kind") != "goto":
+        return "the page a failed navigation never reached"
+
+    for required in step.get("requires", []) or []:
+        if required not in ctx.passed_steps:
+            return f"declared to require {required}, which did not pass"
+
+    return ""
 
 
 _PATH_SEGMENT = re.compile(r"^([^\[\]]*)((?:\[-?\d+\])*)$")
@@ -1202,8 +1297,25 @@ def drive_scenario(
     provenance: dict | None = None,
     pool: ServicePool | None = None,
     run_id: str = "",
+    all_steps: bool = False,
 ) -> ScenarioResult:
+    """Execute one exposure.
+
+    ``all_steps`` keeps going after a failure, skipping only the steps whose
+    dependencies the failure destroyed, so one run reports every unmet
+    expectation instead of the first. A campaign needs that: halting means a
+    builder learns one fact per iteration, and a scenario with five unbuilt
+    steps cannot converge in six iterations at that rate.
+
+    An exposure may set ``halt_on_failure = true`` to opt out, for a scenario
+    where continuing is genuinely unsafe -- destructive steps whose cascade
+    misleads, an external service that would be hammered. That lives on the
+    exposure rather than in operator config because whether continuing is
+    safe is a property of the exam, not of who is running it.
+    """
     scenario = script["scenario"]
+    if script.get("halt_on_failure"):
+        all_steps = False
     result = ScenarioResult(scenario=scenario)
     steps = script.get("step", [])
     needs_browser = any(
@@ -1293,9 +1405,29 @@ def drive_scenario(
             capture.log("environment", {"images": server.services.digests()})
         elif pool_digests:
             capture.log("environment", {"images": pool_digests})
+        # Which step was supposed to produce each saved value, so a skip can
+        # name the cause rather than the symptom.
+        produced_by = {
+            saved: st.get("name", st.get("kind", "http"))
+            for st in script.get("step", [])
+            for saved in _saves_of(st)
+        }
+        browser_lost = False
+
         for step in script.get("step", []):
             kind = step.get("kind", "http")
             name = step.get("name", kind)
+
+            if all_steps:
+                reason = _why_this_cannot_run(step, ctx, browser_lost, produced_by)
+                if reason:
+                    result.steps.append(
+                        StepResult(
+                            name, kind, ok=False, status="skipped", skipped_because=reason
+                        )
+                    )
+                    continue
+
             try:
                 if kind == "http":
                     _, failure = _run_http_step(step, ctx, capture, browser)
@@ -1317,12 +1449,25 @@ def drive_scenario(
                     raise DriveError(f"unknown step kind '{kind}'")
             except DriveError as exc:
                 result.steps.append(StepResult(name, kind, ok=False, detail=str(exc)))
-                break
+                if kind in BROWSER_STEP_KINDS:
+                    browser_lost = True
+                if not all_steps:
+                    break
+                continue
             result.steps.append(
                 StepResult(name, kind, ok=failure is None, detail=failure or "")
             )
-            if failure is not None:
-                break
+            if failure is None:
+                ctx.passed_steps.add(name)
+                if kind == "goto":
+                    # a successful navigation re-establishes where the
+                    # browser is, so later steps are meaningful again
+                    browser_lost = False
+            else:
+                if kind == "goto":
+                    browser_lost = True
+                if not all_steps:
+                    break
     finally:
         if browser is not None:
             screencast = browser.stop()
@@ -1435,7 +1580,8 @@ def _worker_run(task: tuple) -> tuple:
     the scenario, return (name, result, bundle dict). Never raises — a
     failure of any kind is a failed scenario the parent reports."""
     (
-        adapter, path, backdrops_path, containers, run_id, evidence_dir, worker_index, pool_data,
+        adapter, path, backdrops_path, containers, run_id, evidence_dir, worker_index,
+        pool_data, all_steps,
     ) = task
     pool = ServicePool.from_dict(pool_data) if pool_data is not None else None
     from darkroom import run as run_module
@@ -1456,7 +1602,7 @@ def _worker_run(task: tuple) -> tuple:
             provenance = proof_provenance(Path(path), proof)
             result = drive_scenario(
                 adapter, script, containers=containers, provenance=provenance,
-                pool=pool, run_id=run_id,
+                pool=pool, run_id=run_id, all_steps=all_steps,
             )
         except (DriveError, ProofError, BackdropError) as exc:
             result = ScenarioResult(
@@ -1471,7 +1617,8 @@ def _worker_run(task: tuple) -> tuple:
 
 
 def _drive_pooled(
-    adapter, run, scripts, backdrops_path, containers, workers: int, pool: ServicePool | None = None
+    adapter, run, scripts, backdrops_path, containers, workers: int,
+    pool: ServicePool | None = None, all_steps: bool = False,
 ) -> DriveReport:
     import multiprocessing
 
@@ -1481,7 +1628,7 @@ def _drive_pooled(
     tasks = [
         (
             adapter, path, backdrops_path, containers, run.run_id, evidence_dir,
-            i % workers, pool_data,
+            i % workers, pool_data, all_steps,
         )
         for i, path in enumerate(order)
     ]
@@ -1574,6 +1721,7 @@ def drive(
     workers: int = 1,
     tags: list[str] | None = None,
     touching: list[str] | None = None,
+    all_steps: bool = False,
 ) -> DriveReport:
     """Run every proof's exposure under an evidence run; returns the report.
 
@@ -1585,6 +1733,11 @@ def drive(
     ``scenario``, ``tags`` and ``touching`` narrow the run (see
     :func:`select_proofs`); the report's ``selection`` names how, and the
     harness log opens with it, so a partial run is never read as the gate.
+
+    ``all_steps`` runs every step and reports every unmet expectation rather
+    than stopping at the first. Off by default here, because a gate should
+    fail fast; ``auto`` turns it on, because a campaign's limit is how much
+    a builder learns per iteration.
     """
     from darkroom.backdrops import BackdropError, load_backdrops
     from darkroom.proof import ProofError, exposure, load_proof, proof_dirs
@@ -1652,7 +1805,8 @@ def drive(
             pool = owner.pool()
         if workers > 1 and len(scripts) > 1:
             report = _drive_pooled(
-                adapter, run, scripts, backdrops_path, containers, workers, pool=pool
+                adapter, run, scripts, backdrops_path, containers, workers,
+                pool=pool, all_steps=all_steps,
             )
             report.selection = selection
         else:
@@ -1663,7 +1817,7 @@ def drive(
                     report.results.append(
                         drive_scenario(
                             adapter, script, containers=containers, provenance=provenance,
-                            pool=pool, run_id=run.run_id,
+                            pool=pool, run_id=run.run_id, all_steps=all_steps,
                         )
                     )
                 except DriveError as exc:
@@ -1734,7 +1888,30 @@ def _write_harness_log(run, report: DriveReport) -> None:
     for result in report.results:
         lines.append(f"scenario {result.scenario}: {'ok' if result.ok else 'FAILED'}")
         for step in result.steps:
-            status = "ok" if step.ok else f"FAIL {step.detail}"
+            if step.status == "skipped":
+                status = f"SKIPPED {step.skipped_because}"
+            elif step.ok:
+                status = "ok"
+            else:
+                status = f"FAIL {step.detail}"
             lines.append(f"  {step.name} [{step.kind}] {status}")
+
+        # A summary after the steps, because the point of running them all is
+        # that a reader sees every unmet expectation at once rather than
+        # scanning for the first FAIL. Skipped steps are listed apart: they
+        # are consequences of a failure above, not defects of their own, and
+        # a builder that treats them as separate spends an iteration on
+        # symptoms.
+        failed, skipped = result.failed, result.skipped
+        if failed or skipped:
+            passed = len(result.steps) - len(failed) - len(skipped)
+            lines.append(
+                f"  -- {len(result.steps)} steps: {passed} passed, "
+                f"{len(failed)} failed, {len(skipped)} skipped"
+            )
+            for step in failed:
+                lines.append(f"  -- failed: {step.name}: {step.detail}")
+            for step in skipped:
+                lines.append(f"  -- skipped: {step.name}: {step.skipped_because}")
     run.run_dir.mkdir(parents=True, exist_ok=True)
     (run.run_dir / "harness.log").write_text("\n".join(lines) + "\n")
