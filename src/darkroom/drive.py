@@ -208,7 +208,7 @@ def _saves_of(step: dict) -> set[str]:
 
 
 def _why_this_cannot_run(
-    step: dict, ctx: "Context", browser_lost: bool, produced_by: dict[str, str]
+    step: dict, ctx: Context, browser_lost: bool, produced_by: dict[str, str]
 ) -> str:
     """Why continuing to this step would produce a misleading failure.
 
