@@ -88,6 +88,32 @@ class TestStrictRoundTrip:
         criterion = loaded.for_scenario("approve_flow").criteria[0]
         assert criterion.evidence == ("approve_flow/01-before.png",)
 
+    def test_provenance_survives_and_is_omitted_when_absent(self):
+        """Provenance is additive: a 1.0 evaluation has none and must keep
+        serializing without the key, so nothing downstream sees a field
+        appear where there is no fact behind it."""
+        plain = _evaluation()
+        assert "provenance" not in json.loads(dumps_evaluation(plain))
+        assert loads_evaluation(dumps_evaluation(plain)).provenance == {}
+
+        plain.provenance = {"origin": "on-demand", "tenant_commit": "abc123"}
+        loaded = loads_evaluation(dumps_evaluation(plain))
+        assert loaded.provenance["origin"] == "on-demand"
+
+    def test_lenient_coercion_keeps_a_provenance_object(self):
+        coerced = coerce_evaluation(
+            {
+                "run_id": "r",
+                "provenance": {"origin": "loop"},
+                "scenarios": {"flow": {"criteria": {}}},
+            }
+        )
+        assert coerced.provenance == {"origin": "loop"}
+
+    def test_lenient_coercion_ignores_a_provenance_that_is_not_an_object(self):
+        coerced = coerce_evaluation({"run_id": "r", "provenance": "mine"})
+        assert coerced.provenance == {}
+
     def test_summary_in_output(self):
         data = json.loads(dumps_evaluation(_evaluation()))
         assert data["summary"]["percentage"] == pytest.approx(77.777, rel=1e-3)

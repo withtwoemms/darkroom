@@ -15,12 +15,15 @@ from darkroom.manifest import dump_manifest
 from darkroom.model import EvidenceItem, RunManifest, ScenarioBundle
 
 
-def _write_evaluation(path: Path, earned: float, run_id="r2") -> Path:
+def _write_evaluation(
+    path: Path, earned: float, run_id="r2", provenance=None
+) -> Path:
     dump_evaluation(
         Evaluation(
             run_id=run_id,
             evaluated_at=datetime(2026, 9, 19),
             rubric_version="1",
+            provenance=provenance or {},
             scenarios=[
                 ScenarioEvaluation(
                     scenario="flow",
@@ -70,6 +73,63 @@ class TestGateCommands:
         evaluation = _write_evaluation(tmp_path / "eval.json", earned=9)
         assert main(["gate", "check", str(evaluation)]) == 0
         assert "ungated [flow]" in capsys.readouterr().out
+
+    def test_a_mismatch_is_reported_but_still_ratchets(
+        self, tmp_path, capsys, monkeypatch
+    ):
+        """Default behavior is unchanged on purpose: every evaluation
+        written before provenance existed would otherwise stop ratcheting,
+        and `gate update` has always taken an evaluation on trust."""
+        monkeypatch.chdir(tmp_path)
+        evaluation = _write_evaluation(
+            tmp_path / "eval.json", earned=9, provenance={"tenant_commit": "old"}
+        )
+        assert main(["gate", "update", str(evaluation), "--commit", "new"]) == 0
+        out = capsys.readouterr().out
+        assert "provenance commit-mismatch" in out and "gates written" in out
+
+    def test_strict_provenance_refuses_and_writes_nothing(
+        self, tmp_path, capsys, monkeypatch
+    ):
+        monkeypatch.chdir(tmp_path)
+        evaluation = _write_evaluation(
+            tmp_path / "eval.json", earned=9, provenance={"tenant_dirty": True}
+        )
+        assert (
+            main(
+                [
+                    "gate", "update", str(evaluation),
+                    "--commit", "abc", "--strict-provenance",
+                ]
+            )
+            == 2
+        )
+        assert "REFUSED" in capsys.readouterr().out
+        assert not (tmp_path / "evidence-gates.json").exists()
+
+    def test_strict_provenance_accepts_a_matching_evaluation(
+        self, tmp_path, capsys, monkeypatch
+    ):
+        monkeypatch.chdir(tmp_path)
+        evaluation = _write_evaluation(
+            tmp_path / "eval.json",
+            earned=9,
+            provenance={
+                "tenant_commit": "abc",
+                "tenant_dirty": False,
+                "rubric_versions": {"flow": "1"},
+            },
+        )
+        assert (
+            main(
+                [
+                    "gate", "update", str(evaluation),
+                    "--commit", "abc", "--strict-provenance",
+                ]
+            )
+            == 0
+        )
+        assert "gates written" in capsys.readouterr().out
 
 
 class TestDiffCommand:

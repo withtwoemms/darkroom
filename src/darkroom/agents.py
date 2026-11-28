@@ -13,14 +13,25 @@ work directory — never tenant source, with the vault's rubric text
 inlined into the prompt; the builder's covers the tenant — never the
 vault. Template substitution is sequential token replacement, so
 literal braces in prompt bodies need no escaping.
+
+:class:`AgentJudge` is the only judge darkroom ships, and both producers
+of an evaluation go through it: the loop, and ``darkroom judge`` scoring
+evidence already captured. It stamps every evaluation with its
+provenance and appends the judging to the vault's log — around the agent
+rather than inside the prompt, because a scorer's own account of what it
+was shown and who asked is not evidence of either.
 """
 
 from __future__ import annotations
 
+import hashlib
+import json
 import os
 import subprocess
 import sys
 import time
+from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 
 if sys.version_info >= (3, 11):
@@ -28,8 +39,16 @@ if sys.version_info >= (3, 11):
 else:  # pragma: no cover - exercised only on 3.10
     import tomli as tomllib
 
+from darkroom.evaluation import ORIGIN_LOOP
 from darkroom.gallery import load_evaluation_lenient
-from darkroom.loop import Assessment, Escalation, JudgeReport, LoopContext, LoopError
+from darkroom.loop import (
+    Assessment,
+    Escalation,
+    JudgeReport,
+    LoopContext,
+    LoopError,
+    score_for,
+)
 from darkroom.manifest import load_manifest
 from darkroom.operator import RoleConfig
 from darkroom.render import default_registry, render_scenario
@@ -169,7 +188,7 @@ def _work_dir(ctx: LoopContext) -> Path:
 
         ensure_project_home(ctx.adapter.name)
         base = default_state(ctx.adapter.name)
-    path = base / "loop" / ctx.invocation
+    path = base / ctx.space / ctx.invocation
     path.mkdir(parents=True, exist_ok=True)
     return path
 
@@ -225,31 +244,108 @@ def _template_for(config: RoleConfig, default: str) -> str:
     return default
 
 
+def _file_digest(path: Path) -> str:
+    try:
+        return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+    except OSError:
+        return ""
+
+
+def _tenant_state(root: Path) -> tuple[str, bool]:
+    """The tenant's HEAD and whether its tree was dirty when judged.
+
+    The evidence digest says what was scored; the commit says what
+    produced it. A dirty tree means the commit does not fully describe
+    the evidence, which is exactly what a gate ratcheted from it would
+    be claiming — so it is recorded rather than inferred later.
+    """
+
+    def git(*args: str) -> str:
+        return subprocess.run(
+            ["git", *args],
+            cwd=root,
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout.strip()
+
+    try:
+        return git("rev-parse", "HEAD"), git("status", "--porcelain") != ""
+    except (OSError, subprocess.SubprocessError):
+        return "", False
+
+
+@dataclass(frozen=True)
+class SealedRubrics:
+    """What the vault handed the judge: the rubric half of every proof in
+    scope, and the version each was at. ``digest`` is over the text
+    actually inlined, so an evaluation can be tied to the exact criteria
+    that produced it rather than to whatever the proofs say later."""
+
+    text: str
+    versions: dict[str, str]
+
+    @property
+    def digest(self) -> str:
+        return hashlib.sha256(self.text.encode("utf-8")).hexdigest()
+
+
+def _stamp_provenance(path: Path, provenance: dict) -> None:
+    """Add darkroom's provenance to the evaluation the agent wrote,
+    leaving everything else it wrote intact — the raw verdict stays
+    readable, and the stamp replaces any the agent invented."""
+    try:
+        data = json.loads(Path(path).read_text())
+    except (OSError, ValueError):
+        return
+    if not isinstance(data, dict):
+        return
+    data["provenance"] = provenance
+    try:
+        Path(path).write_text(json.dumps(data, indent=2))
+    except OSError:
+        pass
+
+
 class AgentJudge:
     """Judges by prompting an agent with vaulted rubrics and rendered evidence."""
 
-    def __init__(self, config: RoleConfig, vault: RubricVault, timeout: float = 1800):
+    def __init__(
+        self,
+        config: RoleConfig,
+        vault: RubricVault,
+        timeout: float = 1800,
+        origin: str = ORIGIN_LOOP,
+    ):
         self.config = config
         self.vault = vault
         self.timeout = timeout
+        self.origin = origin
         self.iteration = 0
         self.last_evaluation = None
+        self.last_evaluation_path: Path | None = None
+        self.last_feedback_path: Path | None = None
 
-    def _rubric_text(self, scenario: str | None) -> str:
+    def _sealed_rubrics(self, scenario: str | None) -> SealedRubrics:
         sections = []
+        versions: dict[str, str] = {}
         for feature_id in self.vault.list():
             text = self.vault.read(feature_id)
-            if scenario is not None:
+            try:
                 rubric = tomllib.loads(text)
+            except ValueError:
+                rubric = {}
+            if scenario is not None:
                 name = rubric.get("scenario", feature_id.replace("-", "_"))
                 if name != scenario:
                     continue
             sections.append(text)
+            versions[feature_id] = str(rubric.get("version", ""))
         if not sections:
             raise LoopError(
                 f"no rubric in the vault covers scenario '{scenario}'"
             )
-        return "\n\n".join(sections)
+        return SealedRubrics(text="\n\n".join(sections), versions=versions)
 
     def _surfaces_text(self, ctx: LoopContext, scenario: str | None) -> str:
         """The inventory of what engineering published beside each spec in
@@ -273,15 +369,14 @@ class AgentJudge:
             sections.append(f"### {stem}\n\n{listed or '(nothing published)'}")
         return "\n\n".join(sections) if sections else "(nothing published)"
 
-    def _evidence_text(self, manifest_path: Path, scenario: str | None) -> str:
-        manifest = load_manifest(manifest_path)
+    def _evidence_text(self, manifest, run_dir: Path, scenario: str | None) -> str:
         registry = default_registry()
         blocks = []
         for bundle in manifest.scenarios:
             if scenario is not None and bundle.scenario != scenario:
                 continue
             blocks.append(f"### scenario: {bundle.scenario}")
-            for rendered in render_scenario(bundle, manifest_path.parent, registry):
+            for rendered in render_scenario(bundle, run_dir, registry):
                 blocks.append(rendered.text)
                 for attachment in rendered.attachments:
                     blocks.append(f"(attachment: {attachment})")
@@ -297,14 +392,16 @@ class AgentJudge:
         evaluation_out = work / f"evaluation-{self.iteration}.json"
         feedback_out = work / f"feedback-{self.iteration}.md"
         run_dir = assessment.manifest_path.parent
+        manifest = load_manifest(assessment.manifest_path)
+        sealed = self._sealed_rubrics(ctx.scenario)
 
         prompt = _substitute(
             _template_for(self.config, JUDGE_TEMPLATE),
             {
-                "rubric": self._rubric_text(ctx.scenario),
+                "rubric": sealed.text,
                 "surfaces": self._surfaces_text(ctx, ctx.scenario),
                 "evidence": self._evidence_text(
-                    assessment.manifest_path, ctx.scenario
+                    manifest, run_dir, ctx.scenario
                 ),
                 "run_dir": str(run_dir),
                 "tests_passed": str(assessment.tests_passed),
@@ -342,10 +439,54 @@ class AgentJudge:
                 f"judge agent wrote no evaluation at {evaluation_out}; "
                 "a missing score is not a zero"
             )
+        commit, dirty = _tenant_state(Path(ctx.adapter.root))
+        provenance = {
+            "origin": self.origin,
+            "judged_at": datetime.now().isoformat(),
+            "scenario": ctx.scenario or "",
+            "judge_model": self.config.model,
+            "evidence_run": manifest.run_id,
+            "evidence_manifest": str(assessment.manifest_path),
+            "evidence_manifest_sha256": _file_digest(assessment.manifest_path),
+            "rubric_sha256": sealed.digest,
+            "rubric_versions": dict(sealed.versions),
+            "tenant_commit": commit,
+            "tenant_dirty": dirty,
+        }
+        _stamp_provenance(evaluation_out, provenance)
         evaluation = load_evaluation_lenient(evaluation_out)
+        evaluation.provenance = provenance
         self.last_evaluation = evaluation
+        self.last_evaluation_path = evaluation_out
+        self.last_feedback_path = feedback_out if feedback_out.exists() else None
+        self._audit(ctx, evaluation, evaluation_out)
         feedback = feedback_out.read_text() if feedback_out.exists() else ""
         return JudgeReport(evaluation=evaluation, feedback=feedback)
+
+    def _audit(self, ctx: LoopContext, evaluation, evaluation_out: Path) -> None:
+        """Append the judging to the vault's log. Scoring is the act the
+        rubrics exist for, so it belongs in the same record as reading
+        them: five judgings and one gate update is then a pattern
+        somebody can see rather than something only the operator knows.
+
+        A backend keeping no log of its own is skipped: a secret-manager
+        backend already records, server-side and beyond the operator's
+        reach, the rubric read this judging performed.
+
+        Never fails a judging — the same rule metering follows."""
+        recorder = getattr(self.vault, "audit", None)
+        if recorder is None:
+            return
+        try:
+            recorder(
+                f"judged {ctx.scenario or 'all'} origin={self.origin} "
+                f"run={evaluation.provenance.get('evidence_run', '')} "
+                f"score={score_for(evaluation, ctx.scenario):.1f} "
+                f"rubric={evaluation.provenance.get('rubric_sha256', '')[:12]} "
+                f"evaluation={evaluation_out}"
+            )
+        except OSError:
+            pass
 
 
 class AgentBuilder:

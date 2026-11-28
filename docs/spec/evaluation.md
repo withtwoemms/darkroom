@@ -1,6 +1,6 @@
 # The Evaluation
 
-**Format:** JSON · **Schema version:** 1.0 · **File:** operator-side
+**Format:** JSON · **Schema version:** 1.1 · **File:** operator-side
 run state (never inside the tenant).
 
 ## Purpose
@@ -37,6 +37,7 @@ Top level:
 | `project` | string | no (default `""`) | project name |
 | `rubric_version` | string | no (default `""`) | rubric version the scoring used |
 | `notes` | string | no (default `""`) | judge-level notes (incl. harness notes) |
+| `provenance` | object | no (added in 1.1; absent means unknown) | how the scoring came about (below) |
 | `summary` | object | emitted, ignored on load | derived totals (below) |
 | `scenarios` | array | yes | per-scenario results |
 
@@ -57,6 +58,32 @@ Criterion result:
 | `points_possible` | number | yes | points available |
 | `evidence` | array of strings | no (default `[]`) | **manifest item paths cited as basis** |
 | `notes` | string | no (default `""`) | judge's reasoning for this criterion |
+
+Provenance (added in 1.1; written by the harness **around** the judge,
+not by the judge — a scorer's account of what it was shown and who
+asked for it is not evidence of either). Every key is optional, and a
+consumer must tolerate ones it does not recognize:
+
+| Field | Type | Meaning |
+|-------|------|---------|
+| `origin` | string | `"loop"` (a convergence iteration) or `"on-demand"` (an operator asked for a score) |
+| `judged_at` | string | ISO 8601; when the harness invoked the judge |
+| `scenario` | string | the scenario the judging was scoped to; `""` for all |
+| `judge_model` | string | the model that scored |
+| `evidence_run` | string | `run_id` from the manifest actually read |
+| `evidence_manifest` | string | path of the manifest read |
+| `evidence_manifest_sha256` | string | digest of that manifest |
+| `rubric_sha256` | string | digest of the rubric text inlined into the prompt |
+| `rubric_versions` | object | feature id → the sealed rubric's `version` |
+| `tenant_commit` | string | the tenant's HEAD when judged |
+| `tenant_dirty` | boolean | whether the tenant had uncommitted changes then |
+
+Why it exists: an evaluation is the authority behind a gate, and a
+gate is a claim about a commit. Without provenance nothing connects a
+score to the evidence, the criteria, or the code it describes — so
+scoring a stale manifest and ratcheting it, which is an accident
+anyone can have, is indistinguishable from an honest ratchet. The
+digests make that connection checkable rather than remembered.
 
 Summary (derived; producers emit it for human readers, consumers
 recompute rather than trust it):
@@ -91,18 +118,32 @@ compared downstream is always the strict form.
 ## Versioning
 
 `schema_version` follows the shared policy in [README.md](README.md).
-An absent `schema_version` means `"1.0"`.
+An absent `schema_version` means `"1.0"`. 1.1 adds the optional
+`provenance` object: 1.0 readers ignore it, and 1.0 documents load with
+it empty.
 
 ## Example
 
 ```json
 {
-  "schema_version": "1.0",
+  "schema_version": "1.1",
   "run_id": "20260922T081500-3f2a",
   "evaluated_at": "2026-09-22T08:16:40+00:00",
   "project": "relay-service",
   "rubric_version": "2",
   "notes": "Harness notes: all steps completed; no diagnostics.",
+  "provenance": {
+    "origin": "on-demand",
+    "judged_at": "2026-09-22T08:16:40",
+    "scenario": "note_created",
+    "judge_model": "claude-opus-5",
+    "evidence_run": "20260922T081500-3f2a",
+    "evidence_manifest_sha256": "9f2b…",
+    "rubric_sha256": "40475c…",
+    "rubric_versions": { "note-created": "2" },
+    "tenant_commit": "9c1e2f4…",
+    "tenant_dirty": false
+  },
   "summary": {
     "total_earned": 25.0,
     "total_possible": 25.0,
@@ -144,6 +185,12 @@ An absent `schema_version` means `"1.0"`.
   in stored form.
 - An evaluation MUST NOT be written anywhere a builder-side process
   can read; feedback to the builder is a separate derived document.
+- A producer that writes `provenance` MUST write it itself rather than
+  accept one from the scorer, and MUST replace any the scorer wrote.
 - Consumers MUST recompute totals rather than trust `summary`, MUST
   compare scores only under equal `rubric_version`, and MUST ignore
   unrecognized fields.
+- A consumer MUST NOT treat absent `provenance` as a defect: every
+  document written before 1.1 has none. It MAY report a `provenance`
+  that contradicts what is being derived from the evaluation — see
+  [gates.md](gates.md).

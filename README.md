@@ -252,6 +252,23 @@ max_iterations = 6
 darkroom auto --scenario note_saved     # operator config discovered from the home
 ```
 
+Scoring and building are separable. `darkroom judge --run <run-id>`
+runs the same judge over a run already captured: it writes an
+evaluation, prints the scorecard, and touches neither the tenant nor
+the gates — so recording a peak for a scenario that already passes
+costs one judge call and no commits, and `gate check` / `gate update`
+take what it writes. Judging is the cheap half of the loop, which also
+makes judge variance measurable: score one fixed set of evidence more
+than once and the spread is the answer.
+
+Every judging — the loop's and the operator's — is appended to the
+vault's audit log and stamps the evaluation with its provenance: who
+asked, the tenant commit, and digests of the evidence and the rubric
+it was handed. `gate update` reports when that provenance does not
+describe the peak being recorded (and refuses with
+`--strict-provenance`), which catches the likely accident: ratcheting
+a claim about code that has since changed.
+
 Authority lives in the per-project **darkroom home**
 (`~/.darkroom/projects/<name>/`, mode 700): operator config, proofs,
 backdrops, loop state, and the **vault**, through which the judge is

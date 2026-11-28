@@ -126,7 +126,13 @@ def _load_evaluation_arg(path: Path):
 
 
 def _cmd_gate(args) -> int:
-    from darkroom.gates import check_gates, dump_gates, has_regressions, update_gates
+    from darkroom.gates import (
+        check_gates,
+        dump_gates,
+        has_regressions,
+        provenance_findings,
+        update_gates,
+    )
 
     gates_path = args.gates or DEFAULT_GATES
     try:
@@ -143,6 +149,16 @@ def _cmd_gate(args) -> int:
         regressed = has_regressions(findings)
         print(f"{'FAILED' if regressed else 'ok'}: {len(findings)} scenario(s) checked")
         return 1 if regressed else 0
+
+    mismatches = provenance_findings(evaluation, commit=args.commit)
+    for mismatch in mismatches:
+        print(f"provenance {mismatch.kind}: {mismatch.message}")
+    if mismatches and getattr(args, "strict_provenance", False):
+        print(
+            f"REFUSED: {len(mismatches)} provenance finding(s); "
+            f"{gates_path} unchanged"
+        )
+        return 2
 
     new_gates, findings = update_gates(gates, evaluation, commit=args.commit)
     dump_gates(new_gates, gates_path)
@@ -178,6 +194,16 @@ def _cmd_diff(args) -> int:
         for item in items:
             print(f"  - {name}: {item}")
     return 0
+
+
+def _inside_tenant(path: Path, adapter) -> bool:
+    """Would this write land where the builder can read it? Scores must
+    not: a builder that can see the number optimizes the number."""
+    try:
+        Path(path).resolve().relative_to(Path(adapter.root).resolve())
+    except ValueError:
+        return False
+    return True
 
 
 def _find_adapter_or_error(project_dir: Path | None):
@@ -422,19 +448,12 @@ def _cmd_dossier(args) -> int:
     adapter = load_adapter(adapter_path)
     state = Path(args.state) if args.state is not None else default_state(adapter.name)
 
-    if args.out is not None:
-        out = args.out.resolve()
-        try:
-            out.relative_to(adapter.root.resolve())
-            inside_tenant = True
-        except ValueError:
-            inside_tenant = False
-        if inside_tenant:
-            print(
-                "error: refusing to write the dossier inside the tenant — "
-                "it carries scores; write it to the operator home or elsewhere"
-            )
-            return 2
+    if args.out is not None and _inside_tenant(args.out, adapter):
+        print(
+            "error: refusing to write the dossier inside the tenant — "
+            "it carries scores; write it to the operator home or elsewhere"
+        )
+        return 2
 
     bundle = assemble_dossier(adapter, state, scenario=args.scenario)
     if args.format == "json":
@@ -579,6 +598,87 @@ def _cmd_auto(args) -> int:
         f"{result.final_score if result.final_score is not None else '-'}"
     )
     return 0 if result.converged else 1
+
+
+def _cmd_judge(args) -> int:
+    from darkroom.adapter import load_adapter
+    from darkroom.homedir import (
+        default_state,
+        ensure_project_home,
+        find_operator_config,
+        old_layout_message,
+    )
+    from darkroom.judging import (
+        JudgingError,
+        judge_run,
+        resolve_manifest,
+        scorecard,
+    )
+    from darkroom.operator import build_vault, load_operator
+    from darkroom.vault import VaultError
+
+    adapter_path = _find_adapter_or_error(args.project)
+    if adapter_path is None:
+        return 2
+    adapter = load_adapter(adapter_path)
+    if stale := old_layout_message(adapter.name):
+        print(f"error: {stale}")
+        return 2
+
+    operator_path = args.operator or find_operator_config(adapter.name)
+    if operator_path is None:
+        print(
+            "error: judging needs an operator config (--operator, or "
+            "operator.toml in the project's darkroom home): the judge's "
+            "model and the vault holding the rubrics are operator authority"
+        )
+        return 2
+
+    if args.state is not None:
+        state = Path(args.state)
+        if _inside_tenant(state, adapter):
+            print(
+                "error: refusing to write an evaluation inside the tenant — "
+                "it carries scores; leave --state unset for the operator home"
+            )
+            return 2
+    else:
+        ensure_project_home(adapter.name)
+        state = default_state(adapter.name)
+
+    try:
+        operator = load_operator(operator_path)
+        vault = build_vault(operator, adapter.name)
+        manifest_path = resolve_manifest(adapter, args.run)
+        judging = judge_run(
+            adapter,
+            operator,
+            vault,
+            manifest_path=manifest_path,
+            scenario=args.scenario,
+            state_dir=state,
+        )
+    except (JudgingError, VaultError) as exc:
+        print(f"error: {exc}")
+        return 2
+    except (OSError, ValueError) as exc:
+        print(f"error: could not judge {args.run or 'the newest run'}: {exc}")
+        return 2
+
+    scope = f" · scenario {args.scenario}" if args.scenario else ""
+    print(f"judged run {judging.run_id}{scope} (evidence: {manifest_path})")
+    print(
+        f"harness: steps_passed={judging.tests_passed} "
+        f"evidence_verified={judging.verify_ok}"
+    )
+    for line in scorecard(judging, args.scenario):
+        print(line)
+    print(f"score: {judging.score:.1f}")
+    print(f"evaluation written: {judging.evaluation_path}")
+    if judging.feedback_path is not None:
+        print(f"feedback written: {judging.feedback_path}")
+    print(f"next: darkroom gate check {judging.evaluation_path}")
+    return 0
 
 
 def _cmd_vault(args) -> int:
@@ -1036,6 +1136,14 @@ def main(argv=None) -> int:
         )
         if name == "update":
             p.add_argument("--commit", default="", help="VCS ref achieving these scores")
+            p.add_argument(
+                "--strict-provenance", action="store_true",
+                help=(
+                    "refuse to ratchet when the evaluation's provenance does "
+                    "not describe what is being recorded (reported as "
+                    "findings otherwise)"
+                ),
+            )
         p.set_defaults(func=_cmd_gate)
 
     diff_parser = sub.add_parser("diff", help="compare two runs' manifests")
@@ -1158,6 +1266,30 @@ def main(argv=None) -> int:
     auto_parser.add_argument("--project", type=Path, default=None)
     auto_parser.add_argument("--state", type=Path, default=None)
     auto_parser.set_defaults(func=_cmd_auto)
+
+    judge_parser = sub.add_parser(
+        "judge",
+        help="score a captured run against the sealed rubric, building nothing",
+    )
+    judge_parser.add_argument(
+        "--run", default=None,
+        help="run id under the evidence directory (default: the newest run)",
+    )
+    judge_parser.add_argument(
+        "--scenario", default=None,
+        help="score one scenario; its rubric alone reaches the judge",
+    )
+    judge_parser.add_argument(
+        "--operator", type=Path, default=None,
+        help="operator config naming the judge's model and the vault "
+             "(default: operator.toml in the project's darkroom home)",
+    )
+    judge_parser.add_argument("--project", type=Path, default=None)
+    judge_parser.add_argument(
+        "--state", type=Path, default=None,
+        help="where the evaluation is written (default: the home's state)",
+    )
+    judge_parser.set_defaults(func=_cmd_judge)
 
     audit_parser = sub.add_parser(
         "audit",

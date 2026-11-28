@@ -13,7 +13,7 @@ package.
 |------|--------|----------------|
 | [manifest.md](manifest.md) | run manifest (JSON) | 2.1 |
 | [contract.md](contract.md) | evidence contract (TOML) | 1.0 |
-| [evaluation.md](evaluation.md) | evaluation (JSON) | 1.0 |
+| [evaluation.md](evaluation.md) | evaluation (JSON) | 1.1 |
 | gates.md | regression gates (JSON) | 1.0 |
 | tickets.md | tickets (Markdown + frontmatter) | 1.0 |
 | [proofs.md](proofs.md) | proofs: `exposure.toml` + `rubric.toml`, one sealed folder; backdrops; the `.surfaces` file | 1.0 |

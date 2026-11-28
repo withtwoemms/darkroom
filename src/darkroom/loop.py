@@ -80,6 +80,11 @@ class LoopContext:
     # state/loop/, so evaluations, feedback, and usage from earlier
     # invocations survive as history instead of being overwritten
     invocation: str = field(default_factory=_invocation_stamp)
+    # which subdirectory of the state those invocations live in.
+    # "loop" is the campaign record the dossier and status read as
+    # iteration history; an on-demand judging is not a campaign and
+    # writes to "judge" so it cannot be mistaken for one.
+    space: str = "loop"
 
 
 @dataclass
@@ -148,7 +153,9 @@ class Checkpointer(Protocol):
     def changed_files(self, ctx: LoopContext, ref: str) -> list[str]: ...
 
 
-def _score_for(evaluation: Evaluation, scenario: str | None) -> float:
+def score_for(evaluation: Evaluation, scenario: str | None) -> float:
+    """The score a scenario-scoped run is held to: that scenario's own
+    percentage, or the whole evaluation's when the run was not scoped."""
     if scenario is None:
         return evaluation.percentage
     scenario_eval = evaluation.for_scenario(scenario)
@@ -243,7 +250,7 @@ class ConvergenceLoop:
             escalation_in = _escalation(stagnation)
             assessment = self.assessor.assess(ctx)
             report = self.judge.judge(ctx, assessment, escalation_in)
-            score = _score_for(report.evaluation, ctx.scenario)
+            score = score_for(report.evaluation, ctx.scenario)
 
             if (
                 score >= self.policy.target_score
