@@ -1,8 +1,19 @@
 name: Release
 
+# Named for tags, and now also the continuous path: every merge to main
+# publishes a dev build to Test PyPI, and a tag publishes to both indexes.
+#
+# The file keeps its name on purpose. A trusted publisher registration records
+# the workflow *filename*, and the working PyPI publisher is registered
+# against release.yml -- renaming this file would stop that matching, and the
+# failure would surface after the build and guards had already passed, at the
+# last step of a release. The name undersells what this does; a production
+# publisher that silently stops authenticating is worse.
+
 on:
   push:
-    tags: ["[0-9]*"]
+    branches: [main]      # mainline merges -> Test PyPI
+    tags: ["[0-9]*"]      # tags -> Test PyPI and PyPI
 
 jobs:
   build:
@@ -18,8 +29,19 @@ jobs:
       - name: Guard — skills and manifests agree with the tag
         # the plugin's version and the marketplace's pinned ref must equal the
         # release tag, and every SKILL.md must carry a name matching its folder
+        #
+        # Only for final releases. A mainline build has no tag to agree with,
+        # and a prerelease tag deliberately does not: the manifests pin
+        # releases, so making them track every alpha would mean two promotion
+        # commits per release and a marketplace that briefly points at one.
+        if: startsWith(github.ref, 'refs/tags/')
         run: |
-          python3 - "${GITHUB_REF_NAME}" <<'PY'
+          TAG="${GITHUB_REF_NAME}"
+          if echo "$TAG" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+(a|b|rc)[0-9]+$'; then
+            echo "prerelease tag $TAG — the manifests pin releases, not alphas; skipping"
+            exit 0
+          fi
+          python3 - "$TAG" <<'PY'
           import json, re, sys
           from pathlib import Path
           tag = sys.argv[1]
@@ -40,6 +62,24 @@ jobs:
               print("release guard FAILED:\n  " + "\n  ".join(errors)); sys.exit(1)
           print(f"release guard OK: plugin, marketplace, and {len(list(Path('src/darkroom/skills').iterdir()))} skills agree with {tag}")
           PY
+      - name: Guard — the changelog has a section for this tag
+        # A release published with empty notes cannot be fixed after the fact.
+        # Prereleases are exempt for the same reason as the manifests: an
+        # alpha is content under test, not a promoted section.
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          if echo "$TAG" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+(a|b|rc)[0-9]+$'; then
+            echo "prerelease tag $TAG — no promoted section expected; skipping"
+            exit 0
+          fi
+          PATTERN="^## \[$(printf '%s' "$TAG" | sed 's/[.]/\\./g')\]"
+          if ! grep -q "$PATTERN" CHANGELOG.md; then
+            echo "::error::CHANGELOG.md has no '## [$TAG]' section."
+            echo "Promote [Unreleased] to [$TAG] before tagging."
+            exit 1
+          fi
+          echo "found '## [$TAG]' in CHANGELOG.md"
       - name: Guard — the tree is clean before the build
         # setuptools_scm stamps a dirty tree as the *next* dev version
         # (0.20.0 shipped as 0.20.1.dev0 once, after the unit tests rewrote
@@ -62,8 +102,37 @@ jobs:
           name: dist
           path: dist/
 
-  publish:
+  # Every merge to main, and every tag. Trusted publishing, so there is no
+  # token anywhere: GitHub mints a short-lived OIDC credential and Test PyPI
+  # trades it for a one-off upload token, but only when the claims match the
+  # publisher registered there -- owner, repository, this filename, and the
+  # environment named below. All four must agree or the upload is refused.
+  #
+  # skip-existing because a mainline build is named from the last tag
+  # (0.23.1.dev4) and two merges can land on the same commit distance.
+  testpypi:
     needs: build
+    runs-on: ubuntu-latest
+    environment: testpypi
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - name: Publish to Test PyPI (trusted publishing)
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
+          skip-existing: true
+
+  # Tags only. Test PyPI goes first, above: if a build cannot be accepted by
+  # an index at all, it is better to learn that before it is on the one people
+  # install from.
+  publish:
+    needs: [build, testpypi]
+    if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
     environment: pypi
     permissions:
