@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/withtwoemms/darkroom/0.23.0/assets/brand/darkroom-lockup-horizontal.png"
+  <img src="https://raw.githubusercontent.com/withtwoemms/darkroom/918d0d60317713f2d09cc2944c2d65093385d775/assets/brand/darkroom-lockup-horizontal.png"
        alt="darkroom" width="420">
 </p>
 
@@ -9,11 +9,15 @@
      people see is worse than no logo. Verified against PyPI's own sanitizer,
      which keeps the tag, the src, the width and the centering.
 
-     Pinned to the release tag rather than to main. A published release is
-     immutable and its project page should be too: pinned to main, moving or
-     renaming assets/ one day would silently break the page of every version
-     ever released, and nobody revisits those pages to notice. The cost is
-     one line in each release PR, which is already a checklist. -->
+     Pinned to the commit that added the asset, not to main and not to the
+     release tag. A published release is immutable and its project page
+     should be too: pinned to main, moving or renaming assets/ one day would
+     silently break the page of every version ever released, and nobody
+     revisits those pages to notice. A tag has the same immutability but
+     cannot be referred to before it exists -- pinned to the tag it was
+     about to carry, this image 404'd on GitHub and on the index from the
+     moment it was written until the tag was pushed. A commit sha is
+     immutable the instant it is written and needs no upkeep at release. -->
 
 Evidence-based autonomous software delivery: agents build, sealed
 exams judge, and every claim ships with proof.
