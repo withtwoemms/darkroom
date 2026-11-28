@@ -1,6 +1,10 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/withtwoemms/darkroom/918d0d60317713f2d09cc2944c2d65093385d775/assets/brand/darkroom-lockup-horizontal.png"
-       alt="darkroom" width="420">
+  <picture>
+    <source media="(prefers-color-scheme: dark)"
+            srcset="assets/brand/darkroom-lockup-horizontal-reversed.png">
+    <img src="https://raw.githubusercontent.com/withtwoemms/darkroom/918d0d60317713f2d09cc2944c2d65093385d775/assets/brand/darkroom-lockup-horizontal.png"
+         alt="darkroom" width="420">
+  </picture>
 </p>
 
 <!-- Absolute, not relative: this file is also the PyPI project page, where a
@@ -17,7 +21,19 @@
      cannot be referred to before it exists -- pinned to the tag it was
      about to carry, this image 404'd on GitHub and on the index from the
      moment it was written until the tag was pushed. A commit sha is
-     immutable the instant it is written and needs no upkeep at release. -->
+     immutable the instant it is written and needs no upkeep at release.
+
+     The dark-theme <source> is deliberately a RELATIVE path while the <img>
+     is absolute, which looks inconsistent and is not. PyPI's sanitizer drops
+     <source> and srcset entirely (verified against readme_renderer), so the
+     reversed mark never reaches the project page and the immutability
+     argument above does not apply to it -- only the <img> fallback is ever
+     published, and PyPI's page is white, so the light mark is the right one
+     to serve there. On GitHub a relative srcset resolves against the ref
+     being viewed, which is what lets the asset and the markup that uses it
+     land in the same commit. Making this absolute would buy nothing and
+     reintroduce the ordering problem. -->
+
 
 Evidence-based autonomous software delivery: agents build, sealed
 exams judge, and every claim ships with proof.
