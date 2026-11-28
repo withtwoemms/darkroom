@@ -6,7 +6,7 @@ project follows [semantic versioning](https://semver.org/) (pre-1.0: minor
 releases may break API, patch releases never do). The manifest schema is
 versioned independently of the package — see `ROADMAP.md`.
 
-## [Unreleased]
+## [0.23.0] - 2026-11-27
 
 ### Added
 
@@ -77,6 +77,13 @@ never sees the proof. Deliberately no collective noun for all four files:
 a single word for the set would invite "edit the ⟨word⟩" when the whole
 discipline is that each hat edits its own file. Documentation only — no
 schema, format, or API change.
+
+Every mainline merge now publishes to Test PyPI, and a tag publishes to
+both indexes. The release workflow ran on tags alone, so the path a release
+takes was exercised for the first time by the release itself — the part
+that fails is the part nobody has run. A dev version from `main` costs
+nothing and proves the OIDC registration, the build, and the upload while
+there is still time to fix them.
 
 ## [0.22.0] - 2026-10-12
 
