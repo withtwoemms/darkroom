@@ -77,11 +77,15 @@ discipline. The likeliest finding is an accident, not an attack: scoring
 a three-day-old manifest and ratcheting a claim about code that has since
 moved.
 
-Not done, and deliberately: with `trials > 1` a rubric's repeated evidence
-is still judged as one body rather than aggregated across trials, so
-nothing here changes what taking the maximum of several draws means.
-Aggregating is a change to gate semantics and belongs in its own release
-with the variance measurement that would justify a particular rule.
+Not done, deliberately: nothing here changes what happens when the same
+evidence is scored repeatedly and the best draw is ratcheted. Recording
+the best of N is a property of the gate ratchet — `update_gates` advances
+a peak when the score is at or above it — and not of a rubric's `trials`,
+which is a dimension of the evidence contract (the number of supplied
+manifests a requirement must hold in) that neither `auto` nor `judge`
+exercises, since both hand the judge exactly one run. Aggregating across
+repeated scorings is a change to gate semantics and wants the variance
+measurement this command makes possible before a rule is picked.
 
 ## [0.23.0] - 2026-11-27
 
