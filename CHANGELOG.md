@@ -6,6 +6,87 @@ project follows [semantic versioning](https://semver.org/) (pre-1.0: minor
 releases may break API, patch releases never do). The manifest schema is
 versioned independently of the package — see `ROADMAP.md`.
 
+## [Unreleased]
+
+### Added
+
+A score without a build. `darkroom judge --run <run-id> [--scenario <name>]`
+runs the loop's own judge over a run already captured: it writes an
+evaluation, prints the scorecard, and names the `gate check` that comes
+next. Everything downstream of an evaluation was already a standalone
+command — `gate check` and `gate update` both take one by path — but
+nothing produced one except `auto`, which is a convergence loop that also
+edits the tenant and commits. Recording a gate for a scenario that already
+passes is conceptually read-only, and it required reasoning about which
+branch was checked out and whether an open pull request would collect
+builder commits if the judge came back under 100. That is a lot of care to
+answer a question that changes nothing.
+
+It is the same judge, not a second one: the command reuses `AgentJudge`,
+so prompt assembly, the vault's rubric rendering (criteria with the
+exposure's steps absent), the access asymmetry, and metering are shared
+with the loop's path. It builds nothing, commits nothing, and does not
+touch the gates — ratcheting stays an explicit `gate update`. Its
+evaluations are written to `state/judge/` rather than `state/loop/`,
+because an on-demand judging is not a campaign and the dossier reads
+`state/loop/` as iteration history. One consequence of that separation
+is a gap: the call is metered into `state/judge/<stamp>/usage.jsonl` as
+the loop's are, but `darkroom status` and `darkroom dossier` read the
+ledger under `state/loop/` only, so on-demand judge spend does not yet
+appear in the reported totals.
+
+Two consequences worth naming. Judging is the cheap half of the loop — on
+one project here, judge 6 calls / $3.54 against builder 4 calls / $11.16 —
+so a score is now reachable without waking the builder. And judge variance
+becomes measurable at last: score one fixed set of evidence more than once
+and the spread says how much of a rubric's verdict is the rubric and how
+much is the draw. Nothing here measures it; the command is the instrument,
+not the result.
+
+Every judging is appended to the vault's `audit.log`, which already
+records proof reads, as `judged <scenario> origin=… run=… score=… rubric=…
+evaluation=…`. The concern this answers is gate laundering: an operator
+(or an agent acting as one) re-rolling a nondeterministic judge until it
+is generous, then ratcheting from the best draw. That was already possible
+— `gate update` takes any file by path — so the hole is not new, but
+making it cheap is a real change. The response is the project's own move:
+replace a claim with evidence. Five judgings and one `gate update` is now
+a visible pattern rather than something only the operator knows.
+
+Evaluations carry **provenance** (schema 1.1, additive): the origin
+(`loop` or `on-demand`), the judging time and model, the evidence run with
+its manifest digest, a digest of the rubric text the judge was handed with
+each sealed rubric's version, and the tenant commit with whether that tree
+was clean. darkroom writes it around the judge rather than asking the
+judge for it, and replaces any the judge wrote — a scorer's account of
+what it was shown and who asked is not evidence of either. Existing
+consumers are unaffected: the key is omitted when there is no provenance,
+and 1.0 documents load with it empty.
+
+`darkroom gate update` now reports when an evaluation's provenance does
+not describe the peak being recorded — a commit the evidence was not
+judged against, a tree that was dirty when judged, a claimed rubric
+version the judge was not handed, or no provenance at all behind a
+`--commit`. These are **findings, not refusals**, by default: `gate
+update` has always taken an evaluation on trust, and every evaluation
+written before this release carries no provenance, so refusing them would
+stop ratcheting work that is otherwise sound. `--strict-provenance` turns
+them into a refusal that writes nothing, for a project where gate
+integrity is an audit requirement rather than an operator's own
+discipline. The likeliest finding is an accident, not an attack: scoring
+a three-day-old manifest and ratcheting a claim about code that has since
+moved.
+
+Not done, deliberately: nothing here changes what happens when the same
+evidence is scored repeatedly and the best draw is ratcheted. Recording
+the best of N is a property of the gate ratchet — `update_gates` advances
+a peak when the score is at or above it — and not of a rubric's `trials`,
+which is a dimension of the evidence contract (the number of supplied
+manifests a requirement must hold in) that neither `auto` nor `judge`
+exercises, since both hand the judge exactly one run. Aggregating across
+repeated scorings is a change to gate semantics and wants the variance
+measurement this command makes possible before a rule is picked.
+
 ## [0.23.0] - 2026-11-27
 
 ### Added

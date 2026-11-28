@@ -2,11 +2,14 @@
 
 Rubrics are the load-bearing secret of the opacity model — builders must
 not read the criteria they are optimized against. The vault holds them
-outside every builder-visible path, behind a four-verb surface:
+outside every builder-visible path, behind a five-verb surface:
 
 - ``seal``: validate every proof in the home and record the sealing
   (proofs are born operator-side; there is nothing to move)
 - ``list`` / ``read``: the judge's access, every read audited
+- ``audit``: the log itself, also written by whatever *uses* a rubric —
+  a judging is appended here, so scoring the same evidence repeatedly
+  is visible rather than silent
 - ``derive_contract``: rubric-as-root — the evidence contract is
   regenerated from the rubrics' evidence declarations, demoting the
   tenant's contract file to a derived cache
@@ -75,7 +78,11 @@ class FilesystemVault:
         self.root.mkdir(parents=True, exist_ok=True)
         self.root.chmod(0o700)
 
-    def _audit(self, line: str) -> None:
+    def audit(self, line: str) -> None:
+        """Append one line to the vault's log. Public because the log is
+        the record of everything done *with* the rubrics, not only of
+        reads: a judging is appended here too, so re-rolling a score
+        leaves the same trail as reading a proof."""
         self.root.mkdir(parents=True, exist_ok=True)
         with open(self.root / "audit.log", "a") as f:
             f.write(f"{datetime.now().isoformat()} {line}\n")
@@ -111,7 +118,7 @@ class FilesystemVault:
                 raise VaultError(
                     f"proof '{feature_id}' is at version '{stored}', not '{version}'"
                 )
-        self._audit(f"read proof {feature_id} version={version or 'current'}")
+        self.audit(f"read proof {feature_id} version={version or 'current'}")
         return text
 
 
@@ -135,7 +142,7 @@ def seal_proofs(vault: FilesystemVault) -> list[str]:
     if not sealed:
         raise VaultError(f"no proofs in {vault.proofs}; nothing to seal")
     vault.proofs.chmod(0o700)
-    vault._audit(f"sealed {len(sealed)} proof(s): {', '.join(sealed)}")
+    vault.audit(f"sealed {len(sealed)} proof(s): {', '.join(sealed)}")
     return sealed
 
 

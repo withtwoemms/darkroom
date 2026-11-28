@@ -9,6 +9,15 @@ mismatch reports ``stale-peak`` (re-baseline needed), never
 
 ``check_gates`` and ``update_gates`` are pure functions; the gates file
 is committed JSON, so deliberate gate edits stay visible in history.
+
+``provenance_findings`` inspects what an evaluation says about its own
+making before a peak is ratcheted from it — the commit it was judged
+against, whether that tree was clean, whether the rubric version it
+claims is the one it was handed. A peak is a claim about a commit, and
+these are the ways that claim can be false by accident: scoring a
+three-day-old manifest, or ratcheting from a tree with uncommitted work
+in it. They are findings rather than refusals by default; see
+``darkroom gate update --strict-provenance``.
 """
 
 from __future__ import annotations
@@ -57,6 +66,82 @@ class GateFinding:
 
 def has_regressions(findings: list[GateFinding]) -> bool:
     return any(f.kind == "regression" for f in findings)
+
+
+@dataclass(frozen=True)
+class ProvenanceFinding:
+    kind: str  # "no-provenance" | "commit-mismatch" | "dirty-tree"
+    #          | "rubric-version-mismatch"
+    message: str
+
+
+def provenance_findings(
+    evaluation: Evaluation, commit: str = ""
+) -> list[ProvenanceFinding]:
+    """Ways the peak about to be recorded could misdescribe its evidence.
+
+    Pure; reports and decides nothing. Checks only what the evaluation
+    carries: no vault is opened and no repository is inspected, so this
+    is as honest as the file — which is the trust boundary gates have
+    always had, since ``gate update`` takes an evaluation by path.
+    """
+    provenance = evaluation.provenance or {}
+    findings: list[ProvenanceFinding] = []
+
+    if commit and not provenance:
+        findings.append(
+            ProvenanceFinding(
+                "no-provenance",
+                (
+                    "the evaluation carries no provenance, so nothing ties "
+                    f"it to commit {commit[:12]} — it predates evaluation "
+                    "schema 1.1 or came from a scorer that stamps none"
+                ),
+            )
+        )
+
+    judged_at = str(provenance.get("tenant_commit", ""))
+    if commit and judged_at and judged_at != commit:
+        findings.append(
+            ProvenanceFinding(
+                "commit-mismatch",
+                (
+                    f"the evidence was judged against commit "
+                    f"{judged_at[:12]}, but the peak would record "
+                    f"{commit[:12]}"
+                ),
+            )
+        )
+
+    if provenance.get("tenant_dirty"):
+        findings.append(
+            ProvenanceFinding(
+                "dirty-tree",
+                (
+                    "the tenant had uncommitted changes when this was "
+                    "judged, so no commit fully describes the evidence"
+                ),
+            )
+        )
+
+    sealed = {
+        str(version)
+        for version in (provenance.get("rubric_versions") or {}).values()
+        if str(version)
+    }
+    if sealed and evaluation.rubric_version and evaluation.rubric_version not in sealed:
+        findings.append(
+            ProvenanceFinding(
+                "rubric-version-mismatch",
+                (
+                    f"the evaluation claims rubric version "
+                    f"'{evaluation.rubric_version}'; the sealed rubric it "
+                    f"was judged against was at "
+                    f"{', '.join(repr(v) for v in sorted(sealed))}"
+                ),
+            )
+        )
+    return findings
 
 
 # --- serialization --------------------------------------------------------

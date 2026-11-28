@@ -13,6 +13,13 @@ run. Two loading paths exist deliberately:
 Scores are percentages on a 0-100 scale. ``rubric_version`` records what
 "good" meant at scoring time: evaluations are only comparable under the
 same rubric version.
+
+1.1 adds an optional ``provenance`` object — who asked for the scoring
+and what was in front of the judge (origin, tenant commit, digests of
+the evidence manifest and the sealed rubric). It is written by darkroom
+around the judge rather than by the judge: a scorer's own account of
+what it was shown is not evidence of it. 1.0 readers ignore the field,
+and 1.0 files load with it empty.
 """
 
 from __future__ import annotations
@@ -22,7 +29,12 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 
-CURRENT_EVALUATION_SCHEMA_VERSION = "1.0"
+CURRENT_EVALUATION_SCHEMA_VERSION = "1.1"
+
+# Provenance keys darkroom stamps. Consumers must tolerate absence (every
+# evaluation written before 1.1 has none) and unrecognized keys.
+ORIGIN_LOOP = "loop"
+ORIGIN_ON_DEMAND = "on-demand"
 
 
 @dataclass(frozen=True)
@@ -62,6 +74,10 @@ class Evaluation:
     rubric_version: str = ""
     scenarios: list[ScenarioEvaluation] = field(default_factory=list)
     notes: str = ""
+    # how this scoring came about, stamped by darkroom and not by the
+    # judge: origin, the tenant commit, digests of the evidence and of
+    # the sealed rubric. Empty on anything written before schema 1.1.
+    provenance: dict = field(default_factory=dict)
 
     @property
     def total_earned(self) -> float:
@@ -101,6 +117,11 @@ def dumps_evaluation(evaluation: Evaluation) -> str:
             "project": evaluation.project,
             "rubric_version": evaluation.rubric_version,
             "notes": evaluation.notes,
+            **(
+                {"provenance": dict(evaluation.provenance)}
+                if evaluation.provenance
+                else {}
+            ),
             "summary": {
                 "total_earned": evaluation.total_earned,
                 "total_possible": evaluation.total_possible,
@@ -144,6 +165,7 @@ def loads_evaluation(text: str) -> Evaluation:
         project=data.get("project", ""),
         rubric_version=data.get("rubric_version", ""),
         notes=data.get("notes", ""),
+        provenance=dict(data.get("provenance") or {}),
         scenarios=[
             ScenarioEvaluation(
                 scenario=s["scenario"],
@@ -276,5 +298,10 @@ def coerce_evaluation(data: dict) -> Evaluation:
         project=str(data.get("project", "")),
         rubric_version=str(data.get("rubric_version", "")),
         notes=notes,
+        provenance=(
+            dict(data["provenance"])
+            if isinstance(data.get("provenance"), dict)
+            else {}
+        ),
         scenarios=scenarios,
     )

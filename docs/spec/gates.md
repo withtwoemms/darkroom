@@ -85,6 +85,33 @@ Updating ratchets peaks from an evaluation; it never lowers one:
 Every new peak records the evaluation's `run_id` and
 `rubric_version`, the supplied `commit`, and the recording time.
 
+## Provenance findings
+
+A peak is a claim about a commit: that this evidence, scored under
+this rubric, came from that code. An evaluation carrying
+[provenance](evaluation.md) can contradict the claim about to be
+recorded from it, and an updater SHOULD report it when it does:
+
+| Finding | Condition |
+|---------|-----------|
+| `no-provenance` | a commit is being recorded and the evaluation carries no provenance at all |
+| `commit-mismatch` | the evaluation was judged against a different commit than the one being recorded |
+| `dirty-tree` | the tenant had uncommitted changes when judged, so no commit describes the evidence |
+| `rubric-version-mismatch` | the `rubric_version` the evaluation claims is not one it was judged against |
+
+These are **reported, not enforced**, by default. `gate update` has
+always taken an evaluation by path and on trust, every evaluation
+written before provenance existed carries none, and an updater that
+refused them would stop ratcheting work that is otherwise sound.
+`darkroom gate update --strict-provenance` turns the findings into a
+refusal (nothing is written), which is the mode for a project whose
+gate integrity is an audit requirement rather than an operator's own
+discipline.
+
+The likeliest of these is an accident rather than an attack: scoring
+a manifest captured days ago and ratcheting a claim about code that
+has since changed.
+
 ## Versioning
 
 `schema_version` follows the shared policy in [README.md](README.md).
@@ -118,6 +145,9 @@ An absent `schema_version` means `"1.0"`.
 - An updater MUST NOT lower a peak within a rubric version and MUST
   re-baseline on a version change; peaks it writes MUST carry the
   evaluating run's `run_id` and `rubric_version`.
+- An updater SHOULD report the provenance findings above and MUST NOT
+  refuse on them unless asked to; an absent `provenance` MUST NOT by
+  itself block a ratchet in the default mode.
 - Writers MUST be operator-side processes; the file SHOULD be
   committed so gate movements remain attributable in history.
 - Consumers MUST ignore unrecognized fields.

@@ -68,7 +68,10 @@ Authored and held **operator-side**; the builder never reads a proof.
 The vault hands the judge the *rubric half only* — `list` names
 proofs by scenario and `read` renders the criteria as rubric-shaped
 TOML with the steps absent — so a judge scores records and never sees
-the exposure that produced them. What the builder learns of the exam
+the exposure that produced them. This holds for both routes to a
+score: `darkroom auto`'s judge and `darkroom judge`, which scores a
+run already captured, read the vault the same way and are the same
+judge. What the builder learns of the exam
 comes from the same two sanitized channels as before: the scenario
 spec and the harness log (step names and failure details). Step names
 that would reveal criteria or scoring are misauthored.

@@ -5,6 +5,12 @@ verifies the resulting run against the contract. :class:`GitCheckpointer`
 implements checkpoints, best-ref reprint, and change listing over git.
 Judge and builder roles are supplied by the operator (shell hooks now,
 agent implementations in the orchestration releases).
+
+``verified_assessment`` is the half of assessment that does not run
+anything: a captured run checked against the contract the proofs imply.
+The assessor calls it after its test command; on-demand judging calls it
+alone, which is what makes scoring already-captured evidence possible
+without rebuilding the thing that produced it.
 """
 
 from __future__ import annotations
@@ -12,9 +18,42 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 
+from darkroom.adapter import ProjectAdapter
 from darkroom.contract import scoped_contract
 from darkroom.loop import Assessment, LoopContext
 from darkroom.verify import verify
+
+
+def verified_assessment(
+    adapter: ProjectAdapter,
+    manifest_path: Path,
+    scenario: str | None,
+    *,
+    tests_passed: bool,
+    notes: str = "",
+) -> Assessment:
+    """Verify an already-captured run against its contract. Reads only."""
+    from darkroom.vault import VaultError, runtime_contract
+
+    try:
+        contract = runtime_contract(adapter)
+    except VaultError as exc:
+        return Assessment(
+            manifest_path=manifest_path,
+            tests_passed=tests_passed,
+            verify_ok=False,
+            notes=f"contract could not be derived: {exc}",
+        )
+    result = verify([manifest_path], scoped_contract(contract, scenario))
+    joined = "; ".join(f.message for f in result.errors[:5])
+    if notes:
+        joined = (joined + " | " if joined else "") + notes
+    return Assessment(
+        manifest_path=manifest_path,
+        tests_passed=tests_passed,
+        verify_ok=result.ok,
+        notes=joined,
+    )
 
 
 class AdapterAssessor:
@@ -59,26 +98,16 @@ class AdapterAssessor:
                 + (f"; test output: {output_tail}" if output_tail else ""),
             )
 
-        from darkroom.vault import VaultError, runtime_contract
-
-        try:
-            contract = runtime_contract(adapter)
-        except VaultError as exc:
-            return Assessment(
-                manifest_path=manifest_path,
-                tests_passed=tests_passed,
-                verify_ok=False,
-                notes=f"contract could not be derived: {exc}",
-            )
-        result = verify([manifest_path], scoped_contract(contract, ctx.scenario))
-        notes = "; ".join(f.message for f in result.errors[:5])
-        if not tests_passed and output_tail:
-            notes = (notes + " | " if notes else "") + f"test output: {output_tail}"
-        return Assessment(
-            manifest_path=manifest_path,
+        return verified_assessment(
+            adapter,
+            manifest_path,
+            ctx.scenario,
             tests_passed=tests_passed,
-            verify_ok=result.ok,
-            notes=notes,
+            notes=(
+                f"test output: {output_tail}"
+                if not tests_passed and output_tail
+                else ""
+            ),
         )
 
     @staticmethod

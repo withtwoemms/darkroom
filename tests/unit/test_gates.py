@@ -11,6 +11,7 @@ from darkroom.gates import (
     dumps_gates,
     has_regressions,
     loads_gates,
+    provenance_findings,
     update_gates,
 )
 from darkroom.model import EvidenceItem, RunManifest, ScenarioBundle
@@ -118,6 +119,48 @@ class TestUpdateGates:
         gates = GateFile(peaks=[_peak("other", 70.0)])
         new_gates, _ = update_gates(gates, _evaluation([("flow", 9, 10)]))
         assert new_gates.peak_for("other").score == 70.0
+
+
+class TestProvenanceFindings:
+    """A peak is a claim about a commit. These are the ways an evaluation
+    can say, in its own provenance, that the claim would be false — the
+    likeliest of them by accident rather than by cheating: scoring an old
+    manifest and ratcheting it against today's code."""
+
+    def _stamped(self, **provenance) -> Evaluation:
+        evaluation = _evaluation([("flow", 10, 10)])
+        evaluation.provenance = provenance
+        return evaluation
+
+    def test_clean_provenance_has_nothing_to_report(self):
+        stamped = self._stamped(tenant_commit="abc", tenant_dirty=False)
+        assert provenance_findings(stamped, commit="abc") == []
+
+    def test_a_commit_the_evidence_was_not_judged_against(self):
+        stamped = self._stamped(tenant_commit="aaaaaaaaaaaa")
+        findings = provenance_findings(stamped, commit="bbbbbbbbbbbb")
+        assert [f.kind for f in findings] == ["commit-mismatch"]
+        assert "aaaaaaaaaaaa" in findings[0].message
+
+    def test_a_dirty_tree_is_reported_without_a_commit_to_compare(self):
+        stamped = self._stamped(tenant_dirty=True)
+        assert [f.kind for f in provenance_findings(stamped)] == ["dirty-tree"]
+
+    def test_a_rubric_version_the_judge_was_not_handed(self):
+        stamped = self._stamped(rubric_versions={"flow": "3"})
+        findings = provenance_findings(stamped)
+        assert [f.kind for f in findings] == ["rubric-version-mismatch"]
+        assert "'3'" in findings[0].message
+
+    def test_an_unstamped_evaluation_claims_nothing(self):
+        """Evaluations written before schema 1.1 carry no provenance. That
+        is reportable only when a commit is being recorded from them —
+        otherwise there is no claim to contradict."""
+        plain = _evaluation([("flow", 10, 10)])
+        assert provenance_findings(plain) == []
+        assert [f.kind for f in provenance_findings(plain, commit="abc")] == [
+            "no-provenance"
+        ]
 
 
 class TestGatesRoundTrip:
