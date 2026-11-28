@@ -189,7 +189,10 @@ processes, same manifest, same log, less clock. `--tag <name>` and
 selection named in the harness log; the full gate is the run with no
 flags. The builder, for its part, publishes the interface
 it chose beside each spec — `scenarios/<name>.surfaces`, the routes,
-commands, pages, and files the build exposes — and `darkroom audit`
+commands, pages, and files the build exposes. Spec and surfaces
+together are the scenario's **brief**, the half that lives in the
+tenant and the only half a builder ever reads; the exposure and rubric
+are its **proof**, sealed in the operator home. `darkroom audit`
 holds every exposure to that publication both ways: a step probing
 something unpublished, a published surface nothing proves. Setup
 many exposures share (founding, joining, signing in) is named once in

@@ -35,13 +35,32 @@ hats separate *files*, not people. The discipline is in which file may
 be touched to make a run go green: QA fixes the exposure, product never
 quietly loosens the rubric, and neither edits the `.surfaces`.
 
+A scenario has two halves and they sit on opposite sides of the seal.
+The **brief** is the tenant-side pair — the spec and the surfaces, both
+under `scenarios/` — and the **proof** is the home-side pair. The
+builder reads the brief and never sees the proof:
+
+| | tenant `scenarios/` | operator home `proofs/<scenario>/` |
+|---|---|---|
+| | **the brief** — spec, surfaces | **the proof** — exposure, rubric |
+| the builder | reads both | sees neither |
+
+Naming the brief is what makes the boundary sayable in one line — *the
+brief is in the tenant, the proof is in the home* — and it is why there
+is deliberately **no** collective noun for all four files. A single word
+for the set would invite "edit the ⟨word⟩" when the whole discipline is
+that each hat edits its own file and the builder may read only two of
+them. The two halves are not a unit; the line between them is the
+design.
+
 And the photography vocabulary: the **spec** states the behavior, the
-**backdrop** is the setup it is posed against, the **exposure**
-produces the record, the **rubric** says what a good record shows,
-the **judge** scores the record against it, the **gate** ratchets the
-score, and the **proof** is the sealed exposure-plus-rubric. `darkroom
-expose` runs the exposure (`darkroom drive` is the same command under
-its older name).
+**surfaces** publish the addresses it is reached by, the **backdrop**
+is the setup it is posed against, the **exposure** produces the record,
+the **rubric** says what a good record shows, the **judge** scores the
+record against it, the **gate** ratchets the score, the **brief** is
+the spec-plus-surfaces, and the **proof** is the sealed
+exposure-plus-rubric. `darkroom expose` runs the exposure (`darkroom
+drive` is the same command under its older name).
 
 ## Trust position
 
